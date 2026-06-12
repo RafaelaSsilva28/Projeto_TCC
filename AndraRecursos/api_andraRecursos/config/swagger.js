@@ -10,6 +10,7 @@ const documentacao = {
       url: "http://localhost:3001",
       description: "Servidor Localhost",
     },
+    // {url: 'https://api-eosin-rho.vercel.app', description: 'Vercel'}
   ],
   tags: [
     { name: "Autenticação", description: "Login do Administrador" },
