@@ -117,49 +117,112 @@ router.delete('/administradores/:id_administrador', autenticarToken, async (req,
     }
 });
 
-// 6. LOGIN (Versão Corrigida)
-router.post('/login', async (req, res) => {
-    const { email, senha } = req.body;
+// // 6. LOGIN (Versão Corrigida)
+// router.post('/login', async (req, res) => {
+//     const { email, senha } = req.body;
 
-    if (!email || !senha) {
-        return res.status(400).json({ message: 'Email e senha são obrigatórios' });
-    }
+//     if (!email || !senha) {
+//         return res.status(400).json({ message: 'Email e senha são obrigatórios' });
+//     }
 
-    try {
-        const comando = 'SELECT * FROM administradores WHERE email = $1';
-        const resultado = await BD.query(comando, [email]);
+//     try {
+//         const comando = 'SELECT * FROM administradores WHERE email = $1';
+//         const resultado = await BD.query(comando, [email]);
 
-        if (resultado.rows.length === 0) {
-            return res.status(401).json({ message: 'Administrador não encontrado' });
-        }
 
-        // CORREÇÃO: Pegando o primeiro item do array rows [0]
-        const administrador = resultado.rows[0]; 
+//         if (resultado.rows.length === 0) {
+//             return res.status(401).json({ message: 'Administrador não encontrado' });
+//         }
+
+//         // CORREÇÃO: Pegando o primeiro item do array rows [0]
+//         const administrador = resultado.rows[0]; 
         
-        // Agora administrador.senha terá a hash '$2b$10$...' válida
-        const senhaCorreta = await bcrypt.compare(senha, administrador.senha);
+//         // Agora administrador.senha terá a hash '$2b$10$...' válida
+//         const senhaCorreta = await bcrypt.compare(senha, administrador.senha);
 
-        if (!senhaCorreta) {
-            return res.status(401).json({ message: 'Senha inválida' });
-        }
+//         if (!senhaCorreta) {
+//             return res.status(401).json({ message: 'Senha inválida' });
+//         }
 
-        // GERANDO TOKEN
-        const token = jwt.sign(
-            { id_administrador: administrador.id_administrador, email: administrador.email },
-            SECRET_KEY
-        );
+//         // GERANDO TOKEN
+//         const token = jwt.sign(
+//             { id_administrador: administrador.id_administrador, email: administrador.email },
+//             SECRET_KEY
+//         );
 
-        return res.status(200).json({
-            message: 'Login realizado com sucesso',
-            token: token,
-            usuario: { id: administrador.id_administrador, nome: administrador.nome, email: administrador.email }
-        });
-    } catch (error) {
-        // Exibe o log técnico detalhado no terminal para sabermos exatamente o motivo caso falhe
-        console.error('Erro detalhado no Login:', error);
-        return res.status(500).json({ message: 'Erro interno no servidor', erro: error.message });
+//         return res.status(200).json({
+//             message: 'Login realizado com sucesso',
+//             token: token,
+//             usuario: { id: administrador.id_administrador, nome: administrador.nome, email: administrador.email }
+//         });
+//     } catch (error) {
+//         // Exibe o log técnico detalhado no terminal para sabermos exatamente o motivo caso falhe
+//         console.error('Erro detalhado no Login:', error);
+//         return res.status(500).json({ message: 'Erro interno no servidor', erro: error.message });
+//     }
+// });
+
+// LOGIN - verificando Admin OU Instituição
+router.post('/login', async (req, res) => {
+const { email, senha } = req.body;
+
+if (!email || !senha) {
+    return res.status(400).json({ message: 'Email e senha são obrigatórios' });
+}
+
+try {
+    // Primeiro tenta achar como Administrador
+    let comando = 'SELECT * FROM administradores WHERE email = $1';
+    let resultado = await BD.query(comando, [email]);
+
+    let usuario = null;
+    let tipo = null;
+
+    if (resultado.rows.length > 0) {
+    usuario = resultado.rows[0];
+    tipo = 'Administrador';
+    } else {
+      // Se não achou, tenta como Instituição
+      comando = 'SELECT * FROM instituicoes WHERE email_institucional = $1';
+      resultado = await BD.query(comando, [email]);
+
+    if (resultado.rows.length > 0) {
+        usuario = resultado.rows[0];
+        tipo = 'Instituicao';
     }
+    }
+
+    if (!usuario) {
+      return res.status(401).json({ message: 'Usuário não encontrado' });
+    }
+
+    const senhaCorreta = await bcrypt.compare(senha, usuario.senha);
+    if (!senhaCorreta) {
+      return res.status(401).json({ message: 'Senha inválida' });
+    }
+
+    // Gera token
+    const token = jwt.sign(
+      { id: usuario.id_administrador || usuario.id_instituicao, tipo },
+      SECRET_KEY
+    );
+
+    return res.status(200).json({
+      message: 'Login realizado com sucesso',
+      token,
+      usuario: {
+        id: usuario.id_administrador || usuario.id_instituicao,
+        nome: usuario.nome,
+        email: usuario.email || usuario.email_institucional,
+        tipo
+      }
+    });
+  } catch (error) {
+    console.error('Erro detalhado no Login:', error);
+    return res.status(500).json({ message: 'Erro interno no servidor', erro: error.message });
+  }
 });
+
 
 
 export default router;

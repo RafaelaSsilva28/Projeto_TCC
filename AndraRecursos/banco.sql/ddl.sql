@@ -73,3 +73,18 @@ FOREIGN KEY (id_solicitacao)
 REFERENCES solicitacoes(id_solicitacoes)
 ON DELETE CASCADE
 );
+UPDATE administradores 
+SET senha = '$2b$10$n8gQh2LhWj7r/bF3C.hOLeMByy8S6lshOqGZcZgR9bK87.yO8PAn6' 
+WHERE email IN ('joao@admin.com', 'maria@admin.com');
+
+INSERT INTO administradores (nome, email, senha) 
+VALUES (
+'Administrador Geral', 
+'admin@email.com', 
+'$2b$10$n8gQh2LhWj7r/bF3C.hOLeMByy8S6lshOqGZcZgR9bK87.yO8PAn6'
+);
+ALTER TABLE administradores
+ADD COLUMN tipo_acesso VARCHAR(30) NOT NULL DEFAULT 'Administrador';
+
+ALTER TABLE instituicoes
+ADD COLUMN tipo_acesso VARCHAR(30) NOT NULL DEFAULT 'Usuário Institucional';

@@ -116,9 +116,9 @@ router.delete('/notificacoes/:id_notificacao', async (req, res) => {
     try {
         const comando = `DELETE FROM notificacoes WHERE id_notificacao = $1`;
         await BD.query(comando, [id_notificacao]);
-        return res.status(200).json({ message: "Administrador deletado com sucesso" });
+        return res.status(200).json({ message: "Notificação deletada com sucesso" });
     } catch (error) {
-        console.error('Erro ao deletar administrador', error.message);
+        console.error('Erro ao deletar snotificação', error.message);
         return res.status(500).json({ message: "Erro interno ao deletar" });
     }
 });

@@ -119,7 +119,7 @@ router.delete("/historico-solicitacoes/:id_historico", async (req, res) => {
     const comando = `DELETE FROM historico_solicitacoes WHERE id_historico = $1`;
     // const comando = `DELETE FROM usuarios WHERE id_usuario = $1`
     await BD.query(comando, [id_historico]);
-    return res.status(200).json({ message: " excluida com sucesso" });
+    return res.status(200).json({ message: " Histórico excluido com sucesso" });
   } catch (error) {
     console.error("Erro ao excluir histórico", error.message);
     return res

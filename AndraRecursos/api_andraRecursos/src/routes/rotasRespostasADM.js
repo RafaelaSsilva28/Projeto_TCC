@@ -22,11 +22,11 @@ router.get("/respostas-adm", async (req, res) => {
 
 //Criando o endpoint para criar novas respostas
 router.post("/respostas-adm", async (req, res) => {
-  const { mensagem, id_solicitacao, id_administrador } = req.body;
+  const { mensagem, data_resposta, id_solicitacao, id_administrador } = req.body;
 
   try {
     const comando = `INSERT INTO respostas_adm(mensagem, data_resposta, id_solicitacao, id_administrador) VALUES($1, $2, $3, $4)`;
-    const valores = [mensagem, id_solicitacao, data_resposta, id_administrador];
+    const valores = [mensagem, data_resposta, id_solicitacao, id_administrador];
 
     await BD.query(comando, valores);
     console.log(comando, valores);
@@ -40,7 +40,7 @@ router.post("/respostas-adm", async (req, res) => {
 });
 
 //Criando o endpoint para atualizar as respostas
-router.put("/resposta-adm/:id_resposta", async (req, res) => {
+router.put("/respostas-adm/:id_resposta", async (req, res) => {
   //Id recebido via parametro
   const { id_resposta } = req.params;
   //Dados do Usuario via corpo da pagina
@@ -49,7 +49,7 @@ router.put("/resposta-adm/:id_resposta", async (req, res) => {
   try {
     //Verificar se o usuario existe
     const verificarResposta = await BD.query(
-      `SELECT * FROM resposta_adm WHERE id_resposta = $1`,
+      `SELECT * FROM respostas_adm WHERE id_resposta = $1`,
       [id_resposta],
     );
     if (verificarResposta.rows.length === 0) {
@@ -57,8 +57,9 @@ router.put("/resposta-adm/:id_resposta", async (req, res) => {
     }
 
     //Atualiza todos os campos da tabela(PUT substituição completa)
-    const comando = `UPDATE resposta_adm SET mensagem = $1, id_solicitacao = $2, id_administrador = $3 WHERE id_resposta = $4`;
-    const valores = [mensagem, id_solicitacao, id_administrador, id_resposta];
+    const comando = `UPDATE respostas_adm SET mensagem = $1, data_resposta = $2, id_solicitacao = $3, id_administrador = $4 
+          WHERE id_resposta = $5`;
+    const valores = [mensagem, data_resposta, id_solicitacao, id_administrador, id_resposta];
     await BD.query(comando, valores);
 
     return res.status(200).json("Resposta atualizada com sucesso");
@@ -70,7 +71,7 @@ router.put("/resposta-adm/:id_resposta", async (req, res) => {
 });
 
 //Rota para DELETE
-router.delete("/resposta-adm/:id_resposta", async (req, res) => {
+router.delete("/respostas-adm/:id_resposta", async (req, res) => {
     
   //Id recebido via parametro
   const { id_resposta } = req.params;
