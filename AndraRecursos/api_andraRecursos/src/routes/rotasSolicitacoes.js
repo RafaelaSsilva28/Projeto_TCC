@@ -146,6 +146,34 @@ router.patch('/solicitacoes/:id_solicitacoes/status', async (req, res) => {
     }
 });
 
+//Rota para atualizar uma única Solicitação
+router.put('/solicitacoes/:id_solicitacoes', async (req, res) => {
+
+    //Id recebido via parametro 
+    const { id_solicitacoes } = req.params;
+    const { titulo, descricao, prioridade, setor, status, data_pedido, id_instituicao} = req.body
+
+    try {
+
+        //Verificar se a Solicitação existe
+        const verificarSolicitacao = await BD.query(`SELECT * FROM solicitacoes WHERE id_solicitacoes = $1`, [id_solicitacoes]);
+        if (verificarSolicitacao.rows.length === 0) {
+            return res.status(404).json({ message: 'Solicitação não encontrada!' })
+        }
+
+        //Atualiza todos os campos da tabela Solicitações(PUT substituição completa)
+        const comando = `UPDATE solicitacoes SET titulo = $1, descricao = $2, prioridade = $3, setor = $4, status = $5, data_pedido = $6, id_instituicao = $7 WHERE id_solicitacoes = $8`;
+        const valores = [ titulo, descricao, prioridade, setor, status, data_pedido, id_instituicao, id_solicitacoes ];
+        await BD.query(comando, valores);
+
+        return res.status(200).json('Solicitação atualizada com sucesso!')
+    }
+    catch (error) {
+        console.error('Erro ao atualizar Solicitação');
+        return res.status(500).json({ error: `Erro ao atualizar SOlicitação! ${error.message}` });
+    }
+});
+
 //Deletar Solicitações
 router.delete('/solicitacoes/:id_solicitacoes', async (req, res) => {
 

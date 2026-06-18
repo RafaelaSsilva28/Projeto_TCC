@@ -28,7 +28,7 @@ router.get("/dashboard/solicitacoes/pendentes", async (req, res) => {
     try {
         const selecaoSolicitacoesPendentes = `
             SELECT COUNT(*) AS pendentes FROM solicitacoes
-            WHERE status = 'Pendentes'
+            WHERE status = 'em andamento'
         `;
 
         const resSolicitacoesPendentes = await BD.query(selecaoSolicitacoesPendentes);
@@ -43,14 +43,14 @@ router.get("/dashboard/solicitacoes/pendentes", async (req, res) => {
 
 //Rotas com as solicitações aprovadas
 router.get("/dashboard/solicitacoes/aprovadas", async (req, res) => {
-  try {
+try {
     const selecaoSolicitacoesAprovadas = ` SELECT COUNT(*) AS aprovadas FROM solicitacoes
-    WHERE status = 'Aprovada' `;
+    WHERE status = 'concluida' `;
 
         const resSolicitacoesAprovadas = await BD.query(selecaoSolicitacoesAprovadas);
         return res.status(200).json(resSolicitacoesAprovadas.rows[0]);
-      } catch (error) {
-      return res.status(500).json({ error: error.message });
+    } catch (error) {
+    return res.status(500).json({ error: error.message });
     }
 });
 
@@ -58,24 +58,52 @@ router.get("/dashboard/solicitacoes/aprovadas", async (req, res) => {
 router.get("/dashboard/solicitacoes/recusadas", async (req, res) => {
     try {
     const selecaoSolicitacoesRecusadas = ` SELECT COUNT(*) AS recusadas FROM solicitacoes
-    WHERE status = 'Recusada' `;
+    WHERE status = 'recusada' `;
 
-      const resSolicitacoesRecusadas = await BD.query(selecaoSolicitacoesRecusadas);
-      return res.status(200).json(resSolicitacoesRecusadas.rows[0]);
+    const resSolicitacoesRecusadas = await BD.query(selecaoSolicitacoesRecusadas);
+    return res.status(200).json(resSolicitacoesRecusadas.rows[0]);
 
     } catch (error) {
     return res.status(500).json({ error: error.message });
-      }
+    }
 });
 
 //Rotas para solicitações recentes
+// router.get("/dashboard/solicitacoes/recentes", async (req, res) => {
+//     try {
+//         const selecaoSolicitacoesRecentes = `
+//             SELECT id_solicitacoes, titulo, descricao,
+//             prioridade, status, data_pedido, id_instituicao
+//             FROM solicitacoes
+//             ORDER BY data_pedido DESC 
+//             LIMIT 3
+//         `;
+
+//         const resSolicitacoesRecentes = await BD.query(selecaoSolicitacoesRecentes);
+
+//         return res.status(200).json(resSolicitacoesRecentes.rows);
+
+//     } catch (error) {
+//         return res.status(500).json({ error: error.message });
+//     }
+// });
+
 router.get("/dashboard/solicitacoes/recentes", async (req, res) => {
     try {
         const selecaoSolicitacoesRecentes = `
-            SELECT id_solicitacoes, titulo, descricao,
-            prioridade, status, data_pedido, id_instituicao
-            FROM solicitacoes
-            ORDER BY data_pedido DESC 
+            SELECT 
+                s.id_solicitacoes, 
+                s.titulo, 
+                s.descricao,
+                s.prioridade, 
+                s.status, 
+                s.data_pedido, 
+                s.id_instituicao,
+                i.nome AS nome_instituicao
+            FROM solicitacoes s
+            LEFT JOIN instituicoes i 
+                ON s.id_instituicao = i.id_instituicao
+            ORDER BY s.data_pedido DESC 
             LIMIT 3
         `;
 

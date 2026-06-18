@@ -25,7 +25,7 @@ router.get("/documentos", async (req, res) => {
   }
 });
 
-// GET - Buscar docuemnto por tipo
+// GET - Buscar documento por tipo
 router.get('/documentos/tipo', async (req, res) => {
 
     const { tipo } = req.query;

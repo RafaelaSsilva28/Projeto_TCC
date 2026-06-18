@@ -10,7 +10,11 @@ const documentacao = {
       url: "http://localhost:3001",
       description: "Servidor Localhost",
     },
-    // {url: 'https://api-eosin-rho.vercel.app', description: 'Vercel'}
+    //Vercel
+    { 
+      url: 'api-andra-recursos.vercel.app', 
+      description: 'Vercel'
+    }
   ],
   tags: [
     { name: "Autenticação", description: "Login do Administrador" },
@@ -87,7 +91,7 @@ const documentacao = {
     "/administradores": {
       get: {
         tags: ["Administradores"],
-        summary: "Listar todos os administradores",
+        summary: "Listar todos os Administradores",
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
@@ -185,6 +189,7 @@ const documentacao = {
           500: { description: "Erro interno no servidor" },
         },
       },
+
       delete: {
         tags: ["Administradores"],
         summary: "Remove Administrador",
@@ -208,13 +213,13 @@ const documentacao = {
         ],
         responses: {
           200: {
-            description: "Categoria removido com sucesso!",
+            description: "Administrador removido com sucesso!",
           },
           404: {
-            description: "Categoria não encontrado",
+            description: "Administrador não encontrado",
             content: {
               "application/json": {
-                example: { message: "Categoria não encontrado" },
+                example: { message: "Administrador não encontrado" },
               },
             },
           },
@@ -795,7 +800,13 @@ const documentacao = {
             content: {
               "application/json": {
                 schema: {
-                  type: "array",
+                  type: "object",
+                  properties:{
+                  total: {
+                    type: "integer",
+                    example: 2
+                  },
+                  },
                   items: { $ref: "#/components/schemas/Lista_Solicitacoes" },
                 },
               },
@@ -917,7 +928,7 @@ const documentacao = {
             description: "Status da solicitação",
             schema: {
               type: "string",
-              example: "pendente",
+              example: "em andamento",
             },
           },
         ],
@@ -984,6 +995,45 @@ const documentacao = {
       },
     },
     "/solicitacoes/{id_solicitacoes}": {
+      put: {
+        tags: ["Solicitações"],
+        summary: "Realiza a atualização de Solicitações",
+        description:
+          "Atualização de Solicitações, inserindo: titulo, descricao, prioridade, setor, status, data_pedido e id_instituicao ",
+        parameters: [
+          {
+            name: "id_solicitacoes",
+            in: "path",
+            required: true,
+            description: "ID da Solicitação a ser atualizada",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/Atualizacao_Solicitacoes_Geral",
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "SOlicitações atualizada com sucesso!",
+          },
+          400: {
+            description:
+              "Campos obrigatórios ausentes ou inseridos incorretamente!",
+          },
+          500: { description: "Erro interno no servidor" },
+        },
+      },
+
       delete: {
         tags: ["Solicitações"],
         summary: "Excluir a solicitação",
@@ -1518,6 +1568,18 @@ const documentacao = {
           type: "object",
           properties: {
             status: { type: "string", example: "atendido" },
+          },
+        },
+        Atualizacao_Solicitacoes_Geral:{
+          type: "object",
+          properties:{
+            titulo: { type: "string", example: "Computador não liga" },
+            descricao: { type: "string", example: "O computador não está ligando."},
+            prioridade: { type: "string", example: "alta" },
+            setor: { type: "string", example: "TI" },
+            status: { type: "string", example: "pendente" },
+            data_pedido: { type: "string", example: "11/06/2026 14:30" },
+            id_instituicao: { type: "integer", example: 3},
           },
         },
 

@@ -6,7 +6,7 @@ import logo from "../assets/AndraRecursos.png";
 
 export default function PrincipalAdm() {
   const [dadoslogin, setDadosLogin] = useState(null)
-  const [solicitacoes, setSolicitacoes] = useState([])
+  const [solicitacoes, setSolicitacoes] = useState([]);
 
   const navigate = useNavigate()
 
@@ -17,7 +17,7 @@ export default function PrincipalAdm() {
         setDadosLogin(JSON.parse(usuarioLogado))
       }
     }
-   async function buscarSolicitacoes() {
+  async function buscarSolicitacoes() {
   try {
     // 1. CORRIGIDO: Adicionado as barras duplas '//' nas URLs
     const [resTotal, resAprovadas, resPendentes, resRecusadas, resRecentes] = await Promise.all([
@@ -34,6 +34,14 @@ export default function PrincipalAdm() {
     const recusadas = await resRecusadas.json()
     const recentes = await resRecentes.json()
 
+    setSolicitacoes({
+    total: total.total,
+    aprovadas: aprovadas.aprovadas,
+    pendentes: pendentes.pendentes,
+    recusadas: recusadas.recusadas,
+    recentes: recentes
+  });
+
   } catch (error) {
     console.error("Erro de conexão com o Swagger/Backend:", error)
   }
@@ -48,7 +56,6 @@ export default function PrincipalAdm() {
     setDadosLogin(null)
     navigate('/')
   }
-
 
   return (
     <div className="andra-dash-layout">
@@ -116,8 +123,8 @@ export default function PrincipalAdm() {
               <span className="andra-metric-value">{solicitacoes.total}</span>
             </div>
             <div className="andra-metric-card green">
-              <span className="andra-metric-label">Total Concluídas</span>
-              <span className="andra-metric-value">{solicitacoes.atendidas}</span>
+              <span className="andra-metric-label">Total Aprovadas</span>
+              <span className="andra-metric-value">{solicitacoes.aprovadas}</span>
             </div>
             <div className="andra-metric-card yellow">
               <span className="andra-metric-label">Total Pendentes</span>
@@ -142,8 +149,8 @@ export default function PrincipalAdm() {
             </div>
           </section>
 
-          {/* 6. TABELA DE SOLICITAÇÕES RECENTES */}
-          <section className="andra-table-card">
+          {/* 6. TABELA DE SOLICITAÇÕES RECENTES - ficticia*/}
+          {/* <section className="andra-table-card">
             <h2>Solicitações Recentes</h2>
             <div className="andra-table-responsive">
               <table className="andra-data-table">
@@ -187,6 +194,63 @@ export default function PrincipalAdm() {
                       </div>
                     </td>
                   </tr>
+                </tbody>
+              </table>
+            </div>
+          </section> */}
+          {/* 6. TABELA DE SOLICITAÇÕES RECENTES */}
+          <section className="andra-table-card">
+            <h2>Solicitações Recentes</h2>
+            <div className="andra-table-responsive">
+              <table className="andra-data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>INSTITUIÇÃO</th>
+                    <th>TIPO</th>
+                    <th>PRIORIDADE</th>
+                    <th>STATUS</th>
+                    <th>DATA</th>
+                    <th>AÇÕES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {solicitacoes?.recentes?.map((solicitacao) => (
+                    <tr key={solicitacao.id_solicitacoes}>
+                      <td><strong>{solicitacao.id_solicitacoes}</strong></td>
+                      <td>{solicitacao.nome_instituicao}</td>
+                      <td>{solicitacao.titulo}</td>
+                      <td>
+                        <span className={`badge-priority ${solicitacao.prioridade === "Alta" ? "high" : "low"}`}>
+                          {solicitacao.prioridade?.toUpperCase()}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge-status ${
+                          solicitacao.status === "aprovada" ? "approved" :
+                          solicitacao.status === "recusada" ? "rejected" : "pending"
+                        }`}>
+                          {solicitacao.status}
+                        </span>
+                      </td>
+                      <td>{new Date(solicitacao.data_pedido).toLocaleDateString("pt-BR")}</td>
+                      <td>
+                        <div className="andra-table-actions">
+                          <button
+                            className={`andra-action-approve ${solicitacao.status === "aprovada" ? "disabled" : ""}`}
+                            disabled={solicitacao.status === "aprovada"}
+                            onClick={() => atualizarStatusSolicitacao(solicitacao.id_solicitacoes, "aprovada")}>
+                            APROVAR
+                          </button>
+                          <button
+                            className="andra-action-reject"
+                            onClick={() => atualizarStatusSolicitacao(solicitacao.id_solicitacoes, "recusada")}>
+                            RECUSAR
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
