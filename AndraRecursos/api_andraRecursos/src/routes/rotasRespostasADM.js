@@ -54,7 +54,7 @@ router.put("/respostas-adm/:id_resposta", autenticarToken, async (req, res) => {
       [id_resposta],
     );
     if (verificarResposta.rows.length === 0) {
-      return res.status(404).json({ message: "Resposta não encontrada" + error.message });
+      return res.status(404).json({ message: "Resposta não encontrada" });
     }
 
     //Atualiza todos os campos da tabela(PUT substituição completa)

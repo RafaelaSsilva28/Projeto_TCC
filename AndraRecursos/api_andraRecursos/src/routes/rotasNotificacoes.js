@@ -65,7 +65,7 @@ router.patch('/notificacoes/:id_notificacao', autenticarToken, async (req, res) 
         );
 
         if (verificar.rows.length === 0) {
-            return res.status(404).json({ message: 'Notificacao não encontrada' + error.message });
+            return res.status(404).json({ message: 'Notificacao não encontrada' });
         }
 
         const campos = [];

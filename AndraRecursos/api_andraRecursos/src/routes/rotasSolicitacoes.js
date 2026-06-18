@@ -128,7 +128,7 @@ router.patch('/solicitacoes/:id_solicitacoes/status', autenticarToken, async (re
             `, [id_solicitacoes]);
         
             if (verificarSolicitacao.rows.length === 0) {
-            return res.status(404).json({ message: 'Solicitação não encontrada!' + error.message })
+            return res.status(404).json({ message: 'Solicitação não encontrada!' })
         }
 
         //Atualiza parcialmente os campos da tabela de Solicitações!
