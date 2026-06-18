@@ -87,7 +87,7 @@ router.post("/documentos", autenticarToken, async (req, res) => {
     //Verificar se o usuario existe
         const verificarDocumentos = await BD.query(`SELECT * FROM documentos WHERE id_documento = $1`, [id_documento]);
         if (verificarDocumentos.rows.length === 0) {
-            return res.status(404).json({ message: 'Documento não encontrado!' + error.message })
+            return res.status(404).json({ message: 'Documento não encontrado!' })
         }
 
     const comando = `INSERT INTO documentos( nome_arquivo, caminho, tipo, id_solicitacao ) 
