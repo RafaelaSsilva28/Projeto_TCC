@@ -88,7 +88,7 @@ router.put("/historico-solicitacoes/:id_historico", autenticarToken, async (req,
       [id_historico],
     );
     if (verificarHistorico.rows.length === 0) {
-      return res.status(404).json({ message: "Solicitação não encontrada" + error.message });
+      return res.status(404).json({ message: "Solicitação não encontrada" });
     }
 
     //Atualiza todos os campos da tabela(PUT substituição completa)

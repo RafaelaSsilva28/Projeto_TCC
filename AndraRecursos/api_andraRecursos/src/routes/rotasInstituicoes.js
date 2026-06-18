@@ -57,7 +57,7 @@ router.put('/instituicoes/:id_instituicao', autenticarToken, async (req, res) =>
         //Verificar se o usuario existe
         const verificarInstituicao = await BD.query(`SELECT * FROM instituicoes WHERE id_instituicao = $1`, [id_instituicao]);
         if (verificarInstituicao.rows.length === 0) {
-            return res.status(404).json({ message: 'Instituição não encontrada' + error.message })
+            return res.status(404).json({ message: 'Instituição não encontrada' })
         }
 
         //definir a força da criptografia
@@ -102,7 +102,7 @@ router.post('/login', autenticarToken, async (req, res) => {
 
     //Validação de Entrada
     if (!email_institucional || !senha) {
-        return res.status(400).json({ message: 'Campo email e senha são obrigatórios!' + error.message });
+        return res.status(400).json({ message: 'Campo email e senha são obrigatórios!' });
     }
     try {
         //Buscar Instituição pelo Email institucional
