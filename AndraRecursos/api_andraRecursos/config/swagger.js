@@ -6,15 +6,11 @@ const documentacao = {
     version: "1.0.0",
   },
   servers: [
-    {
-      url: "http://localhost:3001",
-      description: "Servidor Localhost",
-    },
+    //LocalHost
+    { url: "http://localhost:3001", description: "Servidor Localhost" },
+
     //Vercel
-    { 
-      url: 'api-andra-recursos.vercel.app', 
-      description: 'Vercel'
-    }
+    { url: "https://api-andra-recursos.vercel.app", description: "Vercel" },
   ],
   tags: [
     { name: "Autenticação", description: "Login do Administrador" },
@@ -107,11 +103,15 @@ const documentacao = {
               },
             },
           },
+          500: {
+            description: "Erro interno no servidor!",
+          },
         },
       },
       post: {
         tags: ["Administradores"],
         summary: "Realiza o Cadastro de Administradores",
+        security: [{ bearerAuth: [] }],
         description: "Cadastra um Administrador para ter acesso",
         requestBody: {
           required: true,
@@ -141,12 +141,13 @@ const documentacao = {
           500: { description: "Erro interno no servidor" },
         },
       },
-    }, // <-- CORREÇÃO 1: Adicionada a vírgula obrigatória aqui
+    },
     "/administradores/{id_administrador}": {
       // <-- CORREÇÃO 1: Adicionado o "r" no final
       patch: {
         tags: ["Administradores"],
         summary: "Atualiza parcialmente um Administrador", // <-- Ajustado o texto
+        security: [{ bearerAuth: [] }],
         description:
           "Atualiza nome, email ou senha de um administrador pelo ID",
         parameters: [
@@ -252,11 +253,15 @@ const documentacao = {
               },
             },
           },
+          500: {
+            description: "Erro interno no servidor!",
+          },
         },
       },
       post: {
         tags: ["Instituições"],
         summary: "Cadastrar nova Instituição",
+        security: [{ bearerAuth: [] }],
         description:
           "Recebe nome, email_institucional, senha, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro e bairro para cadastrar nova instituição",
         requestBody: {
@@ -286,6 +291,7 @@ const documentacao = {
       put: {
         tags: ["Instituições"],
         summary: "Realiza a atualização de Instituições",
+        security: [{ bearerAuth: [] }],
         description:
           "Atualização de Instituições, inserindo: nome, email_institucional, senha, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro e bairro ",
         parameters: [
@@ -324,6 +330,7 @@ const documentacao = {
       delete: {
         tags: ["Instituições"],
         summary: "Excluir a Instituição",
+        security: [{ bearerAuth: [] }],
         description: "Método para exclusão da Instituição",
         parameters: [
           {
@@ -355,6 +362,7 @@ const documentacao = {
       get: {
         tags: ["Notificações"],
         summary: "Listar todas as notificações",
+        security: [{ bearerAuth: [] }],
         description:
           "Retorna uma lista contendo todas as notificações salvas no banco de dados.",
         responses: {
@@ -386,6 +394,7 @@ const documentacao = {
       post: {
         tags: ["Notificações"],
         summary: "Realiza o Cadastro de Notificações",
+        security: [{ bearerAuth: [] }],
         description: "Cadastra uma Notificação para ser enviada",
         requestBody: {
           required: true,
@@ -431,6 +440,7 @@ const documentacao = {
       patch: {
         tags: ["Notificações"],
         summary: "Realiza a atualização de Notificações",
+        security: [{ bearerAuth: [] }],
         description:
           "Atualização de Notificações, inserindo: mensagem, tipo_informacao, id_administrador",
         parameters: [
@@ -489,10 +499,10 @@ const documentacao = {
           500: { description: "Erro interno no servidor" },
         },
       },
-
       delete: {
         tags: ["Notificações"],
         summary: "Excluir a Notificação",
+        security: [{ bearerAuth: [] }],
         description: "Método para exclusão da Notificação",
         parameters: [
           {
@@ -524,6 +534,7 @@ const documentacao = {
       get: {
         tags: ["Respostas ADM"],
         summary: "Listar respostas do ADM",
+        security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: "Dados obtidos com sucesso",
@@ -541,6 +552,7 @@ const documentacao = {
       post: {
         tags: ["Respostas ADM"],
         summary: "Cadastrar nova resposta",
+        security: [{ bearerAuth: [] }],
         description:
           "Recebe mensagem, data_resposta, id_solicitacao, id_administrador para cadastrar nova resposta",
         requestBody: {
@@ -570,6 +582,7 @@ const documentacao = {
       put: {
         tags: ["Respostas ADM"],
         summary: "Atualizar resposta completa",
+        security: [{ bearerAuth: [] }],
         description: "Atualiza todos os campos de uma resposta existente",
         parameters: [
           {
@@ -612,6 +625,7 @@ const documentacao = {
       delete: {
         tags: ["Respostas ADM"],
         summary: "Ecluir a resposta do ADM",
+        security: [{ bearerAuth: [] }],
         description: "Exclui a resposta do ADM",
         parameters: [
           {
@@ -664,6 +678,7 @@ const documentacao = {
       post: {
         tags: ["Documentos"],
         summary: "Cadastrar novo Documento",
+        security: [{ bearerAuth: [] }],
         description:
           "Inserir: nome_arquivo, caminho, tipo, id_solicitacao para cadastrar novo documento",
         requestBody: {
@@ -693,6 +708,7 @@ const documentacao = {
       get: {
         tags: ["Documentos"],
         summary: "Listar Documentos pelo seu tipo",
+        security: [{ bearerAuth: [] }],
         description: "Retorna todos os documentos referentes e um tipo.",
         parameters: [
           {
@@ -728,6 +744,7 @@ const documentacao = {
       get: {
         tags: ["Documentos"],
         summary: "Listar Documentos pelo tipo de Solicitação",
+        security: [{ bearerAuth: [] }],
         description: "Retorna todos os documentos uma solicitação realizada.",
         parameters: [
           {
@@ -763,6 +780,7 @@ const documentacao = {
       delete: {
         tags: ["Documentos"],
         summary: "Excluir o Documento",
+        security: [{ bearerAuth: [] }],
         description: "Método para exclusão do Documento",
         parameters: [
           {
@@ -777,11 +795,16 @@ const documentacao = {
 
         responses: {
           200: {
-            description: "Documento excluído com sucesso",
-            content: {
-              "application/json": { example: "Documento não encontrado" },
-            },
+            description: "Documento excluído com sucesso!",
           },
+          404: {
+                        description: "Documento não encontrado",
+                        content: {
+                            "application/json": {
+                                example: { message: "Documento não encontrado" }
+                            }
+                        }
+                    },
           500: {
             description: "Erro interno no Servidor",
           },
@@ -794,6 +817,7 @@ const documentacao = {
       get: {
         tags: ["Solicitações"],
         summary: "Listar Solicitações",
+        security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: "Dados obtidos com sucesso",
@@ -801,22 +825,26 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "object",
-                  properties:{
-                  total: {
-                    type: "integer",
-                    example: 2
-                  },
+                  properties: {
+                    total: {
+                      type: "integer",
+                      example: 2,
+                    },
                   },
                   items: { $ref: "#/components/schemas/Lista_Solicitacoes" },
                 },
               },
             },
           },
+          500: {
+            description: "Erro interno no servidor!",
+          },
         },
       },
       post: {
         tags: ["Solicitações"],
-        summary: "Cadastrar nova solicitação ",
+        summary: "Cadastrar nova solicitação",
+        security: [{ bearerAuth: [] }],
         description:
           "Recebe titulo, descricao, prioridade, setor, status, data_pedido, id_instituicao para cadastrar nova solicitação",
         requestBody: {
@@ -846,6 +874,7 @@ const documentacao = {
       get: {
         tags: ["Solicitações"],
         summary: "Listar Solicitações por Prioridade",
+        security: [{ bearerAuth: [] }],
         description:
           "Retorna todas as solicitações de acordo com a prioridade informada.",
         parameters: [
@@ -882,6 +911,7 @@ const documentacao = {
       get: {
         tags: ["Solicitações"],
         summary: "Listar Solicitações por Setor",
+        security: [{ bearerAuth: [] }],
         description:
           "Retorna todas as solicitações de acordo com o setor informado.",
         parameters: [
@@ -918,6 +948,7 @@ const documentacao = {
       get: {
         tags: ["Solicitações"],
         summary: "Listar Solicitações por Status",
+        security: [{ bearerAuth: [] }],
         description:
           "Retorna todas as solicitações de acordo com o status informado.",
         parameters: [
@@ -954,6 +985,7 @@ const documentacao = {
       patch: {
         tags: ["Solicitações"],
         summary: "Atualizar solicitação por parte",
+        security: [{ bearerAuth: [] }],
         description: "Atualiza todos os campos de uma solicitação existente",
         parameters: [
           {
@@ -998,6 +1030,7 @@ const documentacao = {
       put: {
         tags: ["Solicitações"],
         summary: "Realiza a atualização de Solicitações",
+        security: [{ bearerAuth: [] }],
         description:
           "Atualização de Solicitações, inserindo: titulo, descricao, prioridade, setor, status, data_pedido e id_instituicao ",
         parameters: [
@@ -1033,10 +1066,10 @@ const documentacao = {
           500: { description: "Erro interno no servidor" },
         },
       },
-
       delete: {
         tags: ["Solicitações"],
         summary: "Excluir a solicitação",
+        security: [{ bearerAuth: [] }],
         description: "Exclui a solicitação",
         parameters: [
           {
@@ -1055,6 +1088,14 @@ const documentacao = {
               "application/json": { example: "Solicitação não encontrada" },
             },
           },
+          404: {
+            description: "Solicitação não encontrada",
+            content: {
+              "application/json": {
+                example: { message: "Solicitação não encontrada" },
+              },
+            },
+          },
           500: {
             description: "Erro no Servidor",
           },
@@ -1067,6 +1108,7 @@ const documentacao = {
       get: {
         tags: ["Historico"],
         summary: "Listar Historico de Solicitações",
+        security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: "Dados obtidos com sucesso",
@@ -1084,6 +1126,7 @@ const documentacao = {
       post: {
         tags: ["Historico"],
         summary: "Cadastrar novo Historico ",
+        security: [{ bearerAuth: [] }],
         description:
           "Recebe dados com relação ao já mencionado em Solicitações",
         requestBody: {
@@ -1113,6 +1156,7 @@ const documentacao = {
       get: {
         tags: ["Historico"],
         summary: "Listar Historico por Solicitações",
+        security: [{ bearerAuth: [] }],
         description:
           "Retorna tudo o que tem no Historico de acordo com a Solicitação.",
         parameters: [
@@ -1149,6 +1193,7 @@ const documentacao = {
       put: {
         tags: ["Historico"],
         summary: "Realiza a atualização do Historico",
+        security: [{ bearerAuth: [] }],
         description: "",
         parameters: [
           {
@@ -1186,6 +1231,7 @@ const documentacao = {
       delete: {
         tags: ["Historico"],
         summary: "Excluir um Historico",
+        security: [{ bearerAuth: [] }],
         description: "Método para exclusão do Historico",
         parameters: [
           {
@@ -1201,17 +1247,25 @@ const documentacao = {
           201: {
             description: "Historico deletado com sucesso!",
           },
-
-          500: { description: "Erro interno no servidor" },
+          404: {
+                        description: "Histórico não encontrado",
+                        content: {
+                            "application/json": {
+                                example: { message: "Histórico não encontrado" }
+                            }
+                        }
+                    },
+          500: { description: "Erro interno no servidor!" },
         },
       },
     },
 
     //Dashboard
-    "/dashboard/total/solicitacoes":{
+    "/dashboard/total/solicitacoes": {
       get: {
         tags: ["Dashboard"],
         summary: "Listar Total de Solicitações",
+        security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: "Total obtido com sucesso!",
@@ -1219,19 +1273,22 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "number",
-                  example: 2
+                  example: 2,
                 },
               },
             },
           },
+          500: {
+            description: "Erro interno no servidor!",
+          },
         },
       },
-
     },
-    "/dashboard/solicitacoes/pendentes":{
+    "/dashboard/solicitacoes/pendentes": {
       get: {
         tags: ["Dashboard"],
         summary: "Listar Solicitações ainda Pendentes",
+        security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: "Solicitações pendentes obtidas com sucesso!",
@@ -1239,19 +1296,22 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "number",
-                  example: 2
+                  example: 2,
                 },
               },
             },
           },
+          500: {
+            description: "Erro interno no servidor!",
+          },
         },
       },
-
     },
-    "/dashboard/solicitacoes/aprovadas":{
+    "/dashboard/solicitacoes/aprovadas": {
       get: {
         tags: ["Dashboard"],
         summary: "Listar Solicitações Aprovadas",
+        security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: "Solicitações aprovadas obtidas com sucesso!",
@@ -1259,19 +1319,22 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "number",
-                  example: 2
+                  example: 2,
                 },
               },
             },
           },
+          500: {
+            description: "Erro interno no servidor!",
+          },
         },
       },
-
     },
-    "/dashboard/solicitacoes/recentes":{
+    "/dashboard/solicitacoes/recentes": {
       get: {
         tags: ["Dashboard"],
         summary: "Listar Solicitações Recentes",
+        security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: "Solicitações recentes obtidas com sucesso!",
@@ -1279,19 +1342,22 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "number",
-                  example: 2
+                  example: 2,
                 },
               },
             },
           },
+          500: {
+            description: "Erro interno no servidor!",
+          },
         },
       },
-
     },
-    "/dashboard/solicitacoes/recusadas":{
+    "/dashboard/solicitacoes/recusadas": {
       get: {
         tags: ["Dashboard"],
         summary: "Listar Solicitações Recusadas",
+        security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: "Solicitações recusadas obtidas com sucesso!",
@@ -1299,347 +1365,348 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "number",
-                  example: 2
+                  example: 2,
                 },
               },
             },
           },
+          500: {
+            description: "Erro interno no servidor!",
+          },
         },
       },
-
     },
-  
   },
   components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "JWT",
-          description: "Insira o Token obtido no login",
+    securitySchemes: {
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "Insira o Token obtido no login",
+      },
+    },
+    schemas: {
+      //Login e Cadastro
+      Login_Administrador: {
+        type: "object",
+        required: ["email", "senha"],
+        properties: {
+          email: { type: "string", example: "coloqueseu@email.com" },
+          senha: { type: "string", example: "coloquesuasenha" },
         },
       },
-      schemas: {
-        //Login e Cadastro
-        Login_Administrador: {
-          type: "object",
-          required: ["email", "senha"],
-          properties: {
-            email: { type: "string", example: "gustavopequeno@email.com" },
-            senha: { type: "string", example: "senha123" },
+      Resposta_Login: {
+        type: "object",
+        properties: {
+          message: { type: "string", example: "Login realizado com sucesso" },
+          token: {
+            type: "string",
+            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
           },
-        },
-        Resposta_Login: {
-          type: "object",
-          properties: {
-            message: { type: "string", example: "Login realizado com sucesso" },
-            token: {
-              type: "string",
-              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          usuario: {
+            type: "object",
+            properties: {
+              id: { type: "integer", example: 1 },
+              nome: { type: "string", example: "Administrador Central" },
+              email: { type: "string", example: "admin@email.com" },
             },
-            usuario: {
-              type: "object",
-              properties: {
-                id: { type: "integer", example: 1 },
-                nome: { type: "string", example: "Administrador Central" },
-                email: { type: "string", example: "admin@email.com" },
-              },
-            },
-          },
-        },
-
-        //Administradores
-        Cadastro_Administrador: {
-          // <-- CORREÇÃO 2: Estrutura do objeto limpa e simplificada
-          type: "object",
-          properties: {
-            nome: { type: "string", example: "Administrador " },
-            email: { type: "string", example: "gustavopequeno@email.com" },
-            senha: { type: "string", example: "senha123" },
-          },
-        },
-        Resposta_Administrador: {
-          type: "object",
-          properties: {
-            mensagem: {
-              type: "string",
-              example: "Administrador cadastrado com sucesso.",
-            },
-          },
-        },
-        Listar_Administradores: {
-          type: "object",
-          properties: {
-            id: { type: "integer", example: 1 },
-            nome: { type: "string", example: "Ricardo" },
-            email: { type: "string", example: "ricardo@email.com" },
-          },
-        },
-        Atualizacao_Administradores: {
-          type: "object",
-          properties: {
-            nome: { type: "string", example: "Ricardo" },
-            email: { type: "string", example: "ricardo@email.com" },
-            senha: { type: "string", example: "senha123" },
-          },
-        },
-
-        //Respostas do ADM
-        Lista_Resposta_ADM: {
-          type: "object",
-          properties: {
-            id_resposta: { type: "integer", example: 1 },
-            mensagem: { type: "string", example: "Solicitação aprovada." },
-            data_resposta: { type: "string", example: "15/06/2026 14:30" },
-            id_solicitacao: { type: "integer", example: 1 },
-            id_administrador: { type: "integer", example: 1 },
-          },
-        },
-        Cadastro_Resposta_ADM: {
-          type: "object",
-          properties: {
-            mensagem: { type: "string", example: "Solicitação aprovada." },
-            data_resposta: { type: "string", example: "15/06/2026 14:30" },
-            id_solicitacao: { type: "integer", example: 1 },
-            id_administrador: { type: "integer", example: 1 },
-          },
-        },
-        Atualizacao_Resposta_ADM: {
-          type: "object",
-          required: [
-            "mensagem",
-            "data_resposta",
-            "id_solicitacao",
-            "id_administrador",
-          ],
-          properties: {
-            mensagem: { type: "string", example: "Solicitação atualizada." },
-            data_resposta: { type: "string", example: "15/06/2026 15:00" },
-            id_solicitacao: { type: "integer", example: 1 },
-            id_administrador: { type: "integer", example: 1 },
-          },
-        },
-
-        //Notificações
-        Listar_Notificacoes: {
-          type: "object",
-          properties: {
-            id_notificacao: { type: "integer", example: 3 },
-            mensagem: {
-              type: "string",
-              example: "Nova solicitação registrada no sistema.",
-            },
-            tipo_informacao: { type: "string", example: "Alerta" },
-            id_administrador: { type: "integer", example: 1 },
-          },
-        },
-        Cadastro_Notificacao: {
-          type: "object",
-          required: ["mensagem", "tipo_informacao", "id_administrador"],
-          properties: {
-            mensagem: {
-              type: "string",
-              example: "Nova solicitação registrada no sistema.",
-            },
-            tipo_informacao: { type: "string", example: "Alerta" },
-            id_administrador: { type: "integer", example: 1 },
-          },
-        },
-        Resposta_Notificacao: {
-          type: "object",
-          properties: {
-            mensagem: {
-              type: "string",
-              example: "Notificação cadastrada com sucesso.",
-            },
-          },
-        },
-
-        //Instituições
-        Listar_Instituições: {
-          type: "object",
-          properties: {
-            nome: { type: "string", example: "Escola Central" },
-            email_institucional: { type: "string", example: "123456" },
-            senha: { type: "string", example: "senha123" },
-            cep: { type: "string", example: "18650-000" },
-            telefone: { type: "string", example: "(18)44452-0000" },
-            horario_funcionamento: {
-              type: "string",
-              example: "Segunda a Sexta, das 8h às 17h",
-            },
-            status_instituicao: { type: "string", example: "Ativa" },
-            gestor: { type: "string", example: "Maria Silva" },
-            secretaria_vinculada: {
-              type: "string",
-              example: "Secretaria de Educação",
-            },
-            numero: { type: "string", example: "2002" },
-            logradouro: { type: "string", example: "Rua das Flores" },
-            bairro: { type: "string", example: "Centro" },
-          },
-        },
-        Cadastro_Instituição: {
-          type: "object",
-          properties: {
-            nome: { type: "string", example: "Escola Central" },
-            email_institucional: { type: "string", example: "123456" },
-            senha: { type: "string", example: "senha123" },
-            cep: { type: "string", example: "18650-000" },
-            telefone: { type: "string", example: "(18)44452-0000" },
-            horario_funcionamento: {
-              type: "string",
-              example: "Segunda a Sexta, das 8h às 17h",
-            },
-            status_instituicao: { type: "string", example: "Ativa" },
-            gestor: { type: "string", example: "Maria Silva" },
-            secretaria_vinculada: {
-              type: "string",
-              example: "Secretaria de Educação",
-            },
-            numero: { type: "string", example: "2002" },
-            logradouro: { type: "string", example: "Rua das Flores" },
-            bairro: { type: "string", example: "Centro" },
-          },
-        },
-        Atualizacao_Instituicao: {
-          type: "object",
-          properties: {
-            nome: { type: "string", example: "Escola Central" },
-            email_institucional: {
-              type: "string",
-              example: "contato@escola.com",
-            },
-            senha: { type: "string", example: "senha123" },
-            cep: { type: "string", example: "18650-000" },
-            telefone: { type: "string", example: "(18)44452-0000" },
-            horario_funcionamento: {
-              type: "string",
-              example: "Segunda a Sexta, das 8h às 17h",
-            },
-            status_instituicao: { type: "string", example: "Ativa" },
-            gestor: { type: "string", example: "Maria Silva" },
-            secretaria_vinculada: {
-              type: "string",
-              example: "Secretaria de Educação",
-            },
-            numero: { type: "string", example: "2002" },
-            logradouro: { type: "string", example: "Rua das Flores" },
-            bairro: { type: "string", example: "Centro" },
-          },
-        },
-
-        //Solicitações
-        Lista_Solicitacoes: {
-          type: "object",
-          properties: {
-            id_solicitacoes: { type: "integer", example: 1 },
-            titulo: { type: "string", example: "Computador não liga" },
-            descricao: {
-              type: "string",
-              example: "O computador não está ligando.",
-            },
-            prioridade: { type: "string", example: "alta" },
-            setor: { type: "string", example: "TI" },
-            status: { type: "string", example: "pendente" },
-            data_pedido: { type: "string", example: "11/06/2026 14:30" },
-            nome_instituicao: {
-              type: "string",
-              example: "Escola Municipal ABC",
-            },
-          },
-        },
-        Cadastro_Solicitacoes: {
-          type: "object",
-          properties: {
-            titulo: { type: "string", example: "Computador não liga" },
-            descricao: {
-              type: "string",
-              example: "O computador não está ligando.",
-            },
-            prioridade: { type: "string", example: "alta" },
-            setor: { type: "string", example: "TI" },
-            status: { type: "string", example: "pendente" },
-            data_pedido: { type: "string", example: "11/06/2026 14:30" },
-            id_instituicao: { type: "integer", example: 1 },
-          },
-        },
-        Atualizacao_Solicitacoes: {
-          type: "object",
-          properties: {
-            status: { type: "string", example: "atendido" },
-          },
-        },
-        Atualizacao_Solicitacoes_Geral:{
-          type: "object",
-          properties:{
-            titulo: { type: "string", example: "Computador não liga" },
-            descricao: { type: "string", example: "O computador não está ligando."},
-            prioridade: { type: "string", example: "alta" },
-            setor: { type: "string", example: "TI" },
-            status: { type: "string", example: "pendente" },
-            data_pedido: { type: "string", example: "11/06/2026 14:30" },
-            id_instituicao: { type: "integer", example: 3},
-          },
-        },
-
-        //Documentos
-        Listar_Documentos: {
-          type: "object",
-          properties: {
-            id_documento: { type: "integer", example: 1 },
-            nome_arquivo: { type: "string", example: "Pedido de Reforma.pdf" },
-            caminho: { type: "string", example: "/uploads/pedido_reforma.pdf" },
-            tipo: { type: "string", example: "application/pdf" },
-            id_solicitacao: { type: "integer", example: 2 },
-          },
-        },
-        Cadastro_Documentos: {
-          type: "object",
-          properties: {
-            id_documento: { type: "integer", example: 1 },
-            nome_arquivo: { type: "string", example: "Pedido de Reforma.pdf" },
-            caminho: { type: "string", example: "/uploads/pedido_reforma.pdf" },
-            tipo: { type: "string", example: "application/pdf" },
-            id_solicitacao: { type: "integer", example: 2 },
-          },
-        },
-
-        //Historico Solicitações
-        Listar_Historico: {
-          type: "object",
-          properties: {
-            id_historico: { type: "integer", example: 1 },
-            id_solicitacao: { type: "integer", example: 1 },
-            descricao: { type: "string", example: "Solicitação Criada" },
-            status: { type: "string", example: "Pendente" },
-            prioridade: { type: "string", example: "Alta" },
-            data_alteracao: { type: "string", example: "11/06/2026 14:30" },
-          },
-        },
-        Cadastro_Historico: {
-          type: "object",
-          properties: {
-            id_historico: { type: "integer", example: 1 },
-            id_solicitacao: { type: "integer", example: 1 },
-            descricao: { type: "string", example: "Solicitação Criada" },
-            status: { type: "string", example: "Pendente" },
-            prioridade: { type: "string", example: "Alta" },
-            data_alteracao: { type: "string", example: "11/06/2026 14:30" },
-          },
-        },
-        Atualizar_Historico: {
-          type: "object",
-          properties: {
-            id_historico: { type: "integer", example: 1 },
-            id_solicitacao: { type: "integer", example: 1 },
-            descricao: { type: "string", example: "Solicitação Criada" },
-            status: { type: "string", example: "Pendente" },
-            prioridade: { type: "string", example: "Alta" },
-            data_alteracao: { type: "string", example: "11/06/2026 14:30" },
           },
         },
       },
+
+      //Administradores
+      Cadastro_Administrador: {
+        // <-- CORREÇÃO 2: Estrutura do objeto limpa e simplificada
+        type: "object",
+        properties: {
+          nome: { type: "string", example: "Administrador " },
+          email: { type: "string", example: "gustavopequeno@email.com" },
+          senha: { type: "string", example: "coloquesuasenha" },
+        },
+      },
+      Resposta_Administrador: {
+        type: "object",
+        properties: {
+          mensagem: {
+            type: "string",
+            example: "Administrador cadastrado com sucesso.",
+          },
+        },
+      },
+      Listar_Administradores: {
+        type: "object",
+        properties: {
+          id: { type: "integer", example: 1 },
+          nome: { type: "string", example: "Ricardo" },
+          email: { type: "string", example: "ricardo@email.com" },
+        },
+      },
+      Atualizacao_Administradores: {
+        type: "object",
+        properties: {
+          nome: { type: "string", example: "Ricardo" },
+          email: { type: "string", example: "ricardo@email.com" },
+          senha: { type: "string", example: "coloquesuasenha" },
+        },
+      },
+
+      //Respostas do ADM
+      Lista_Resposta_ADM: {
+        type: "object",
+        properties: {
+          id_resposta: { type: "integer", example: 1 },
+          mensagem: { type: "string", example: "Solicitação aprovada." },
+          data_resposta: { type: "string", example: "15/06/2026 14:30" },
+          id_solicitacao: { type: "integer", example: 1 },
+          id_administrador: { type: "integer", example: 1 },
+        },
+      },
+      Cadastro_Resposta_ADM: {
+        type: "object",
+        properties: {
+          mensagem: { type: "string", example: "Solicitação aprovada." },
+          data_resposta: { type: "string", example: "15/06/2026 14:30" },
+          id_solicitacao: { type: "integer", example: 1 },
+          id_administrador: { type: "integer", example: 1 },
+        },
+      },
+      Atualizacao_Resposta_ADM: {
+        type: "object",
+        required: [
+          "mensagem",
+          "data_resposta",
+          "id_solicitacao",
+          "id_administrador",
+        ],
+        properties: {
+          mensagem: { type: "string", example: "Solicitação atualizada." },
+          data_resposta: { type: "string", example: "15/06/2026 15:00" },
+          id_solicitacao: { type: "integer", example: 1 },
+          id_administrador: { type: "integer", example: 1 },
+        },
+      },
+
+      //Notificações
+      Listar_Notificacoes: {
+        type: "object",
+        properties: {
+          id_notificacao: { type: "integer", example: 3 },
+          mensagem: {
+            type: "string",
+            example: "Nova solicitação registrada no sistema.",
+          },
+          tipo_informacao: { type: "string", example: "Alerta" },
+          id_administrador: { type: "integer", example: 1 },
+        },
+      },
+      Cadastro_Notificacao: {
+        type: "object",
+        required: ["mensagem", "tipo_informacao", "id_administrador"],
+        properties: {
+          mensagem: {
+            type: "string",
+            example: "Nova solicitação registrada no sistema.",
+          },
+          tipo_informacao: { type: "string", example: "Alerta" },
+          id_administrador: { type: "integer", example: 1 },
+        },
+      },
+      Resposta_Notificacao: {
+        type: "object",
+        properties: {
+          mensagem: {
+            type: "string",
+            example: "Notificação cadastrada com sucesso.",
+          },
+        },
+      },
+
+      //Instituições
+      Listar_Instituições: {
+        type: "object",
+        properties: {
+          nome: { type: "string", example: "Escola Central" },
+          email_institucional: { type: "string", example: "123456" },
+          cep: { type: "string", example: "18650-000" },
+          telefone: { type: "string", example: "(18)44452-0000" },
+          horario_funcionamento: {
+            type: "string",
+            example: "Segunda a Sexta, das 8h às 17h",
+          },
+          status_instituicao: { type: "string", example: "Ativa" },
+          gestor: { type: "string", example: "Maria Silva" },
+          secretaria_vinculada: {
+            type: "string",
+            example: "Secretaria de Educação",
+          },
+          numero: { type: "string", example: "2002" },
+          logradouro: { type: "string", example: "Rua das Flores" },
+          bairro: { type: "string", example: "Centro" },
+        },
+      },
+      Cadastro_Instituição: {
+        type: "object",
+        properties: {
+          nome: { type: "string", example: "Escola Central" },
+          email_institucional: { type: "string", example: "123456" },
+          cep: { type: "string", example: "18650-000" },
+          telefone: { type: "string", example: "(18)44452-0000" },
+          horario_funcionamento: {
+            type: "string",
+            example: "Segunda a Sexta, das 8h às 17h",
+          },
+          status_instituicao: { type: "string", example: "Ativa" },
+          gestor: { type: "string", example: "Maria Silva" },
+          secretaria_vinculada: {
+            type: "string",
+            example: "Secretaria de Educação",
+          },
+          numero: { type: "string", example: "2002" },
+          logradouro: { type: "string", example: "Rua das Flores" },
+          bairro: { type: "string", example: "Centro" },
+        },
+      },
+      Atualizacao_Instituicao: {
+        type: "object",
+        properties: {
+          nome: { type: "string", example: "Escola Central" },
+          email_institucional: {
+            type: "string",
+            example: "contato@escola.com",
+          },
+          cep: { type: "string", example: "18650-000" },
+          telefone: { type: "string", example: "(18)44452-0000" },
+          horario_funcionamento: {
+            type: "string",
+            example: "Segunda a Sexta, das 8h às 17h",
+          },
+          status_instituicao: { type: "string", example: "Ativa" },
+          gestor: { type: "string", example: "Maria Silva" },
+          secretaria_vinculada: {
+            type: "string",
+            example: "Secretaria de Educação",
+          },
+          numero: { type: "string", example: "2002" },
+          logradouro: { type: "string", example: "Rua das Flores" },
+          bairro: { type: "string", example: "Centro" },
+        },
+      },
+
+      //Solicitações
+      Lista_Solicitacoes: {
+        type: "object",
+        properties: {
+          id_solicitacoes: { type: "integer", example: 1 },
+          titulo: { type: "string", example: "Computador não liga" },
+          descricao: {
+            type: "string",
+            example: "O computador não está ligando.",
+          },
+          prioridade: { type: "string", example: "alta" },
+          setor: { type: "string", example: "TI" },
+          status: { type: "string", example: "pendente" },
+          data_pedido: { type: "string", example: "11/06/2026 14:30" },
+          nome_instituicao: {
+            type: "string",
+            example: "Escola Municipal ABC",
+          },
+        },
+      },
+      Cadastro_Solicitacoes: {
+        type: "object",
+        properties: {
+          titulo: { type: "string", example: "Computador não liga" },
+          descricao: {
+            type: "string",
+            example: "O computador não está ligando.",
+          },
+          prioridade: { type: "string", example: "alta" },
+          setor: { type: "string", example: "TI" },
+          status: { type: "string", example: "pendente" },
+          data_pedido: { type: "string", example: "11/06/2026 14:30" },
+          id_instituicao: { type: "integer", example: 1 },
+        },
+      },
+      Atualizacao_Solicitacoes: {
+        type: "object",
+        properties: {
+          status: { type: "string", example: "atendido" },
+        },
+      },
+      Atualizacao_Solicitacoes_Geral: {
+        type: "object",
+        properties: {
+          titulo: { type: "string", example: "Computador não liga" },
+          descricao: {
+            type: "string",
+            example: "O computador não está ligando.",
+          },
+          prioridade: { type: "string", example: "alta" },
+          setor: { type: "string", example: "TI" },
+          status: { type: "string", example: "pendente" },
+          data_pedido: { type: "string", example: "11/06/2026 14:30" },
+          id_instituicao: { type: "integer", example: 3 },
+        },
+      },
+
+      //Documentos
+      Listar_Documentos: {
+        type: "object",
+        properties: {
+          id_documento: { type: "integer", example: 1 },
+          nome_arquivo: { type: "string", example: "Pedido de Reforma.pdf" },
+          caminho: { type: "string", example: "/uploads/pedido_reforma.pdf" },
+          tipo: { type: "string", example: "application/pdf" },
+          id_solicitacao: { type: "integer", example: 2 },
+        },
+      },
+      Cadastro_Documentos: {
+        type: "object",
+        properties: {
+          id_documento: { type: "integer", example: 1 },
+          nome_arquivo: { type: "string", example: "Pedido de Reforma.pdf" },
+          caminho: { type: "string", example: "/uploads/pedido_reforma.pdf" },
+          tipo: { type: "string", example: "application/pdf" },
+          id_solicitacao: { type: "integer", example: 2 },
+        },
+      },
+
+      //Historico Solicitações
+      Listar_Historico: {
+        type: "object",
+        properties: {
+          id_historico: { type: "integer", example: 1 },
+          id_solicitacao: { type: "integer", example: 1 },
+          descricao: { type: "string", example: "Solicitação Criada" },
+          status: { type: "string", example: "Pendente" },
+          prioridade: { type: "string", example: "Alta" },
+          data_alteracao: { type: "string", example: "11/06/2026 14:30" },
+        },
+      },
+      Cadastro_Historico: {
+        type: "object",
+        properties: {
+          id_historico: { type: "integer", example: 1 },
+          id_solicitacao: { type: "integer", example: 1 },
+          descricao: { type: "string", example: "Solicitação Criada" },
+          status: { type: "string", example: "Pendente" },
+          prioridade: { type: "string", example: "Alta" },
+          data_alteracao: { type: "string", example: "11/06/2026 14:30" },
+        },
+      },
+      Atualizar_Historico: {
+        type: "object",
+        properties: {
+          id_historico: { type: "integer", example: 1 },
+          id_solicitacao: { type: "integer", example: 1 },
+          descricao: { type: "string", example: "Solicitação Criada" },
+          status: { type: "string", example: "Pendente" },
+          prioridade: { type: "string", example: "Alta" },
+          data_alteracao: { type: "string", example: "11/06/2026 14:30" },
+        },
+      },
+    },
   },
 };
 

@@ -7,7 +7,7 @@ import jwt from "jsonwebtoken";
 const router = Router();
 
 //Rota para listar Solicitações
-router.get('/solicitacoes', async (req, res) => {
+router.get('/solicitacoes', autenticarToken, async (req, res) => {
     try {
         const comando = `
                 SELECT 
@@ -38,7 +38,7 @@ router.get('/solicitacoes', async (req, res) => {
 });
 
 //Rota para listar Solicitações com base na sua Prioridade (alta, média ou baixa)
-router.get(`/solicitacoes/prioridade/:prioridade`, async (req, res) => {
+router.get(`/solicitacoes/prioridade/:prioridade`, autenticarToken,  async (req, res) => {
     const { prioridade } = req.params; //filtrar por prioridade
     try {
         const comando = `
@@ -56,7 +56,7 @@ router.get(`/solicitacoes/prioridade/:prioridade`, async (req, res) => {
 });
 
 //Rota para listar Solicitações com base no Setor (TI, Almoxarifado)
-router.get(`/solicitacoes/setor/:setor`, async (req, res) => {
+router.get(`/solicitacoes/setor/:setor`, autenticarToken, async (req, res) => {
     const { setor } = req.params; //filtrar com base em seu setor
     try {
         const comando = `
@@ -74,7 +74,7 @@ router.get(`/solicitacoes/setor/:setor`, async (req, res) => {
 }); // - - - - TALVEZ ESSA ROTA NAO PRECISE - ANALISAR DEPOIS!
 
 //Rota para listar Solicitações com base no Status (Pendente, Em Andamento, Atendido)
-router.get(`/solicitacoes/status/:status`, async (req, res) => {
+router.get(`/solicitacoes/status/:status`, autenticarToken, async (req, res) => {
     const { status } = req.params; //filtrar com base em seu status
     try {
         const comando = `
@@ -92,7 +92,7 @@ router.get(`/solicitacoes/status/:status`, async (req, res) => {
 });
 
 //Rota para cadastrar nova Solicitação
-router.post('/solicitacoes', async (req, res) => {
+router.post('/solicitacoes', autenticarToken, async (req, res) => {
 
     const { titulo, descricao, prioridade, setor, status, data_pedido, id_instituicao } = req.body;
 
@@ -108,12 +108,12 @@ router.post('/solicitacoes', async (req, res) => {
         return res.status(201).json('Solicitação Cadastrada!');
     } catch (error) {
         console.error('Erro ao cadastrar Solicitação', error.message);
-        return res.status(500).json({ error: 'Erro ao cadastrar Solicitação' });
+        return res.status(500).json({ error: 'Erro ao cadastrar Solicitação' + error.message });
     }
 });
 
 //Atualizar apenas o Status da Solicitação - indicando se foi atendido ou não
-router.patch('/solicitacoes/:id_solicitacoes/status', async (req, res) => {
+router.patch('/solicitacoes/:id_solicitacoes/status', autenticarToken, async (req, res) => {
 
     //Id recebido via parametro 
     const { id_solicitacoes } = req.params;
@@ -128,7 +128,7 @@ router.patch('/solicitacoes/:id_solicitacoes/status', async (req, res) => {
             `, [id_solicitacoes]);
         
             if (verificarSolicitacao.rows.length === 0) {
-            return res.status(404).json({ message: 'Solicitação não encontrada!' })
+            return res.status(404).json({ message: 'Solicitação não encontrada!' + error.message })
         }
 
         //Atualiza parcialmente os campos da tabela de Solicitações!
@@ -147,7 +147,7 @@ router.patch('/solicitacoes/:id_solicitacoes/status', async (req, res) => {
 });
 
 //Rota para atualizar uma única Solicitação
-router.put('/solicitacoes/:id_solicitacoes', async (req, res) => {
+router.put('/solicitacoes/:id_solicitacoes', autenticarToken, async (req, res) => {
 
     //Id recebido via parametro 
     const { id_solicitacoes } = req.params;
@@ -158,7 +158,7 @@ router.put('/solicitacoes/:id_solicitacoes', async (req, res) => {
         //Verificar se a Solicitação existe
         const verificarSolicitacao = await BD.query(`SELECT * FROM solicitacoes WHERE id_solicitacoes = $1`, [id_solicitacoes]);
         if (verificarSolicitacao.rows.length === 0) {
-            return res.status(404).json({ message: 'Solicitação não encontrada!' })
+            return res.status(404).json({ message: 'Solicitação não encontrada!'})
         }
 
         //Atualiza todos os campos da tabela Solicitações(PUT substituição completa)
@@ -175,7 +175,7 @@ router.put('/solicitacoes/:id_solicitacoes', async (req, res) => {
 });
 
 //Deletar Solicitações
-router.delete('/solicitacoes/:id_solicitacoes', async (req, res) => {
+router.delete('/solicitacoes/:id_solicitacoes', autenticarToken, async (req, res) => {
 
     //Id recebido via parametro 
     const { id_solicitacoes } = req.params;

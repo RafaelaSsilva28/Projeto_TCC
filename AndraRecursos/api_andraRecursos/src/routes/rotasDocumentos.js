@@ -1,10 +1,11 @@
 import express, { Router } from "express";
 import { BD } from "../../db.js";
+import { autenticarToken } from "../middlewares/autenticacao.js";
 
 const router = Router();
 
 // GET - Listar todos os documentos
-router.get("/documentos", async (req, res) => {
+router.get("/documentos", autenticarToken, async (req, res) => {
   try {
     const comando = `SELECT d.id_documento, d.nome_arquivo, d.caminho, d.tipo,
             s.titulo AS titulo_solicitacao
@@ -26,7 +27,7 @@ router.get("/documentos", async (req, res) => {
 });
 
 // GET - Buscar documento por tipo
-router.get('/documentos/tipo', async (req, res) => {
+router.get('/documentos/tipo', autenticarToken, async (req, res) => {
 
     const { tipo } = req.query;
 
@@ -54,7 +55,7 @@ router.get('/documentos/tipo', async (req, res) => {
 });
 
 // GET - Buscar documnto por solicitação
-router.get('/documentos/solicitacao/:id_solicitacoes', async (req, res) => {
+router.get('/documentos/solicitacao/:id_solicitacoes', autenticarToken, async (req, res) => {
 
     const { id_solicitacoes } = req.params;
 
@@ -78,10 +79,17 @@ router.get('/documentos/solicitacao/:id_solicitacoes', async (req, res) => {
 });
 
 // POST - Cadastrar novo documento
-router.post("/documentos", async (req, res) => {
+router.post("/documentos", autenticarToken, async (req, res) => {
   const { nome_arquivo, caminho, tipo, id_solicitacao } = req.body;
 
   try {
+
+    //Verificar se o usuario existe
+        const verificarDocumentos = await BD.query(`SELECT * FROM documentos WHERE id_documento = $1`, [id_documento]);
+        if (verificarDocumentos.rows.length === 0) {
+            return res.status(404).json({ message: 'Documento não encontrado!' + error.message })
+        }
+
     const comando = `INSERT INTO documentos( nome_arquivo, caminho, tipo, id_solicitacao ) 
             VALUES($1, $2, $3, $4)`;
 
@@ -93,12 +101,12 @@ router.post("/documentos", async (req, res) => {
     return res.status(201).json("Documento cadastrado");
   } catch (error) {
     console.error("Erro ao cadastrar documento", error.message);
-    return res.status(500).json({ error: "Erro ao cadastrar documento" });
+    return res.status(500).json({ error: "Erro ao cadastrar documento" + error.message });
   }
 });
 
 // DELETE - Deletar documento
-router.delete("/documentos/:id_documento", async (req, res) => {
+router.delete("/documentos/:id_documento", autenticarToken, async (req, res) => {
   //Id recebido via parametro
   const { id_documento } = req.params;
 

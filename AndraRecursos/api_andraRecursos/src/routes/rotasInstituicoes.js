@@ -11,17 +11,17 @@ const SECRET_KEY = 'minha_chave_secreta';
 //Rota para listar Instituições
 router.get('/instituicoes', autenticarToken, async (req, res) => {
     try {
-        const query = `SELECT id_instituicao, nome, email_institucional, senha, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro, bairro FROM instituicoes ORDER BY id_instituicao`;
+        const query = `SELECT id_instituicao, nome, email_institucional, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro, bairro FROM instituicoes ORDER BY id_instituicao`;
         const instituicoes = await BD.query(query);
         res.status(200).json(instituicoes.rows);
     } catch (error) {
         console.error('Erro ao listar Instituicoes', error.message);
-        res.status(500).json({ error: 'Erro ao listar Instituicoes' });
+        res.status(500).json({ error: 'Erro ao listar Instituicoes' + error.message });
     }
 });
 
 //Rota para cadastrar nova Instituição
-router.post('/instituicoes', async (req, res) => {
+router.post('/instituicoes', autenticarToken, async (req, res) => {
 
     const { nome, email_institucional, senha, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro, bairro } = req.body;
 
@@ -40,12 +40,12 @@ router.post('/instituicoes', async (req, res) => {
         return res.status(201).json('Instituição Cadastrada!');
     } catch (error) {
         console.error('Erro ao cadastrar Instituição', error.message);
-        return res.status(500).json({ error: 'Erro ao cadastrar Instituição' });
+        return res.status(500).json({ error: 'Erro ao cadastrar Instituição' + error.message });
     }
 });
 
 //Rota para atualizar uma única Instituição
-router.put('/instituicoes/:id_instituicao', async (req, res) => {
+router.put('/instituicoes/:id_instituicao', autenticarToken, async (req, res) => {
 
     //Id recebido via parametro 
     const { id_instituicao } = req.params;
@@ -57,7 +57,7 @@ router.put('/instituicoes/:id_instituicao', async (req, res) => {
         //Verificar se o usuario existe
         const verificarInstituicao = await BD.query(`SELECT * FROM instituicoes WHERE id_instituicao = $1`, [id_instituicao]);
         if (verificarInstituicao.rows.length === 0) {
-            return res.status(404).json({ message: 'Instituição não encontrada' })
+            return res.status(404).json({ message: 'Instituição não encontrada' + error.message })
         }
 
         //definir a força da criptografia
@@ -79,7 +79,7 @@ router.put('/instituicoes/:id_instituicao', async (req, res) => {
 });
 
 //Rota para DELETE -> porém só desativa as Instituições (ARRUMAR)
-router.delete('/instituicoes/:id_instituicao', async (req, res) => {
+router.delete('/instituicoes/:id_instituicao', autenticarToken, async (req, res) => {
 
     //Id recebido via parametro 
     const { id_instituicao } = req.params;
@@ -96,13 +96,13 @@ router.delete('/instituicoes/:id_instituicao', async (req, res) => {
 });
 
 //Rota para realização de Login Instituicional
-router.post('/login', async (req, res) => {
+router.post('/login', autenticarToken, async (req, res) => {
 
     const { email_institucional, senha } = req.body;
 
     //Validação de Entrada
     if (!email_institucional || !senha) {
-        return res.status(400).json({ message: 'Campo email e senha são obrigatórios!' });
+        return res.status(400).json({ message: 'Campo email e senha são obrigatórios!' + error.message });
     }
     try {
         //Buscar Instituição pelo Email institucional

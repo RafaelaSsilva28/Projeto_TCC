@@ -6,7 +6,7 @@ import { autenticarToken } from "../middlewares/autenticacao.js";
 const router = Router();
 
 // 1. LISTAR NOTIFICAÇÕES (Corrigido e alinhado)
-router.get('/notificacoes', async (req, res) => {
+router.get('/notificacoes', autenticarToken, async (req, res) => {
     try {
         const query = `
             SELECT 
@@ -21,11 +21,12 @@ router.get('/notificacoes', async (req, res) => {
         res.status(200).json(resultado.rows);
     } catch (error) {
         console.error('Erro ao listar notificacoes:', error.message);
-        res.status(500).json({ error: 'Erro ao listar notificacoes' });
+        res.status(500).json({ error: 'Erro ao listar notificacoes' + error.message });
     }
 });
+
 // 2. CRIAR NOTIFICAÇÃO (POST)
-router.post('/notificacoes', async (req, res) => {
+router.post('/notificacoes', autenticarToken, async (req, res) => {
     const { mensagem, tipo_informacao, id_administrador } = req.body;
 
     // Validação básica (id_notificacao removido por ser SERIAL)
@@ -48,12 +49,12 @@ router.post('/notificacoes', async (req, res) => {
         });
     } catch (error) {
         console.error('Erro ao criar notificacao:', error.message);
-        return res.status(500).json({ error: 'Erro ao criar notificacao' });
+        return res.status(500).json({ error: 'Erro ao criar notificacao' + error.message });
     }
 });
 
 // 4. ATUALIZAÇÃO PARCIAL (PATCH)
-router.patch('/notificacoes/:id_notificacao', async (req, res) => {
+router.patch('/notificacoes/:id_notificacao', autenticarToken, async (req, res) => {
     const { id_notificacao } = req.params;
     const { mensagem, tipo_informacao, id_administrador } = req.body;
 
@@ -64,7 +65,7 @@ router.patch('/notificacoes/:id_notificacao', async (req, res) => {
         );
 
         if (verificar.rows.length === 0) {
-            return res.status(404).json({ message: 'Notificacao não encontrada' });
+            return res.status(404).json({ message: 'Notificacao não encontrada' + error.message });
         }
 
         const campos = [];
@@ -90,7 +91,7 @@ router.patch('/notificacoes/:id_notificacao', async (req, res) => {
         }
 
         if (campos.length === 0) {
-            return res.status(400).json({ message: "Nenhum campo enviado para atualizar" });
+            return res.status(400).json({ message: "Nenhum campo enviado para atualizar" + error.message });
         }
 
         valores.push(id_notificacao);
@@ -109,9 +110,8 @@ router.patch('/notificacoes/:id_notificacao', async (req, res) => {
     }
 });
 
-
 // 5. DELETAR (FÍSICO - Corrigido para remover o registro do banco definitivamente)
-router.delete('/notificacoes/:id_notificacao', async (req, res) => {
+router.delete('/notificacoes/:id_notificacao', autenticarToken, async (req, res) => {
     const { id_notificacao } = req.params;
     try {
         const comando = `DELETE FROM notificacoes WHERE id_notificacao = $1`;
@@ -119,7 +119,8 @@ router.delete('/notificacoes/:id_notificacao', async (req, res) => {
         return res.status(200).json({ message: "Notificação deletada com sucesso" });
     } catch (error) {
         console.error('Erro ao deletar snotificação', error.message);
-        return res.status(500).json({ message: "Erro interno ao deletar" });
+        return res.status(500).json({ message: "Erro interno ao deletar" + error.message });
     }
 });
+
 export default router;

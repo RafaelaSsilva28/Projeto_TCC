@@ -1,10 +1,11 @@
 import express, { Router } from "express";
 import { BD } from "../../db.js";
+import { autenticarToken } from "../middlewares/autenticacao.js";
 
 const router = Router();
 
 // GET - Listar todo o histórico
-router.get("/historico-solicitacoes", async (req, res) => {
+router.get("/historico-solicitacoes", autenticarToken, async (req, res) => {
   try {
     const comando = `
       SELECT 
@@ -33,7 +34,7 @@ router.get("/historico-solicitacoes", async (req, res) => {
 });
 
 // GET - Buscar histórico por solicitação
-router.get("/historico-solicitacoes/solicitacao/:id_solicitacao", async (req, res) => {
+router.get("/historico-solicitacoes/solicitacao/:id_solicitacao", autenticarToken, async (req, res) => {
   const { id_solicitacao } = req.params;
   try {
     const query = `
@@ -48,12 +49,12 @@ router.get("/historico-solicitacoes/solicitacao/:id_solicitacao", async (req, re
 
   } catch (error) {
     console.error("Erro ao buscar histórico da solicitação", error.message);
-    res.status(500).json({ error: "Erro ao buscar histórico da solicitação" });
+    res.status(500).json({ error: "Erro ao buscar histórico da solicitação" + error.message });
   }
 });
 
 // POST - Criar novo histórico
-router.post("/historico-solicitacoes", async (req, res) => {
+router.post("/historico-solicitacoes", autenticarToken, async (req, res) => {
   const { id_solicitacao, descricao, status, prioridade } = req.body;
 
   try {
@@ -68,12 +69,12 @@ router.post("/historico-solicitacoes", async (req, res) => {
     return res.status(201).json("Histórico cadastrado");
   } catch (error) {
     console.error("Erro ao cadastrar histórico", error.message);
-    return res.status(500).json({ error: "Erro ao cadastrar histórico" });
+    return res.status(500).json({ error: "Erro ao cadastrar histórico" + error.message });
   }
 });
 
 // PUT - Atualizar histórico
-router.put("/historico-solicitacoes/:id_historico", async (req, res) => {
+router.put("/historico-solicitacoes/:id_historico", autenticarToken, async (req, res) => {
   //Id recebido via parametro
 
   const { id_historico } = req.params;
@@ -87,7 +88,7 @@ router.put("/historico-solicitacoes/:id_historico", async (req, res) => {
       [id_historico],
     );
     if (verificarHistorico.rows.length === 0) {
-      return res.status(404).json({ message: "Solicitação não encontrada" });
+      return res.status(404).json({ message: "Solicitação não encontrada" + error.message });
     }
 
     //Atualiza todos os campos da tabela(PUT substituição completa)
@@ -106,12 +107,12 @@ router.put("/historico-solicitacoes/:id_historico", async (req, res) => {
     return res.status(200).json("Histórico atualizado com sucesso");
   } catch (error) {
     console.error("Erro ao atualizar histórico");
-    return res.status(500).json({ error: "Erro ao atualizar histórico" });
+    return res.status(500).json({ error: "Erro ao atualizar histórico" + error.message });
   }
 });
 
 // DELETE - Deletar histórico
-router.delete("/historico-solicitacoes/:id_historico", async (req, res) => {
+router.delete("/historico-solicitacoes/:id_historico", autenticarToken, async (req, res) => {
   //Id recebido via parametro
   const { id_historico } = req.params;
 

@@ -1,10 +1,11 @@
 import express, { Router } from "express";
+import { autenticarToken } from "../middlewares/autenticacao.js";
 import { BD } from "../../db.js";
 
 const router = Router();
 
 //Criando o endpoint para listar todos as respostas
-router.get("/respostas-adm", async (req, res) => {
+router.get("/respostas-adm", autenticarToken, async (req, res) => {
   try {
     const query = `SELECT * FROM respostas_adm ORDER BY id_resposta `;
 
@@ -16,12 +17,12 @@ router.get("/respostas-adm", async (req, res) => {
   } 
   catch (error) {
     console.error(" Erro ao listar Respostas do ADM ", error.message);
-    res.status(500).json({ error: "Erro ao listar Respostas do ADM " });
+    res.status(500).json({ error: "Erro ao listar Respostas do ADM " + error.message });
   }
 });
 
 //Criando o endpoint para criar novas respostas
-router.post("/respostas-adm", async (req, res) => {
+router.post("/respostas-adm", autenticarToken, async (req, res) => {
   const { mensagem, data_resposta, id_solicitacao, id_administrador } = req.body;
 
   try {
@@ -35,12 +36,12 @@ router.post("/respostas-adm", async (req, res) => {
   } 
   catch (error) {
     console.error("Erro ao cadastrar resposta", error.message);
-    return res.status(500).json({ error: "Erro ao cadastrar resposta" });
+    return res.status(500).json({ error: "Erro ao cadastrar resposta" + error.message });
   }
 });
 
 //Criando o endpoint para atualizar as respostas
-router.put("/respostas-adm/:id_resposta", async (req, res) => {
+router.put("/respostas-adm/:id_resposta", autenticarToken, async (req, res) => {
   //Id recebido via parametro
   const { id_resposta } = req.params;
   //Dados do Usuario via corpo da pagina
@@ -53,7 +54,7 @@ router.put("/respostas-adm/:id_resposta", async (req, res) => {
       [id_resposta],
     );
     if (verificarResposta.rows.length === 0) {
-      return res.status(404).json({ message: "Resposta não encontrada" });
+      return res.status(404).json({ message: "Resposta não encontrada" + error.message });
     }
 
     //Atualiza todos os campos da tabela(PUT substituição completa)
@@ -66,12 +67,12 @@ router.put("/respostas-adm/:id_resposta", async (req, res) => {
   } 
   catch (error) {
     console.error("Erro ao atualizar resposta");
-    return res.status(500).json({ error: "Erro ao atualizar respostas" });
+    return res.status(500).json({ error: "Erro ao atualizar respostas" + error.message });
   }
 });
 
 //Rota para DELETE
-router.delete("/respostas-adm/:id_resposta", async (req, res) => {
+router.delete("/respostas-adm/:id_resposta", autenticarToken, async (req, res) => {
     
   //Id recebido via parametro
   const { id_resposta } = req.params;

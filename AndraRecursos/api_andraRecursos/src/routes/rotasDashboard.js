@@ -7,7 +7,7 @@ const router = Router();
 const SECRET_KEY = "minha_chave_secreta";
 
 //Rotas com o total de solicitações
-router.get("/dashboard/total/solicitacoes", async (req, res) => {
+router.get("/dashboard/total/solicitacoes", autenticarToken, async (req, res) => {
     try {
         const selecaoTotalSolicitacoes = `
             SELECT COUNT(*) AS total 
@@ -24,7 +24,7 @@ router.get("/dashboard/total/solicitacoes", async (req, res) => {
 });
 
 //Rotas com as solicitações ainda pendentes
-router.get("/dashboard/solicitacoes/pendentes", async (req, res) => {
+router.get("/dashboard/solicitacoes/pendentes", autenticarToken, async (req, res) => {
     try {
         const selecaoSolicitacoesPendentes = `
             SELECT COUNT(*) AS pendentes FROM solicitacoes
@@ -42,20 +42,20 @@ router.get("/dashboard/solicitacoes/pendentes", async (req, res) => {
 
 
 //Rotas com as solicitações aprovadas
-router.get("/dashboard/solicitacoes/aprovadas", async (req, res) => {
-try {
-    const selecaoSolicitacoesAprovadas = ` SELECT COUNT(*) AS aprovadas FROM solicitacoes
-    WHERE status = 'concluida' `;
+router.get("/dashboard/solicitacoes/aprovadas", autenticarToken, async (req, res) => {
+    try {
+        const selecaoSolicitacoesAprovadas = ` SELECT COUNT(*) AS aprovadas FROM solicitacoes
+        WHERE status = 'concluida' `;
 
-        const resSolicitacoesAprovadas = await BD.query(selecaoSolicitacoesAprovadas);
-        return res.status(200).json(resSolicitacoesAprovadas.rows[0]);
-    } catch (error) {
-    return res.status(500).json({ error: error.message });
-    }
+            const resSolicitacoesAprovadas = await BD.query(selecaoSolicitacoesAprovadas);
+            return res.status(200).json(resSolicitacoesAprovadas.rows[0]);
+        } catch (error) {
+        return res.status(500).json({ error: error.message });
+        }
 });
 
 //Rotas com as solicitações recusadas
-router.get("/dashboard/solicitacoes/recusadas", async (req, res) => {
+router.get("/dashboard/solicitacoes/recusadas", autenticarToken, async (req, res) => {
     try {
     const selecaoSolicitacoesRecusadas = ` SELECT COUNT(*) AS recusadas FROM solicitacoes
     WHERE status = 'recusada' `;
@@ -88,7 +88,7 @@ router.get("/dashboard/solicitacoes/recusadas", async (req, res) => {
 //     }
 // });
 
-router.get("/dashboard/solicitacoes/recentes", async (req, res) => {
+router.get("/dashboard/solicitacoes/recentes", autenticarToken, async (req, res) => {
     try {
         const selecaoSolicitacoesRecentes = `
             SELECT 

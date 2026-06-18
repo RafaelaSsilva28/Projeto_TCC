@@ -11,17 +11,17 @@ const SECRET_KEY = 'minha_chave_secreta';
 // 1. LISTAR USUÁRIOS (Apenas ativos), autenticando o token chamando a function      
 router.get('/administradores', autenticarToken, async (req, res) => {
     try {
-        const query = `SELECT id_administrador, nome, email, senha FROM administradores ORDER BY id_administrador`;
+        const query = `SELECT id_administrador, nome, email FROM administradores ORDER BY id_administrador`;
         const administradores = await BD.query(query);
         res.status(200).json(administradores.rows);
     } catch (error) {
         console.error('Erro ao listar administradores', error.message);
-        res.status(500).json({ error: 'Erro ao listar administradores' });
+        res.status(500).json({ error: 'Erro ao listar administradores' + error.message });
     }
 });
 
 // 2. CADASTRAR USUÁRIO (POST)
-router.post('/administradores', async (req, res) => {
+router.post('/administradores', autenticarToken, async (req, res) => {
     const { nome, email, senha } = req.body;
 
     // Validação de campos obrigatórios
@@ -52,13 +52,13 @@ router.post('/administradores', async (req, res) => {
 
     } catch (error) {
         // Exibe o erro real no terminal do VS Code/Node para monitoramento
-        console.error('Erro ao cadastrar administrador:', error);
-        return res.status(500).json({ mensagem: 'Erro interno ao cadastrar administrador.' });
+        console.error('Erro ao cadastrar administrador:', error.message);
+        return res.status(500).json({ mensagem: 'Erro interno ao cadastrar administrador.' + error.message });
     }
 });
 
 // 4. ATUALIZAR PARCIAL (PATCH)
-router.patch('/administradores/:id_administrador', async (req, res) => {
+router.patch('/administradores/:id_administrador', autenticarToken, async (req, res) => {
     const { id_administrador } = req.params;
     const { nome, email, senha } = req.body;
 
@@ -113,7 +113,7 @@ router.delete('/administradores/:id_administrador', autenticarToken, async (req,
         return res.status(200).json({ message: "Administrador deletado com sucesso" });
     } catch (error) {
         console.error('Erro ao deletar administrador', error.message);
-        return res.status(500).json({ message: "Erro interno ao deletar" });
+        return res.status(500).json({ message: "Erro interno ao deletar" + error.message });
     }
 });
 
@@ -164,63 +164,63 @@ router.delete('/administradores/:id_administrador', autenticarToken, async (req,
 
 // LOGIN - verificando Admin OU Instituição
 router.post('/login', async (req, res) => {
-const { email, senha } = req.body;
+    const { email, senha } = req.body;
 
-if (!email || !senha) {
-    return res.status(400).json({ message: 'Email e senha são obrigatórios' });
-}
+    if (!email || !senha) {
+        return res.status(400).json({ message: 'Email e senha são obrigatórios' });
+    }
 
-try {
-    // Primeiro tenta achar como Administrador
-    let comando = 'SELECT * FROM administradores WHERE email = $1';
-    let resultado = await BD.query(comando, [email]);
+    try {
+        // Primeiro tenta achar como Administrador
+        let comando = 'SELECT * FROM administradores WHERE email = $1';
+        let resultado = await BD.query(comando, [email]);
 
-    let usuario = null;
-    let tipo = null;
+        let usuario = null;
+        let tipo = null;
 
-    if (resultado.rows.length > 0) {
-    usuario = resultado.rows[0];
-    tipo = 'Administrador';
-    } else {
-      // Se não achou, tenta como Instituição
-      comando = 'SELECT * FROM instituicoes WHERE email_institucional = $1';
-      resultado = await BD.query(comando, [email]);
-
-    if (resultado.rows.length > 0) {
+        if (resultado.rows.length > 0) {
         usuario = resultado.rows[0];
-        tipo = 'Instituicao';
-    }
-    }
+        tipo = 'Administrador';
+        } else {
+        // Se não achou, tenta como Instituição
+        comando = 'SELECT * FROM instituicoes WHERE email_institucional = $1';
+        resultado = await BD.query(comando, [email]);
 
-    if (!usuario) {
-      return res.status(401).json({ message: 'Usuário não encontrado' });
+        if (resultado.rows.length > 0) {
+            usuario = resultado.rows[0];
+            tipo = 'Instituicao';
+        }
+        }
+
+        if (!usuario) {
+        return res.status(401).json({ message: 'Usuário não encontrado' });
+        }
+
+        const senhaCorreta = await bcrypt.compare(senha, usuario.senha);
+        if (!senhaCorreta) {
+        return res.status(401).json({ message: 'Senha inválida' });
+        }
+
+        // Gera token
+        const token = jwt.sign(
+        { id: usuario.id_administrador || usuario.id_instituicao, tipo },
+        SECRET_KEY
+        );
+
+        return res.status(200).json({
+        message: 'Login realizado com sucesso',
+        token,
+        usuario: {
+            id: usuario.id_administrador || usuario.id_instituicao,
+            nome: usuario.nome,
+            email: usuario.email || usuario.email_institucional,
+            tipo
+        }
+        });
+    } catch (error) {
+        console.error('Erro detalhado no Login:', error);
+        return res.status(500).json({ message: 'Erro interno no servidor', erro: error.message });
     }
-
-    const senhaCorreta = await bcrypt.compare(senha, usuario.senha);
-    if (!senhaCorreta) {
-      return res.status(401).json({ message: 'Senha inválida' });
-    }
-
-    // Gera token
-    const token = jwt.sign(
-      { id: usuario.id_administrador || usuario.id_instituicao, tipo },
-      SECRET_KEY
-    );
-
-    return res.status(200).json({
-      message: 'Login realizado com sucesso',
-      token,
-      usuario: {
-        id: usuario.id_administrador || usuario.id_instituicao,
-        nome: usuario.nome,
-        email: usuario.email || usuario.email_institucional,
-        tipo
-      }
-    });
-  } catch (error) {
-    console.error('Erro detalhado no Login:', error);
-    return res.status(500).json({ message: 'Erro interno no servidor', erro: error.message });
-  }
 });
 
 
