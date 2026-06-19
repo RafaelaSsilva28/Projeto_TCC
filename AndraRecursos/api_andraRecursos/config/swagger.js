@@ -89,7 +89,7 @@ const documentacao = {
         tags: ["Administradores"],
         summary: "Listar todos os Administradores",
         security: [{ bearerAuth: [] }],
-        summary: "Listar todas as Instituições",
+        summary: "Listar todos os Administradores",
          description:
         "Lista nome, email e id_administrador para mostrar os administradores",
         responses: {
@@ -1602,7 +1602,7 @@ const documentacao = {
         type: "object",
         properties: {
           mensagem: { type: "string", example: "Solicitação aprovada." },
-          data_resposta: { type: "string", example: "15/06/2026 14:30" },
+          // data_resposta: { type: "string", example: "15/06/2026 14:30" },
           id_solicitacao: { type: "integer", example: 1 },
           id_administrador: { type: "integer", example: 1 },
         },
@@ -1686,7 +1686,8 @@ const documentacao = {
         type: "object",
         properties: {
           nome: { type: "string", example: "Escola Central" },
-          email_institucional: { type: "string", example: "123456" },
+          email_institucional: { type: "string", example: "seuemail@email.com" },
+          senha: { type: "string", example: "senha123" },
           cep: { type: "string", example: "18650-000" },
           telefone: { type: "string", example: "(18)44452-0000" },
           horario_funcionamento: {
@@ -1712,6 +1713,7 @@ const documentacao = {
             type: "string",
             example: "contato@escola.com",
           },
+          senha: { type: "string", example: "senha123" },
           cep: { type: "string", example: "18650-000" },
           telefone: { type: "string", example: "(18)44452-0000" },
           horario_funcionamento: {

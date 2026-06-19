@@ -81,7 +81,7 @@ router.delete("/respostas-adm/:id_resposta", autenticarToken, async (req, res) =
 
     // Verificar se a Solicitação existe antes de tentar deletar
         const verificarResposta = await BD.query(
-            `SELECT * FROM resposta_adm WHERE id_resposta = $1`,
+            `SELECT * FROM respostas_adm WHERE id_resposta = $1`,
             [id_resposta]
         );
 

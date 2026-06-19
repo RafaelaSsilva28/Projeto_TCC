@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/EstilosObrigatorio.css"; 
 import logo from "../assets/AndraRecursos.png"; // Certifique-se de ter o brasão nesta pasta
+import { enderecoServidor } from "../utils";
 
 export default function ObrigatorioInst() {
   const [dadoslogin, setDadosLogin] = useState(null);
@@ -45,7 +46,7 @@ export default function ObrigatorioInst() {
 
     try {
       // Exemplo de envio para o seu backend
-      const resposta = await fetch("http://localhost:3001/instituicao/obrigatorio", {
+      const resposta = await fetch(`${enderecoServidor}/instituicao/obrigatorio`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

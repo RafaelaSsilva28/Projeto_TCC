@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../styles/EstilosDashboard.css"; // Certifique-se de criar este arquivo CSS
 // import logo do municipio de Andradina antiga ou brasão se tiver no asset
 import logo from "../assets/AndraRecursos.png";
+import { enderecoServidor } from "../utils";
 
 export default function PrincipalAdm() {
   const [dadoslogin, setDadosLogin] = useState(null);
@@ -30,31 +31,31 @@ export default function PrincipalAdm() {
           resRecusadas,
           resRecentes,
         ] = await Promise.all([
-          fetch("http://localhost:3001/dashboard/total/solicitacoes"),
+          fetch(`${enderecoServidor}/dashboard/total/solicitacoes`),
           {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           },
-          fetch("http://localhost:3001/dashboard/solicitacoes/aprovadas"),
+          fetch(`${enderecoServidor}/solicitacoes/aprovadas`),
           {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           },
-          fetch("http://localhost:3001/dashboard/solicitacoes/pendentes"),
+          fetch(`${enderecoServidor}/dashboard/solicitacoes/pendentes`),
           {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           },
-          fetch("http://localhost:3001/dashboard/solicitacoes/recusadas"),
+          fetch(`${enderecoServidor}/dashboard/solicitacoes/recusadas`),
           {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           },
-          fetch("http://localhost:3001/dashboard/solicitacoes/recentes"),
+          fetch(`${enderecoServidor}/dashboard/solicitacoes/recentes`),
           {
             headers: {
               Authorization: `Bearer ${token}`,

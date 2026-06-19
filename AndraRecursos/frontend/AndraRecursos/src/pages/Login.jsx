@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/EstilosLogin.css";
 import logo from "../assets/AndraRecursos.png";
+import { enderecoServidor } from "../utils";
 
 export default function Login() {
   const [tipoAcesso, setTipoAcesso] = useState("Usuario Institucional");
@@ -34,7 +35,8 @@ export default function Login() {
     setCarregando(true);
     setMensagemErro("");
 
-    const urlBackend = "http://localhost:3001/login";
+    // const urlBackend = "http://localhost:3001/login";
+    const urlBackend = `${enderecoServidor}/login`;
 
     try {
       const resposta = await fetch(urlBackend, {
