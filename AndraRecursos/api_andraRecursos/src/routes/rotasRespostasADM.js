@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import { autenticarToken } from "../middlewares/autenticacao.js";
+import { autenticarToken } from "../middlewares/Autenticacao.js";
 import { BD } from "../../db.js";
 
 const router = Router();
@@ -78,6 +78,17 @@ router.delete("/respostas-adm/:id_resposta", autenticarToken, async (req, res) =
   const { id_resposta } = req.params;
 
   try {
+
+    // Verificar se a Solicitação existe antes de tentar deletar
+        const verificarResposta = await BD.query(
+            `SELECT * FROM resposta_adm WHERE id_resposta = $1`,
+            [id_resposta]
+        );
+
+        if (verificarResposta.rows.length === 0) {
+            return res.status(404).json({ message: "Resposta não encontrada!" });
+        }
+
     const comando = `DELETE FROM respostas_adm WHERE id_resposta = $1`;
 
     await BD.query(comando, [id_resposta]);

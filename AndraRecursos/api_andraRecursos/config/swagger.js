@@ -89,6 +89,9 @@ const documentacao = {
         tags: ["Administradores"],
         summary: "Listar todos os Administradores",
         security: [{ bearerAuth: [] }],
+        summary: "Listar todas as Instituições",
+         description:
+        "Lista nome, email e id_administrador para mostrar os administradores",
         responses: {
           200: {
             description: "Dados obtidos com sucesso!",
@@ -96,12 +99,13 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "array",
-                  items: {
-                    $ref: "#/components/schemas/Listar_Administradores",
-                  },
-                },
-              },
-            },
+                  items: { $ref: "#/components/schemas/Listar_Administradores" }
+                }
+              }
+            }
+          },
+          401: {
+            description: "Token não foi fornecido!",
           },
           500: {
             description: "Erro interno no servidor!",
@@ -112,7 +116,7 @@ const documentacao = {
         tags: ["Administradores"],
         summary: "Realiza o Cadastro de Administradores",
         security: [{ bearerAuth: [] }],
-        description: "Cadastra um Administrador para ter acesso",
+        description: "Recebe nome, email e a sua senha para cadastrar um administrador",
         requestBody: {
           required: true,
           content: {
@@ -126,24 +130,16 @@ const documentacao = {
         responses: {
           201: {
             description: "Administrador cadastrado com sucesso.",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/Resposta_Administrador",
-                },
-              },
-            },
           },
           400: {
-            description:
-              "Nome, email e senha são obrigatórios ou e-mail já em uso",
+            description: "Email já cadastrado!",
           },
+          401: { description: "Token não foi fornecido!" },
           500: { description: "Erro interno no servidor" },
         },
       },
     },
     "/administradores/{id_administrador}": {
-      // <-- CORREÇÃO 1: Adicionado o "r" no final
       patch: {
         tags: ["Administradores"],
         summary: "Atualiza parcialmente um Administrador", // <-- Ajustado o texto
@@ -174,30 +170,29 @@ const documentacao = {
         },
         responses: {
           200: {
-            // <-- Mudado para 200 porque atualizações retornam status 200 em vez de 201
-            description: "Usuario atualizado parcialmente",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "string",
-                  example: "Usuario atualizado parcialmente",
+            description: "Usuario atualizado parcialmente"},
+          400: { description: "Nenhum campo enviado para atualizar" },
+          401: { description: "Token não foi fornecido!" },
+          404: { description: "Administrador não encontrado!",
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  message: { type: "string", example: "Administrador não encontrado!" },
                 },
               },
             },
-          },
-          400: { description: "Nenhum campo enviado para atualizar" },
-          404: { description: "Administrador não encontrado" },
+           },
           500: { description: "Erro interno no servidor" },
         },
       },
-
       delete: {
         tags: ["Administradores"],
         summary: "Remove Administrador",
         description: "Remove administrador existente pelo ID",
         security: [
           {
-            bearerAuth: [], // <-- ISSO AQUI adiciona o campo de Token (cadeado) na rota do Swagger
+            bearerAuth: [],
           },
         ],
         parameters: [
@@ -216,6 +211,7 @@ const documentacao = {
           200: {
             description: "Administrador removido com sucesso!",
           },
+          401: { description: "Token não foi fornecido!" },
           404: {
             description: "Administrador não encontrado",
             content: {
@@ -241,6 +237,10 @@ const documentacao = {
           },
         ],
         summary: "Listar todas as Instituições",
+         description:
+        "Lista nome, email_institucional, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro e bairro para mostrar as instituições",
+        
+        
         responses: {
           200: {
             description: "Dados obtidos com sucesso!",
@@ -248,11 +248,12 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "array",
-                  items: { $ref: "#/components/schemas/Listar_Instituições" },
-                },
-              },
-            },
+                  items: { $ref: "#/components/schemas/Listar_Instituições" }
+                }
+              }
+            }
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno no servidor!",
           },
@@ -276,10 +277,19 @@ const documentacao = {
         },
         responses: {
           201: {
-            description: "Instituição cadastrada com sucesso!",
+            description: "Instituição cadastrada com sucesso!",   
           },
           400: {
             description: "Erro na requisição (preencha todos os campos)",
+          },
+          401: { description: "Token não foi fornecido!" },
+          404: {
+            description: "Email institucional já cadastrado!",
+            content: {
+              "application/json": {
+                example: { message: "Email institucional já cadastrado!" },
+              },
+            },
           },
           500: {
             description: "Erro interno so Servidor",
@@ -318,11 +328,15 @@ const documentacao = {
         },
         responses: {
           201: {
-            description: "Administrador cadastrado com sucesso.",
+            description: "Instituição cadastrada com sucesso!",
           },
           400: {
             description:
               "Campos obrigatórios ausentes ou inseridos incorretamente!",
+          },
+          401: { description: "Token não foi fornecido!" },
+          404: {
+            description: "Instituição não encontrada!",
           },
           500: { description: "Erro interno no servidor" },
         },
@@ -337,7 +351,7 @@ const documentacao = {
             name: "id_instituicao",
             in: "path",
             required: true,
-            description: "Id da solicitação a ser excluída",
+            description: "Id da instituição a ser excluída",
             schema: { type: "integer" },
             example: 1,
           },
@@ -346,6 +360,11 @@ const documentacao = {
         responses: {
           200: {
             description: "Instituição excluída com sucesso",
+            
+          },
+          401: { description: "Token não foi fornecido!" },
+          404: {
+            description: "Instituição não encontrada!",
             content: {
               "application/json": { example: "Instituição não encontrada" },
             },
@@ -363,56 +382,35 @@ const documentacao = {
         tags: ["Notificações"],
         summary: "Listar todas as notificações",
         security: [{ bearerAuth: [] }],
-        description:
-          "Retorna uma lista contendo todas as notificações salvas no banco de dados.",
+        description: "Mostra uma lista contendo id_notificacao, mensagem, tipo_informacao e id_administrador",
         responses: {
           200: {
             description: "Dados obtidos com sucesso!",
             content: {
               "application/json": {
                 schema: {
-                  type: "object",
-                  properties: {
-                    id_notificacao: { type: "integer", example: 1 },
-                    mensagem: {
-                      type: "string",
-                      example: "Texto da mensagem atualizado.",
-                    },
-                    tipo_informacao: {
-                      type: "string",
-                      example: "Alerta Crítico",
-                    },
-                    id_administrador: { type: "integer", example: 1 },
-                  },
-                },
-              },
-            },
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Listar_Notificacoes" }
+                }
+              }
+            }
           },
+          401: { description: "Token não foi fornecido!" },
           500: { description: "Erro interno ao buscar notificações." },
+          
         },
       },
       post: {
         tags: ["Notificações"],
         summary: "Realiza o Cadastro de Notificações",
         security: [{ bearerAuth: [] }],
-        description: "Cadastra uma Notificação para ser enviada",
+        description: "Cadastra uma Notificação com mensagem, tipo_informacao e id_administrador para ser enviada",
         requestBody: {
           required: true,
           content: {
             "application/json": {
               schema: {
-                type: "object",
-                properties: {
-                  mensagem: {
-                    type: "string",
-                    example: "Texto da mensagem atualizado.",
-                  },
-                  tipo_informacao: {
-                    type: "string",
-                    example: "Alerta Crítico",
-                  },
-                  id_administrador: { type: "integer", example: 1 },
-                },
+                $ref: "#/components/schemas/Cadastro_Notificacao",
               },
             },
           },
@@ -420,18 +418,13 @@ const documentacao = {
         responses: {
           201: {
             description: "Notificação cadastrada com sucesso.", // <-- CORREÇÃO: Gênero da palavra ajustado
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/Resposta_Notificacao",
-                },
-              },
-            },
+           
           },
           400: {
             description:
               "Mensagem, tipo_informacao e id_administrador são obrigatórios.",
           },
+          401: { description: "Token não foi fornecido!" },
           500: { description: "Erro interno no servidor" },
         },
       },
@@ -460,41 +453,31 @@ const documentacao = {
           content: {
             "application/json": {
               schema: {
-                type: "object",
-                properties: {
-                  mensagem: {
-                    type: "string",
-                    example: "Texto da mensagem atualizado.",
-                  },
-                  tipo_informacao: {
-                    type: "string",
-                    example: "Alerta Crítico",
-                  },
-                  id_administrador: { type: "integer", example: 1 },
-                },
+                $ref: "#/components/schemas/Cadastro_Notificacao",
               },
             },
           },
-        }, // <-- CORREÇÃO 1: Chaves do requestBody fechadas corretamente
+        },// <-- CORREÇÃO 1: Chaves do requestBody fechadas corretamente
         responses: {
           200: {
             // <-- CORREÇÃO 2: Alterado de 201 para 200 para bater com o seu Express
             description: "Notificação atualizada parcialmente com sucesso.",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "string",
-                  example: "Notificacao atualizada parcialmente",
-                },
-              },
-            },
           },
           400: {
             description:
               "Campos obrigatórios ausentes ou inseridos incorretamente!",
           },
+          401: { description: "Token não foi fornecido!" },
           404: {
             description: "Notificação não encontrada",
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  message: { type: "string", example: "Notificação não encontrada" },
+                },
+              },
+            },
           },
           500: { description: "Erro interno no servidor" },
         },
@@ -517,11 +500,20 @@ const documentacao = {
 
         responses: {
           200: {
-            description: "Notificação excluída com sucesso",
-            content: {
-              "application/json": { example: "Notificação não encontrada" },
-            },
+            description: "Notificação excluída com sucesso"
+           
           },
+          401: { description: "Token não foi fornecido!" },
+          404: { description: "Notificação não encontrada!",
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  message: { type: "string", example: "Notificação não encontrada!" },
+                },
+              },
+            },
+           },
           500: {
             description: "Erro interno no Servidor",
           },
@@ -535,6 +527,8 @@ const documentacao = {
         tags: ["Respostas ADM"],
         summary: "Listar respostas do ADM",
         security: [{ bearerAuth: [] }],
+        description:
+          "Lista as respostas dos administradores mostrando os campos id_resposta, mensagem, data_resposta, id_solicitacao e id_administrador",
         responses: {
           200: {
             description: "Dados obtidos com sucesso",
@@ -542,11 +536,13 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "array",
-                  items: { $ref: "#/components/schemas/Lista_Resposta_ADM" },
-                },
-              },
-            },
+                  items: { $ref: "#/components/schemas/Lista_Resposta_ADM" }
+                }
+              }
+            }
           },
+          401: { description: "Token não foi fornecido!" },
+          500: { description: "Erro interno no servidor!" },
         },
       },
       post: {
@@ -572,6 +568,8 @@ const documentacao = {
           400: {
             description: "Erro na requisição(preencha todos os campos)",
           },
+          401: { description: "Token não foi fornecido!" },
+
           500: {
             description: "Erro interno so Servidor",
           },
@@ -583,7 +581,7 @@ const documentacao = {
         tags: ["Respostas ADM"],
         summary: "Atualizar resposta completa",
         security: [{ bearerAuth: [] }],
-        description: "Atualiza todos os campos de uma resposta existente",
+        description: "Atualiza todos os campos por id_resposta enviando a mensagem, data_resposta, id_solicitacao e id_administrador para atualizar",
         parameters: [
           {
             name: "id_resposta",
@@ -604,13 +602,9 @@ const documentacao = {
         },
         responses: {
           200: {
-            description: "Resposta do ADM atualizada com sucesso",
-            content: {
-              "application/json": {
-                example: "Resposta do ADM atualizada com sucesso",
-              },
-            },
+            description: "Resposta do ADM atualizada com sucesso"
           },
+          401: { description: "Token não foi fornecido!" },
           404: {
             description: "Resposta do ADM não encontrada",
             content: {
@@ -639,11 +633,19 @@ const documentacao = {
         ],
         responses: {
           200: {
-            description: "resposta do ADM excluída com sucesso",
-            content: {
-              "application/json": { example: "resposta do ADM não encontrada" },
-            },
+            description: "resposta do ADM excluída com sucesso"
           },
+          401: { description: "Token não foi fornecido!" },
+          404: { description: "Resposta não encontrada!",
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  message: { type: "string", example: "Resposta não encontrada!" },
+                },
+              },
+            },
+           },
           500: {
             description: "Erro no Servidor",
           },
@@ -660,7 +662,8 @@ const documentacao = {
             bearerAuth: [],
           },
         ],
-        summary: "Listar todas os Documentos",
+        summary: "Listar todos os Documentos",
+        description: "Lista os documntos mostrando o id_documento, nome_arquivo, caminho, tipo e id_solicitacao ",
         responses: {
           200: {
             description: "Dados obtidos com sucesso!",
@@ -668,11 +671,13 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "array",
-                  items: { $ref: "#/components/schemas/Listar_Documentos" },
-                },
-              },
-            },
+                  items: { $ref: "#/components/schemas/Listar_Documentos" }
+                }
+              }
+            }
           },
+          401: { description: "Token não foi fornecido!" },
+          500: { description: "Erro interno no servidor!" },
         },
       },
       post: {
@@ -697,6 +702,18 @@ const documentacao = {
           },
           400: {
             description: "Erro na requisição (preencha todos os campos)",
+          },
+          401: { description: "Token não foi fornecido!" },
+          404: {
+            description: "Documento não encontrado!",
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  message: { type: "string", example: "Documento não encontrado!" },
+                },
+              },
+            },
           },
           500: {
             description: "Erro interno so Servidor",
@@ -728,12 +745,37 @@ const documentacao = {
             content: {
               "application/json": {
                 schema: {
-                  type: "array",
-                  items: { $ref: "#/components/schemas/Listar_Documentos" },
+                  type: "object",
+                  properties: {
+                    id_documento: {
+                      type: "integer",
+                      example: 12,
+                    },
+                    nome_arquivo: {
+                      type: "string",
+                      example: "Pedido de Reforma.pdf",
+                    },
+                    caminho: {
+                      type: "string",
+                      example: "/uploads/pedido_reforma.pdf",
+                    },
+                    tipo: {
+                      type: "string",
+                      example: "application/pdf",
+                    },
+                    titulo_solicitacao: {
+                      type: "string",
+                      example: "Computador da recepção com lentidão",
+                    },
+                  },
                 },
               },
             },
           },
+          400: {
+            description: "Informe o tipo do documento",
+          },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno do Servidor",
           },
@@ -764,12 +806,34 @@ const documentacao = {
             content: {
               "application/json": {
                 schema: {
-                  type: "array",
-                  items: { $ref: "#/components/schemas/Lista_Solicitacoes" },
+                  type: "object",
+                  properties: {
+                    id_documento: {
+                      type: "integer",
+                      example: 12,
+                    },
+                    nome_arquivo: {
+                      type: "string",
+                      example: "Pedido de Reforma.pdf",
+                    },
+                    caminho: {
+                      type: "string",
+                      example: "/uploads/pedido_reforma.pdf",
+                    },
+                    tipo: {
+                      type: "string",
+                      example: "application/pdf",
+                    },
+                    titulo_solicitacao: {
+                      type: "string",
+                      example: "Computador da recepção com lentidão",
+                    },
+                  },
                 },
               },
             },
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno do Servidor",
           },
@@ -798,13 +862,14 @@ const documentacao = {
             description: "Documento excluído com sucesso!",
           },
           404: {
-                        description: "Documento não encontrado",
-                        content: {
-                            "application/json": {
-                                example: { message: "Documento não encontrado" }
-                            }
-                        }
-                    },
+            description: "Documento não encontrado",
+            content: {
+              "application/json": {
+                example: { message: "Documento não encontrado" },
+              },
+            },
+          },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno no Servidor",
           },
@@ -818,24 +883,20 @@ const documentacao = {
         tags: ["Solicitações"],
         summary: "Listar Solicitações",
         security: [{ bearerAuth: [] }],
+        description: "Lista o titulo, descricao, prioridade, setor, status, data_pedido, id_instituicao para mostrar todas as solicitações",
         responses: {
           200: {
             description: "Dados obtidos com sucesso",
             content: {
               "application/json": {
                 schema: {
-                  type: "object",
-                  properties: {
-                    total: {
-                      type: "integer",
-                      example: 2,
-                    },
-                  },
-                  items: { $ref: "#/components/schemas/Lista_Solicitacoes" },
-                },
-              },
-            },
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Lista_Solicitacoes" }
+                }
+              }
+            }
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno no servidor!",
           },
@@ -852,7 +913,7 @@ const documentacao = {
           content: {
             "application/json": {
               schema: {
-                $ref: "#/components/schemas/Cadastro_Solicitacoes",
+                $ref: "#/components/schemas/Lista_Solicitacoes",
               },
             },
           },
@@ -864,6 +925,7 @@ const documentacao = {
           400: {
             description: "Erro na requisição(preencha todos os campos)",
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno so Servidor",
           },
@@ -877,6 +939,7 @@ const documentacao = {
         security: [{ bearerAuth: [] }],
         description:
           "Retorna todas as solicitações de acordo com a prioridade informada.",
+        
         parameters: [
           {
             name: "prioridade",
@@ -896,11 +959,13 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "array",
-                  items: { $ref: "#/components/schemas/Lista_Solicitacoes" },
-                },
-              },
-            },
+                  items: { $ref: "#/components/schemas/Lista_Solicitacoes" }
+                }
+              }
+            }
+            
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno do Servidor",
           },
@@ -914,6 +979,7 @@ const documentacao = {
         security: [{ bearerAuth: [] }],
         description:
           "Retorna todas as solicitações de acordo com o setor informado.",
+        
         parameters: [
           {
             name: "setor",
@@ -933,11 +999,12 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "array",
-                  items: { $ref: "#/components/schemas/Lista_Solicitacoes" },
-                },
-              },
-            },
+                  items: { $ref: "#/components/schemas/Lista_Solicitacoes" }
+                }
+              }
+            }
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno do Servidor",
           },
@@ -951,6 +1018,7 @@ const documentacao = {
         security: [{ bearerAuth: [] }],
         description:
           "Retorna todas as solicitações de acordo com o status informado.",
+        
         parameters: [
           {
             name: "status",
@@ -970,11 +1038,12 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "array",
-                  items: { $ref: "#/components/schemas/Lista_Solicitacoes" },
-                },
-              },
-            },
+                  items: { $ref: "#/components/schemas/Lista_Solicitacoes" }
+                }
+              }
+            }
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno do Servidor",
           },
@@ -986,7 +1055,8 @@ const documentacao = {
         tags: ["Solicitações"],
         summary: "Atualizar solicitação por parte",
         security: [{ bearerAuth: [] }],
-        description: "Atualiza todos os campos de uma solicitação existente",
+        description: "Atualiza o campo de status de uma solicitação existente",
+  
         parameters: [
           {
             name: "id_solicitacoes",
@@ -1010,10 +1080,14 @@ const documentacao = {
             description: "Solicitação atualizada com sucesso",
             content: {
               "application/json": {
-                example: "Solicitação atualizada com sucesso",
-              },
-            },
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Lista_Solicitacoes" }
+                }
+              }
+            }
           },
+          401: { description: "Token não foi fornecido!" },
           404: {
             description: "Solicitação não encontrada",
             content: {
@@ -1057,12 +1131,13 @@ const documentacao = {
         },
         responses: {
           201: {
-            description: "SOlicitações atualizada com sucesso!",
+            description: "Solicitações atualizada com sucesso!",
           },
           400: {
             description:
               "Campos obrigatórios ausentes ou inseridos incorretamente!",
           },
+          401: { description: "Token não foi fornecido!" },
           500: { description: "Erro interno no servidor" },
         },
       },
@@ -1085,9 +1160,12 @@ const documentacao = {
           200: {
             description: "Solicitação excluída com sucesso",
             content: {
-              "application/json": { example: "Solicitação não encontrada" },
+              "application/json": {
+                example: "Solicitação excluída com sucesso",
+              },
             },
           },
+          401: { description: "Token não foi fornecido!" },
           404: {
             description: "Solicitação não encontrada",
             content: {
@@ -1109,6 +1187,8 @@ const documentacao = {
         tags: ["Historico"],
         summary: "Listar Historico de Solicitações",
         security: [{ bearerAuth: [] }],
+                description: "Lista o historico mostrando id_historico, id_solicitacao, descricao, status, prioridade, data_alteracao ",
+
         responses: {
           200: {
             description: "Dados obtidos com sucesso",
@@ -1116,11 +1196,13 @@ const documentacao = {
               "application/json": {
                 schema: {
                   type: "array",
-                  items: { $ref: "#/components/schemas/Listar_Historico" },
-                },
-              },
-            },
+                  items: { $ref: "#/components/schemas/Listar_Historico" }
+                }
+              }
+            }
           },
+          401: { description: "Token não foi fornecido!" },
+          500: { description: "Erro interno no servidor!" },
         },
       },
       post: {
@@ -1128,7 +1210,7 @@ const documentacao = {
         summary: "Cadastrar novo Historico ",
         security: [{ bearerAuth: [] }],
         description:
-          "Recebe dados com relação ao já mencionado em Solicitações",
+          "Cadastra o historico mostrando id_historico, id_solicitacao, descricao, status, prioridade, data_alteracao",
         requestBody: {
           required: true,
           content: {
@@ -1141,11 +1223,12 @@ const documentacao = {
         },
         responses: {
           201: {
-            description: "Historico cadastrado com sucesso",
+            description: "Historico cadastrado com sucesso!",
           },
           400: {
             description: "Erro na requisição(preencha todos os campos)",
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno so Servidor",
           },
@@ -1177,12 +1260,39 @@ const documentacao = {
             content: {
               "application/json": {
                 schema: {
-                  type: "array",
-                  items: { $ref: "#/components/schemas/Listar_Historico" },
+                  type: "object",
+                  properties: {
+                    id_historico: {
+                      type: "integer",
+                      example: 14,
+                    },
+                    id_solicitacao: {
+                      type: "integer",
+                      example: 19,
+                    },
+                    descricao: {
+                      type: "string",
+                      example: "Solicitação Criada",
+                    },
+                    status: {
+                      type: "string",
+                      example: "Pendente",
+                    },
+                    prioridade: {
+                      type: "string",
+                      example: "Alta",
+                    },
+                    data_alteracao: {
+                      type: "string",
+                      format: "date-time",
+                      example: "2026-06-19T13:36:16.380Z",
+                    },
+                  },
                 },
               },
             },
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno do Servidor",
           },
@@ -1194,7 +1304,7 @@ const documentacao = {
         tags: ["Historico"],
         summary: "Realiza a atualização do Historico",
         security: [{ bearerAuth: [] }],
-        description: "",
+        description: "Atualiza os campos do historico atraves de um id_historico",
         parameters: [
           {
             name: "id_historico",
@@ -1225,6 +1335,7 @@ const documentacao = {
             description:
               "Campos obrigatórios ausentes ou inseridos incorretamente!",
           },
+          401: { description: "Token não foi fornecido!" },
           500: { description: "Erro interno no servidor" },
         },
       },
@@ -1247,14 +1358,15 @@ const documentacao = {
           201: {
             description: "Historico deletado com sucesso!",
           },
+          401: { description: "Token não foi fornecido!" },
           404: {
-                        description: "Histórico não encontrado",
-                        content: {
-                            "application/json": {
-                                example: { message: "Histórico não encontrado" }
-                            }
-                        }
-                    },
+            description: "Histórico não encontrado",
+            content: {
+              "application/json": {
+                example: { message: "Histórico não encontrado" },
+              },
+            },
+          },
           500: { description: "Erro interno no servidor!" },
         },
       },
@@ -1266,18 +1378,23 @@ const documentacao = {
         tags: ["Dashboard"],
         summary: "Listar Total de Solicitações",
         security: [{ bearerAuth: [] }],
+         description:
+          "Lista o total de solicitações para o dashboard",
         responses: {
           200: {
             description: "Total obtido com sucesso!",
             content: {
               "application/json": {
                 schema: {
-                  type: "number",
-                  example: 2,
+                  type: "object",
+                  properties: {
+                    total: { type: "string", example: "2" },
+                  },
                 },
               },
-            },
+            },  
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno no servidor!",
           },
@@ -1289,18 +1406,23 @@ const documentacao = {
         tags: ["Dashboard"],
         summary: "Listar Solicitações ainda Pendentes",
         security: [{ bearerAuth: [] }],
+         description:
+          "Lista o total de solicitações PENDENTES para o dashboard",
         responses: {
           200: {
             description: "Solicitações pendentes obtidas com sucesso!",
             content: {
               "application/json": {
                 schema: {
-                  type: "number",
-                  example: 2,
+                  type: "object",
+                  properties: {
+                    pendentes: { type: "string", example: "2" },
+                  },
                 },
               },
             },
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno no servidor!",
           },
@@ -1312,18 +1434,23 @@ const documentacao = {
         tags: ["Dashboard"],
         summary: "Listar Solicitações Aprovadas",
         security: [{ bearerAuth: [] }],
+         description:
+          "Lista o total de solicitações APROVADAS para o dashboard",
         responses: {
           200: {
             description: "Solicitações aprovadas obtidas com sucesso!",
             content: {
-              "application/json": {
-                schema: {
-                  type: "number",
-                  example: 2,
-                },
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                aprovadas: { type: "string", example: "2" },
               },
             },
           },
+        },  
+          },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno no servidor!",
           },
@@ -1335,18 +1462,23 @@ const documentacao = {
         tags: ["Dashboard"],
         summary: "Listar Solicitações Recentes",
         security: [{ bearerAuth: [] }],
+        description:
+          "Lista o total de solicitações RECENTES para o dashboard",
         responses: {
           200: {
             description: "Solicitações recentes obtidas com sucesso!",
             content: {
-              "application/json": {
-                schema: {
-                  type: "number",
-                  example: 2,
-                },
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                recentes: { type: "string", example: "2" },
               },
             },
           },
+        },  
+          },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno no servidor!",
           },
@@ -1358,18 +1490,22 @@ const documentacao = {
         tags: ["Dashboard"],
         summary: "Listar Solicitações Recusadas",
         security: [{ bearerAuth: [] }],
+        description: "Lista o total de solicitações RECUSADAS para o dashboard",
         responses: {
           200: {
             description: "Solicitações recusadas obtidas com sucesso!",
             content: {
               "application/json": {
                 schema: {
-                  type: "number",
-                  example: 2,
+                  type: "object",
+                  properties: {
+                    recusadas: { type: "string", example: "2" },
+                  },
                 },
               },
             },
           },
+          401: { description: "Token não foi fornecido!" },
           500: {
             description: "Erro interno no servidor!",
           },
@@ -1377,6 +1513,7 @@ const documentacao = {
       },
     },
   },
+
   components: {
     securitySchemes: {
       bearerAuth: {
@@ -1417,30 +1554,29 @@ const documentacao = {
 
       //Administradores
       Cadastro_Administrador: {
-        // <-- CORREÇÃO 2: Estrutura do objeto limpa e simplificada
         type: "object",
         properties: {
-          nome: { type: "string", example: "Administrador " },
-          email: { type: "string", example: "gustavopequeno@email.com" },
-          senha: { type: "string", example: "coloquesuasenha" },
-        },
-      },
-      Resposta_Administrador: {
-        type: "object",
-        properties: {
-          mensagem: {
-            type: "string",
-            example: "Administrador cadastrado com sucesso.",
-          },
+            nome: { type: "string", example: "Administrador " },
+            email: { type: "string", example: "gustavopequeno@email.com" },
+            senha: { type: "string", example: "coloquesuasenha" },
         },
       },
       Listar_Administradores: {
         type: "object",
         properties: {
-          id: { type: "integer", example: 1 },
-          nome: { type: "string", example: "Ricardo" },
-          email: { type: "string", example: "ricardo@email.com" },
-        },
+          id_administrador: {
+            type: "integer",
+            example: 1
+          },
+          nome: {
+            type: "string",
+            example: "Ricardo"
+          },
+          email: {
+            type: "string",
+            example: "ricardo@email.com"
+          }
+        }
       },
       Atualizacao_Administradores: {
         type: "object",
@@ -1526,6 +1662,7 @@ const documentacao = {
       Listar_Instituições: {
         type: "object",
         properties: {
+          id_instituicao: { type: "integer", example: 2},
           nome: { type: "string", example: "Escola Central" },
           email_institucional: { type: "string", example: "123456" },
           cep: { type: "string", example: "18650-000" },
@@ -1597,7 +1734,7 @@ const documentacao = {
       Lista_Solicitacoes: {
         type: "object",
         properties: {
-          id_solicitacoes: { type: "integer", example: 1 },
+          id_solicitacoes: { type: "string", example: "1" },
           titulo: { type: "string", example: "Computador não liga" },
           descricao: {
             type: "string",
@@ -1605,7 +1742,7 @@ const documentacao = {
           },
           prioridade: { type: "string", example: "alta" },
           setor: { type: "string", example: "TI" },
-          status: { type: "string", example: "pendente" },
+          status: { type: "string", example: "em andamento" },
           data_pedido: { type: "string", example: "11/06/2026 14:30" },
           nome_instituicao: {
             type: "string",
@@ -1664,7 +1801,6 @@ const documentacao = {
       Cadastro_Documentos: {
         type: "object",
         properties: {
-          id_documento: { type: "integer", example: 1 },
           nome_arquivo: { type: "string", example: "Pedido de Reforma.pdf" },
           caminho: { type: "string", example: "/uploads/pedido_reforma.pdf" },
           tipo: { type: "string", example: "application/pdf" },
@@ -1676,7 +1812,7 @@ const documentacao = {
       Listar_Historico: {
         type: "object",
         properties: {
-          id_historico: { type: "integer", example: 1 },
+          id_historico: {type: "integer", example: 1},
           id_solicitacao: { type: "integer", example: 1 },
           descricao: { type: "string", example: "Solicitação Criada" },
           status: { type: "string", example: "Pendente" },
@@ -1687,7 +1823,6 @@ const documentacao = {
       Cadastro_Historico: {
         type: "object",
         properties: {
-          id_historico: { type: "integer", example: 1 },
           id_solicitacao: { type: "integer", example: 1 },
           descricao: { type: "string", example: "Solicitação Criada" },
           status: { type: "string", example: "Pendente" },
@@ -1698,7 +1833,6 @@ const documentacao = {
       Atualizar_Historico: {
         type: "object",
         properties: {
-          id_historico: { type: "integer", example: 1 },
           id_solicitacao: { type: "integer", example: 1 },
           descricao: { type: "string", example: "Solicitação Criada" },
           status: { type: "string", example: "Pendente" },

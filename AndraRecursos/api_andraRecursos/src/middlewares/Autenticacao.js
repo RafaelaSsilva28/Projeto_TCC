@@ -11,9 +11,9 @@ export function autenticarToken(req, res, next){
     //token = ihsifokijsdosjido
     const token = cabecalho && cabecalho.split(' ')[1]
 
-    //validação se o token está autorizado
+    //validação se o token está autorizado - Irá exibir essa mensagem
     if(!token){
-        return res.status(401).json({message: `Token não fornecido`})
+        return res.status(401).json({message: `Token não fornecido!`})
     }
 
     //caso o token seja valido e se a assinatura for igual a secret_key

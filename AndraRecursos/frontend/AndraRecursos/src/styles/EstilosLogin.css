@@ -20,8 +20,28 @@ html, body {
   padding: 0;
 }
 
+/* BOX PARA LEMBRAR DE MIM */
+.entreOpcoes{
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin: 8px 0 15px;
+}
+
+.containerCheckbox{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkbox{
+    width: 20px;
+    height: 10px;
+    cursor: pointer;
+}
+
 /* ==========================================================================
-   LADO ESQUERDO (PAINEL DE LOGIN)
+  LADO ESQUERDO (PAINEL DE LOGIN)
    ========================================================================== */
 .andra-login-side {
   flex: 1;
@@ -59,7 +79,7 @@ html, body {
   box-sizing: border-box;
 }
 
-.andra-form {
+.andra-form  {
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -104,7 +124,7 @@ html, body {
 }
 
 .andra-form select,
-.andra-form input {
+.andra-form input:not([type="checkbox"]){
   width: 100%;
   padding: 12px 14px;
   border: 1.5px solid #b0b0b0;
@@ -117,7 +137,7 @@ html, body {
   transition: all 0.3s ease;
 }
 
-.andra-form input {
+.andra-form input:not([type="checkbox"]) {
   padding-left: 40px; 
 }
 

@@ -1,6 +1,6 @@
 import express, { Router } from "express";
 import { BD } from "../../db.js";
-import { autenticarToken } from "../middlewares/autenticacao.js";
+import { autenticarToken } from "../middlewares/Autenticacao.js";
 
 const router = Router();
 
@@ -117,6 +117,17 @@ router.delete("/historico-solicitacoes/:id_historico", autenticarToken, async (r
   const { id_historico } = req.params;
 
   try {
+
+    // Verificar se a Solicitação existe antes de tentar deletar
+        const verificarHistorico = await BD.query(
+            `SELECT * FROM historico_solicitacoes WHERE id_historico = $1`,
+            [id_historico]
+        );
+
+        if (verificarHistorico.rows.length === 0) {
+            return res.status(404).json({ message: "Histórico não encontrado!" });
+        }
+
     const comando = `DELETE FROM historico_solicitacoes WHERE id_historico = $1`;
     // const comando = `DELETE FROM usuarios WHERE id_usuario = $1`
     await BD.query(comando, [id_historico]);

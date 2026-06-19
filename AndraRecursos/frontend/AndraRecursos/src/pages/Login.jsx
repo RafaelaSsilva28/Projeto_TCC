@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/EstilosLogin.css";
 import logo from "../assets/AndraRecursos.png";
@@ -10,8 +10,24 @@ export default function Login() {
   const [verSenha, setVerSenha] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [mensagemErro, setMensagemErro] = useState("");
+  const [lembrar, setLembrar] = useState(false);
 
   const navigate = useNavigate();
+
+  useEffect(() =>{
+            const lembrarSalvo = localStorage.getItem("@AndraRecursos:lembrar");
+            const usuarioLogado = localStorage.getItem("@AndraRecursos:usuario");
+            
+            if(lembrarSalvo === "true" && usuarioLogado){
+                const usuario = JSON.parse(usuarioLogado)
+                if(usuario.tipo === "Administrador"){
+                    navigate(`/principal-adm`)
+                } else{
+                  navigate("/obrigatorio-inst");
+                }
+            }
+  }, [navigate]);
+  
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -46,6 +62,7 @@ export default function Login() {
 
       localStorage.setItem("@AndraRecursos:token", dados.token);
       localStorage.setItem("@AndraRecursos:usuario", JSON.stringify(dados.usuario));
+      localStorage.setItem("@AndraRecursos:lembrar", lembrar);
 
       if (tipoRetornado === "Administrador") {
         navigate("/principal-adm");
@@ -123,6 +140,15 @@ export default function Login() {
                 </button>
               </div>
             </div>
+
+            <div className= "entreOpcoes" >
+                        <div className="containerCheckbox" >
+                            <input type="checkbox" className="checkbox" 
+                            checked={lembrar} onChange={(e) => setLembrar(e.target.checked)}
+                            />
+                            <label>Lembrar-me</label>
+                        </div>
+                    </div>
 
             <button type="submit" className="andra-btn-submit" disabled={carregando}>
               {carregando ? "Autenticando..." : "Entrar"} <span className="andra-arrow">➔</span>

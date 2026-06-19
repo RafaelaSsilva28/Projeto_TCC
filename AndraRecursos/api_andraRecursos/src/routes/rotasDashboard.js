@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { BD } from "../../db.js";
 import jwt from "jsonwebtoken";
-import { autenticarToken } from "../middlewares/autenticacao.js";
+import { autenticarToken } from "../middlewares/Autenticacao.js";
 
 const router = Router();
 const SECRET_KEY = "minha_chave_secreta";

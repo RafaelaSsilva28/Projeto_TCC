@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { BD } from "../../db.js";
 import bcrypt from 'bcrypt';
-import { autenticarToken } from "../middlewares/autenticacao.js";
+import { autenticarToken } from "../middlewares/Autenticacao.js";
 import jwt from 'jsonwebtoken';
 
 const router = Router();
@@ -15,8 +15,8 @@ router.get('/administradores', autenticarToken, async (req, res) => {
         const administradores = await BD.query(query);
         res.status(200).json(administradores.rows);
     } catch (error) {
-        console.error('Erro ao listar administradores', error.message);
-        res.status(500).json({ error: 'Erro ao listar administradores' + error.message });
+        console.error('Erro ao listar administradores', error.message); //com virgula
+        res.status(500).json({ error: 'Erro ao listar administradores' + error.message }); //com +
     }
 });
 
@@ -26,7 +26,7 @@ router.post('/administradores', autenticarToken, async (req, res) => {
 
     // Validação de campos obrigatórios
     if (!nome || !email || !senha) {
-        return res.status(400).json({ mensagem: "Nome, email e senha são obrigatórios." });
+        return res.status(400).json({ mensagem: "Nome, email e senha são obrigatórios!" });
     }
 
     try {
@@ -108,6 +108,17 @@ router.patch('/administradores/:id_administrador', autenticarToken, async (req, 
 router.delete('/administradores/:id_administrador', autenticarToken, async (req, res) => {
     const { id_administrador } = req.params;
     try {
+
+        // Verificar se a Solicitação existe antes de tentar deletar
+        const verificarAdministrador = await BD.query(
+            `SELECT * FROM administradores WHERE id_administrador = $1`,
+            [id_administrador]
+        );
+
+        if (verificarAdministrador.rows.length === 0) {
+            return res.status(404).json({ message: "Administrador não encontrado!" });
+        }
+
         const comando = `DELETE FROM administradores WHERE id_administrador = $1`;
         await BD.query(comando, [id_administrador]);
         return res.status(200).json({ message: "Administrador deletado com sucesso" });
@@ -193,7 +204,7 @@ router.post('/login', async (req, res) => {
         }
 
         if (!usuario) {
-        return res.status(401).json({ message: 'Usuário não encontrado' });
+        return res.status(401).json({ message: 'Usuário não encontrado!' });
         }
 
         const senhaCorreta = await bcrypt.compare(senha, usuario.senha);

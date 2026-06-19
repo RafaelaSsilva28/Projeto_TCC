@@ -1,60 +1,94 @@
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import "../styles/EstilosDashboard.css" // Certifique-se de criar este arquivo CSS
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import "../styles/EstilosDashboard.css"; // Certifique-se de criar este arquivo CSS
 // import logo do municipio de Andradina antiga ou brasão se tiver no asset
 import logo from "../assets/AndraRecursos.png";
 
 export default function PrincipalAdm() {
-  const [dadoslogin, setDadosLogin] = useState(null)
+  const [dadoslogin, setDadosLogin] = useState(null);
   const [solicitacoes, setSolicitacoes] = useState([]);
 
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   useEffect(() => {
     function buscarUsuario() {
-      const usuarioLogado = localStorage.getItem('UsuarioLogado')
+      const usuarioLogado = localStorage.getItem("AndraRecursos:usuario");
       if (usuarioLogado) {
-        setDadosLogin(JSON.parse(usuarioLogado))
+        setDadosLogin(JSON.parse(usuarioLogado));
       }
     }
-  async function buscarSolicitacoes() {
-  try {
-    // 1. CORRIGIDO: Adicionado as barras duplas '//' nas URLs
-    const [resTotal, resAprovadas, resPendentes, resRecusadas, resRecentes] = await Promise.all([
-      fetch("http://localhost:3001/dashboard/total/solicitacoes"),
-      fetch("http://localhost:3001/dashboard/solicitacoes/aprovadas"),
-      fetch("http://localhost:3001/dashboard/solicitacoes/pendentes"), // Corrigido endpoint duplicado
-      fetch("http://localhost:3001/dashboard/solicitacoes/recusadas"),
-      fetch("http://localhost:3001/dashboard/solicitacoes/recentes")
-    ]);
 
-    const total = await resTotal.json()
-    const aprovadas = await resAprovadas.json()
-    const pendentes = await resPendentes.json()
-    const recusadas = await resRecusadas.json()
-    const recentes = await resRecentes.json()
+    async function buscarSolicitacoes() {
+      const token = localStorage.getItem("AndraRecursos:token");
 
-    setSolicitacoes({
-    total: total.total,
-    aprovadas: aprovadas.aprovadas,
-    pendentes: pendentes.pendentes,
-    recusadas: recusadas.recusadas,
-    recentes: recentes
-  });
+      try {
+        // 1. CORRIGIDO: Adicionado as barras duplas '//' nas URLs
+        const [
+          resTotal,
+          resAprovadas,
+          resPendentes,
+          resRecusadas,
+          resRecentes,
+        ] = await Promise.all([
+          fetch("http://localhost:3001/dashboard/total/solicitacoes"),
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+          fetch("http://localhost:3001/dashboard/solicitacoes/aprovadas"),
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+          fetch("http://localhost:3001/dashboard/solicitacoes/pendentes"),
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+          fetch("http://localhost:3001/dashboard/solicitacoes/recusadas"),
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+          fetch("http://localhost:3001/dashboard/solicitacoes/recentes"),
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        ]);
 
-  } catch (error) {
-    console.error("Erro de conexão com o Swagger/Backend:", error)
-  }
-}
-    buscarUsuario()
-    buscarSolicitacoes()
+        const total = await resTotal.json();
+        const aprovadas = await resAprovadas.json();
+        const pendentes = await resPendentes.json();
+        const recusadas = await resRecusadas.json();
+        const recentes = await resRecentes.json();
 
-  }, [])
+        setSolicitacoes({
+          total: total.total,
+          aprovadas: aprovadas.aprovadas,
+          pendentes: pendentes.pendentes,
+          recusadas: recusadas.recusadas,
+          recentes: recentes,
+        });
+      } catch (error) {
+        console.error("Erro de conexão com o Swagger/Backend:", error);
+      }
+    }
+    buscarUsuario();
+    buscarSolicitacoes();
+  }, []);
 
-  function botaoLogout () {
-    localStorage.removeItem('UsuarioLogado')
-    setDadosLogin(null)
-    navigate('/')
+  function botaoLogout() {
+    localStorage.removeItem("@AndraRecursos:token");
+    localStorage.removeItem("@AndraRecursos:usuario");
+    localStorage.removeItem("@AndraRecursos:lembrar");
+    setDadosLogin(null);
+    navigate("/");
   }
 
   return (
@@ -62,30 +96,43 @@ export default function PrincipalAdm() {
       {/* 1. BARRA LATERAL (SIDEBAR) */}
       <aside className="andra-dash-sidebar">
         <div className="andra-sidebar-brand">
-          <img src={logo} alt="Logo" className="andra-sidebar-logo"/>
+          <img src={logo} alt="Logo" className="andra-sidebar-logo" />
           <div className="andra-sidebar-brand-text">
             <h2>AndraRecursos</h2>
             <span>Gestão Administrativa</span>
           </div>
         </div>
-        
+
         <nav className="andra-sidebar-menu">
-          <a href="#dashboard" className="andra-menu-item active">📊 Dashboard</a>
-          <a href="#cadastrar" className="andra-menu-item">🏢 Cadastrar Instituição</a>
-          <a href="#historico" className="andra-menu-item">⏳ Histórico</a>
-          <a href="#notificacoes" className="andra-menu-item">🔔 Notificações</a>
-          <a href="#solicitacoes" className="andra-menu-item">➕ Solicitações</a>
+          <a href="#dashboard" className="andra-menu-item active">
+            📊 Dashboard
+          </a>
+          <a href="#cadastrar" className="andra-menu-item">
+            🏢 Cadastrar Instituição
+          </a>
+          <a href="#historico" className="andra-menu-item">
+            ⏳ Histórico
+          </a>
+          <a href="#notificacoes" className="andra-menu-item">
+            🔔 Notificações
+          </a>
+          <a href="#solicitacoes" className="andra-menu-item">
+            ➕ Solicitações
+          </a>
         </nav>
 
         <div className="andra-sidebar-footer">
-          <a href="#configuracoes" className="andra-menu-item">⚙️ Configurações</a>
-          <a href="#suporte" className="andra-menu-item">❓ Suporte</a>
+          <a href="#configuracoes" className="andra-menu-item">
+            ⚙️ Configurações
+          </a>
+          <a href="#suporte" className="andra-menu-item">
+            ❓ Suporte
+          </a>
         </div>
       </aside>
 
       {/* RECIPIENTE DO CONTEÚDO PRINCIPAL */}
       <div className="andra-dash-main">
-        
         {/* 2. CABEÇALHO SUPERIOR (TOPBAR) */}
         <header className="andra-dash-topbar">
           <span className="andra-topbar-title">Dashboard Administrativo</span>
@@ -102,7 +149,9 @@ export default function PrincipalAdm() {
                 <span className="andra-profile-name">Administrador</span>
               </div>
             </div>
-            <button className="andra-logout-link" onClick={botaoLogout}>Sair</button>
+            <button className="andra-logout-link" onClick={botaoLogout}>
+              Sair
+            </button>
           </div>
         </header>
 
@@ -124,15 +173,21 @@ export default function PrincipalAdm() {
             </div>
             <div className="andra-metric-card green">
               <span className="andra-metric-label">Total Aprovadas</span>
-              <span className="andra-metric-value">{solicitacoes.aprovadas}</span>
+              <span className="andra-metric-value">
+                {solicitacoes.aprovadas}
+              </span>
             </div>
             <div className="andra-metric-card yellow">
               <span className="andra-metric-label">Total Pendentes</span>
-              <span className="andra-metric-value">{solicitacoes.pendentes}</span>
+              <span className="andra-metric-value">
+                {solicitacoes.pendentes}
+              </span>
             </div>
             <div className="andra-metric-card red">
               <span className="andra-metric-label">Recusadas</span>
-              <span className="andra-metric-value">{solicitacoes.recusadas}</span>
+              <span className="andra-metric-value">
+                {solicitacoes.recusadas}
+              </span>
             </div>
           </section>
 
@@ -140,11 +195,21 @@ export default function PrincipalAdm() {
           <section className="andra-filter-card">
             <span className="andra-filter-title">Classificar por:</span>
             <div className="andra-filter-inputs">
-              <select><option>STATUS</option></select>
-              <select><option>TIPOS</option></select>
-              <select><option>INSTITUIÇÃO</option></select>
-              <select><option>DATA</option></select>
-              <select><option>PRIORIDADE</option></select>
+              <select>
+                <option>STATUS</option>
+              </select>
+              <select>
+                <option>TIPOS</option>
+              </select>
+              <select>
+                <option>INSTITUIÇÃO</option>
+              </select>
+              <select>
+                <option>DATA</option>
+              </select>
+              <select>
+                <option>PRIORIDADE</option>
+              </select>
               <button className="andra-btn-clear">Limpar</button>
             </div>
           </section>
@@ -217,34 +282,59 @@ export default function PrincipalAdm() {
                 <tbody>
                   {solicitacoes?.recentes?.map((solicitacao) => (
                     <tr key={solicitacao.id_solicitacoes}>
-                      <td><strong>{solicitacao.id_solicitacoes}</strong></td>
+                      <td>
+                        <strong>{solicitacao.id_solicitacoes}</strong>
+                      </td>
                       <td>{solicitacao.nome_instituicao}</td>
                       <td>{solicitacao.titulo}</td>
                       <td>
-                        <span className={`badge-priority ${solicitacao.prioridade === "Alta" ? "high" : "low"}`}>
+                        <span
+                          className={`badge-priority ${solicitacao.prioridade === "Alta" ? "high" : "low"}`}
+                        >
                           {solicitacao.prioridade?.toUpperCase()}
                         </span>
                       </td>
                       <td>
-                        <span className={`badge-status ${
-                          solicitacao.status === "aprovada" ? "approved" :
-                          solicitacao.status === "recusada" ? "rejected" : "pending"
-                        }`}>
+                        <span
+                          className={`badge-status ${
+                            solicitacao.status === "aprovada"
+                              ? "approved"
+                              : solicitacao.status === "recusada"
+                                ? "rejected"
+                                : "pending"
+                          }`}
+                        >
                           {solicitacao.status}
                         </span>
                       </td>
-                      <td>{new Date(solicitacao.data_pedido).toLocaleDateString("pt-BR")}</td>
+                      <td>
+                        {new Date(solicitacao.data_pedido).toLocaleDateString(
+                          "pt-BR",
+                        )}
+                      </td>
                       <td>
                         <div className="andra-table-actions">
                           <button
                             className={`andra-action-approve ${solicitacao.status === "aprovada" ? "disabled" : ""}`}
                             disabled={solicitacao.status === "aprovada"}
-                            onClick={() => atualizarStatusSolicitacao(solicitacao.id_solicitacoes, "aprovada")}>
+                            onClick={() =>
+                              atualizarStatusSolicitacao(
+                                solicitacao.id_solicitacoes,
+                                "aprovada",
+                              )
+                            }
+                          >
                             APROVAR
                           </button>
                           <button
                             className="andra-action-reject"
-                            onClick={() => atualizarStatusSolicitacao(solicitacao.id_solicitacoes, "recusada")}>
+                            onClick={() =>
+                              atualizarStatusSolicitacao(
+                                solicitacao.id_solicitacoes,
+                                "recusada",
+                              )
+                            }
+                          >
                             RECUSAR
                           </button>
                         </div>
@@ -258,5 +348,5 @@ export default function PrincipalAdm() {
         </main>
       </div>
     </div>
-  )
+  );
 }

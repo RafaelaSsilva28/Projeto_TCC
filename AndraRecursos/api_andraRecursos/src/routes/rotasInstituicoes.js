@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { BD } from "../../db.js";
 import bcrypt from 'bcrypt';
-import { autenticarToken } from "../middlewares/autenticacao.js";
+import { autenticarToken } from "../middlewares/Autenticacao.js";
 import jwt from 'jsonwebtoken';
 
 const router = Router();
@@ -26,8 +26,18 @@ router.post('/instituicoes', autenticarToken, async (req, res) => {
     const { nome, email_institucional, senha, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro, bairro } = req.body;
 
     try {
+
+        // Verificar se o email institucional já existe
+        const verificarEmail = await BD.query(`SELECT id_instituicao FROM instituicoes 
+            WHERE email_institucional = $1`, [email_institucional]);
+
+        if (verificarEmail.rows.length > 0) {
+            return res.status(404).json({ message: 'Email institucional já cadastrado!' });
+        }
+
         //definir a força da criptografia
         const saltRounds = 10;
+
         //gerando a rash da senha
         const senhaCriptografada = await bcrypt.hash(senha, saltRounds);
 
@@ -57,7 +67,7 @@ router.put('/instituicoes/:id_instituicao', autenticarToken, async (req, res) =>
         //Verificar se o usuario existe
         const verificarInstituicao = await BD.query(`SELECT * FROM instituicoes WHERE id_instituicao = $1`, [id_instituicao]);
         if (verificarInstituicao.rows.length === 0) {
-            return res.status(404).json({ message: 'Instituição não encontrada' })
+            return res.status(404).json({ message: 'Instituição não encontrada!' })
         }
 
         //definir a força da criptografia
@@ -85,6 +95,17 @@ router.delete('/instituicoes/:id_instituicao', autenticarToken, async (req, res)
     const { id_instituicao } = req.params;
 
     try {
+
+        // Verificar se a Instituição existe antes de tentar deletar
+        const verificarInstituicao = await BD.query(
+            `SELECT * FROM instituicoes WHERE id_instituicao = $1`,
+            [id_instituicao]
+        );
+
+        if (verificarInstituicao.rows.length === 0) {
+            return res.status(404).json({ message: 'Instituição não encontrada!' });
+        }
+
         const comando = `DELETE FROM instituicoes WHERE id_instituicao = $1`;
         await BD.query(comando, [id_instituicao]);
         return res.status(200).json({ message: 'Instituição desativada com sucesso!' });

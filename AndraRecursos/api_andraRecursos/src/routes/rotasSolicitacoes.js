@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { BD } from "../../db.js";
 import bcrypt from "bcrypt";
-import { autenticarToken } from "../middlewares/autenticacao.js";
+import { autenticarToken } from "../middlewares/Autenticacao.js";
 import jwt from "jsonwebtoken";
 
 const router = Router();
@@ -181,6 +181,17 @@ router.delete('/solicitacoes/:id_solicitacoes', autenticarToken, async (req, res
     const { id_solicitacoes } = req.params;
 
     try {
+
+        // Verificar se a Solicitação existe antes de tentar deletar
+        const verificarSolicitacao = await BD.query(
+            `SELECT * FROM solicitacoes WHERE id_solicitacoes = $1`,
+            [id_solicitacoes]
+        );
+
+        if (verificarSolicitacao.rows.length === 0) {
+            return res.status(404).json({ message: "Solicitação não encontrada!" });
+        }
+
         const comando = `DELETE FROM solicitacoes WHERE id_solicitacoes = $1`
         await BD.query(comando, [id_solicitacoes]);
         return res.status(200).json({ message: 'Solicitação foi removida com sucesso!' });

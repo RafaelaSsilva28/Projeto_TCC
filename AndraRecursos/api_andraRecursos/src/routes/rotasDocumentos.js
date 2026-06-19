@@ -1,13 +1,14 @@
 import express, { Router } from "express";
 import { BD } from "../../db.js";
-import { autenticarToken } from "../middlewares/autenticacao.js";
+import { autenticarToken } from "../middlewares/Autenticacao.js";
 
 const router = Router();
 
 // GET - Listar todos os documentos
 router.get("/documentos", autenticarToken, async (req, res) => {
   try {
-    const comando = `SELECT d.id_documento, d.nome_arquivo, d.caminho, d.tipo,
+    const comando = 
+            `SELECT d.id_documento, d.nome_arquivo, d.caminho, d.tipo,
             s.titulo AS titulo_solicitacao
             FROM documentos d
             LEFT JOIN solicitacoes s ON d.id_solicitacao = s.id_solicitacoes`;
@@ -85,11 +86,6 @@ router.post("/documentos", autenticarToken, async (req, res) => {
   try {
 
     //Verificar se o usuario existe
-        const verificarDocumentos = await BD.query(`SELECT * FROM documentos WHERE id_documento = $1`, [id_documento]);
-        if (verificarDocumentos.rows.length === 0) {
-            return res.status(404).json({ message: 'Documento não encontrado!' })
-        }
-
     const comando = `INSERT INTO documentos( nome_arquivo, caminho, tipo, id_solicitacao ) 
             VALUES($1, $2, $3, $4)`;
 
@@ -111,6 +107,17 @@ router.delete("/documentos/:id_documento", autenticarToken, async (req, res) => 
   const { id_documento } = req.params;
 
   try {
+
+    // Verificar se a Solicitação existe antes de tentar deletar
+        const verificarDocumento = await BD.query(
+            `SELECT * FROM documentos WHERE id_documento = $1`,
+            [id_documento]
+        );
+
+        if (verificarDocumento.rows.length === 0) {
+            return res.status(404).json({ message: "Documento não encontrado!" });
+        }
+
     const comando = `DELETE FROM documentos WHERE id_documento = $1`;
     
     await BD.query(comando, [id_documento]);

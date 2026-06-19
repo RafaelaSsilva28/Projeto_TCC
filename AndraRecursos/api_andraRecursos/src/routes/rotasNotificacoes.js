@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { BD } from "../../db.js";
 import jwt from "jsonwebtoken";
-import { autenticarToken } from "../middlewares/autenticacao.js";
+import { autenticarToken } from "../middlewares/Autenticacao.js";
 
 const router = Router();
 
@@ -114,6 +114,17 @@ router.patch('/notificacoes/:id_notificacao', autenticarToken, async (req, res) 
 router.delete('/notificacoes/:id_notificacao', autenticarToken, async (req, res) => {
     const { id_notificacao } = req.params;
     try {
+
+        // Verificar se a Solicitação existe antes de tentar deletar
+        const verificarNotificacao = await BD.query(
+            `SELECT * FROM notificacoes WHERE id_notificacao = $1`,
+            [id_notificacao]
+        );
+
+        if (verificarNotificacao.rows.length === 0) {
+            return res.status(404).json({ message: "Notificação não encontrada!" });
+        }
+
         const comando = `DELETE FROM notificacoes WHERE id_notificacao = $1`;
         await BD.query(comando, [id_notificacao]);
         return res.status(200).json({ message: "Notificação deletada com sucesso" });
