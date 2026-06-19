@@ -913,7 +913,7 @@ const documentacao = {
           content: {
             "application/json": {
               schema: {
-                $ref: "#/components/schemas/Lista_Solicitacoes",
+                $ref: "#/components/schemas/Cadastro_Solicitacoes",
               },
             },
           },
@@ -1210,7 +1210,7 @@ const documentacao = {
         summary: "Cadastrar novo Historico ",
         security: [{ bearerAuth: [] }],
         description:
-          "Cadastra o historico mostrando id_historico, id_solicitacao, descricao, status, prioridade, data_alteracao",
+          "Cadastra o historico mostrando id_solicitacao, descricao, status, prioridade, data_alteracao",
         requestBody: {
           required: true,
           content: {
@@ -1602,7 +1602,7 @@ const documentacao = {
         type: "object",
         properties: {
           mensagem: { type: "string", example: "Solicitação aprovada." },
-          // data_resposta: { type: "string", example: "15/06/2026 14:30" },
+          data_resposta: { type: "string", example: "15/06/2026 14:30" },
           id_solicitacao: { type: "integer", example: 1 },
           id_administrador: { type: "integer", example: 1 },
         },
@@ -1746,10 +1746,7 @@ const documentacao = {
           setor: { type: "string", example: "TI" },
           status: { type: "string", example: "em andamento" },
           data_pedido: { type: "string", example: "11/06/2026 14:30" },
-          nome_instituicao: {
-            type: "string",
-            example: "Escola Municipal ABC",
-          },
+          id_instituicao: { type: "integer", example: 1 },
         },
       },
       Cadastro_Solicitacoes: {

@@ -194,3 +194,31 @@
     max-width: 100%;
   }
 }
+.andra-logout-linked {
+  position: absolute;
+  top: 25px;
+  left: 40px;
+
+  background: transparent;
+  border: none;
+
+  color: #d62828;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  transition: all 0.3s ease;
+}
+
+.andra-logout-linked:hover {
+  color: #a61b1b;
+  transform: translateX(-3px);
+}
+
+.andra-logout-linked::before {
+  font-size: 18px;
+}

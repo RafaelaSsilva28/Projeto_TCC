@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import "../styles/EstilosObrigatorio.css"; 
 import logo from "../assets/AndraRecursos.png"; // Certifique-se de ter o brasão nesta pasta
 import { enderecoServidor } from "../utils";
+import { FiChevronLeft } from "react-icons/fi";
+
 
 export default function ObrigatorioInst() {
   const [dadoslogin, setDadosLogin] = useState(null);
@@ -26,6 +28,7 @@ export default function ObrigatorioInst() {
       setDadosLogin(JSON.parse(usuarioLogado));
     }
   }, []);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -65,8 +68,20 @@ export default function ObrigatorioInst() {
     }
   };
 
+   function botaoLogout() {
+    localStorage.removeItem("@AndraRecursos:token");
+    localStorage.removeItem("@AndraRecursos:usuario");
+    localStorage.removeItem("@AndraRecursos:lembrar");
+    setDadosLogin(null);
+    navigate("/");
+  }
+
   return (
     <div className="andra-ob-container">
+     <button className="andra-logout-linked" onClick={botaoLogout}>
+  <FiChevronLeft size={20} />
+  <span>Voltar</span>
+</button>
       <p className="andra-ob-top-text">
         Para continuar acessando o sistema AndraRecursos, por favor preencha as informações obrigatórias da sua unidade.
       </p>
