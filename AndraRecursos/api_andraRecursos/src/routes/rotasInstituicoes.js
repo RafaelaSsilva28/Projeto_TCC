@@ -165,6 +165,5 @@ router.post('/login', autenticarToken, async (req, res) => {
     }
 });
 
-
-
 export default router;
+
