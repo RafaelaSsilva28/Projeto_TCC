@@ -53,6 +53,8 @@ app.use(rotasRespostasADM);
 app.use(rotasDashboard);
 
 const porta = 3001;
-app.listen(porta, () => {
-  console.log(`http://localhost:${porta}`);
+
+app.listen(porta, async () => {
+  console.log(`API AndraRecursos: http://localhost:${porta}`);
+  await testarConexao();
 });
