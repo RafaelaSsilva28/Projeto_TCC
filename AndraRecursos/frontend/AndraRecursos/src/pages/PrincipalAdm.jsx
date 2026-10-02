@@ -162,11 +162,11 @@ export default function PrincipalAdm({
 
       try {
         const caminhos = [
-          "/dashboard/total/solicitacoes",
-          "/solicitacoes/aprovadas",
-          "/dashboard/solicitacoes/pendentes",
-          "/dashboard/solicitacoes/recusadas",
-          "/dashboard/solicitacoes/recentes",
+  "/dashboard/total/solicitacoes",
+  "/dashboard/solicitacoes/aprovadas",
+  "/dashboard/solicitacoes/pendentes",
+  "/dashboard/solicitacoes/recusadas",
+  "/dashboard/solicitacoes/recentes",
         ];
 
         const respostas = await Promise.all(

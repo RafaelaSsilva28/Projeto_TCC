@@ -94,17 +94,17 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-[#ebebeb] font-['Segoe_UI',Arial,sans-serif] lg:flex">
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#ebebeb] font-['Segoe_UI',Arial,sans-serif] lg:flex lg:h-screen lg:overflow-hidden">
       {/* LADO ESQUERDO: Painel de Formulário */}
       <div
         className="
-        relative flex min-h-screen w-full
+        relative flex min-h-screen w-full lg:h-screen
         flex-col items-center justify-center
         bg-[#ebebeb] px-5 py-8
         sm:px-8
         md:px-10
         lg:w-1/2
-        lg:pb-[150px] lg:pt-10
+        lg:pb-[14vh] lg:pt-[2vh]
       "
       >
         <span
@@ -113,7 +113,7 @@ export default function Login() {
           text-xs font-medium text-[#888888]
           sm:left-8 sm:top-7 sm:text-sm
           md:left-10
-          lg:top-[50px]
+          lg:top-[5vh]
         "
         >
           Login Institucional
@@ -123,10 +123,10 @@ export default function Login() {
           src={logo}
           alt="Brasão Andradina"
           className="
-            h-[170px] w-auto object-contain
+            relative z-20 h-[170px] w-auto object-contain
             sm:h-[190px]
             md:h-[210px]
-            lg:h-[240px] lg:translate-y-[80px]
+            lg:h-[24vh] lg:translate-y-[8vh]
           "
         />
 
@@ -139,10 +139,13 @@ export default function Login() {
           shadow-[0_10px_30px_rgba(0,0,0,0.06)]
           sm:px-7 sm:py-7
           md:px-8 md:py-8
-          lg:px-10 lg:py-[35px]
+          lg:px-10 lg:py-[3.2vh]
         "
         >
-          <form onSubmit={handleLogin} className="flex flex-col gap-5">
+          <form
+            onSubmit={handleLogin}
+            className="flex flex-col gap-5 lg:gap-[2vh]"
+          >
             <div>
               <label
                 className="
@@ -373,7 +376,7 @@ export default function Login() {
           mt-5 text-center
           text-[10px] text-[#888888]
           sm:text-xs
-          lg:absolute lg:bottom-[47px]
+          lg:absolute lg:bottom-[4vh]
           lg:mt-0
         "
         >
@@ -384,12 +387,12 @@ export default function Login() {
       {/* LADO DIREITO: Governo Inteligente */}
       <div
         className="
-          relative hidden min-h-screen w-1/2
+          relative hidden w-1/2 lg:h-screen
           flex-col items-start justify-center
           overflow-hidden
           bg-[#082a59]
           bg-cover bg-center
-          px-[6%] py-[60px]
+          px-[6%] py-[3vh]
           lg:flex
           xl:px-[10%]
         "
@@ -409,7 +412,7 @@ export default function Login() {
           relative z-10
           flex w-full max-w-[520px]
           flex-col gap-7
-          xl:gap-[30px]
+          xl:gap-[3vh]
         "
         >
           <div className="flex flex-col gap-3">
@@ -419,8 +422,8 @@ export default function Login() {
               text-[40px] font-extrabold
               leading-[1.1] tracking-[-1px]
               text-white
-              xl:text-[52px]
-              2xl:text-[58px]
+              xl:text-[min(52px,6.5vh)]
+              2xl:text-[min(58px,7vh)]
             "
             >
               Governo
@@ -452,7 +455,7 @@ export default function Login() {
               hover:translate-x-1
               hover:border-[#ffcc00]/30
               hover:bg-white/[0.06]
-              xl:gap-5 xl:px-6 xl:py-5
+              xl:gap-5 xl:px-6 xl:py-[2vh]
             "
             >
               <div
@@ -505,7 +508,7 @@ export default function Login() {
               hover:translate-x-1
               hover:border-[#ffcc00]/30
               hover:bg-white/[0.06]
-              xl:gap-5 xl:px-6 xl:py-5
+              xl:gap-5 xl:px-6 xl:py-[2vh]
             "
             >
               <div
@@ -558,7 +561,7 @@ export default function Login() {
               hover:translate-x-1
               hover:border-[#ffcc00]/30
               hover:bg-white/[0.06]
-              xl:gap-5 xl:px-6 xl:py-5
+              xl:gap-5 xl:px-6 xl:py-[2vh]
             "
             >
               <div
@@ -610,7 +613,7 @@ export default function Login() {
             px-5 py-5
             xl:mt-2.5 xl:w-4/5
             xl:rounded-[24px]
-            xl:px-8 xl:py-6
+            xl:px-8 xl:py-[2vh]
           "
           >
             <p
