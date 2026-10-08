@@ -1,169 +1,793 @@
+
 import { Router } from "express";
 import { BD } from "../../db.js";
-import bcrypt from 'bcrypt';
-import { autenticarToken } from "../middlewares/Autenticacao.js";
-import jwt from 'jsonwebtoken';
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+
+import {
+    autenticarToken,
+    autenticarAdministrador,
+    autenticarInstituicao,
+    exigirCadastroCompleto,
+} from "../middlewares/Autenticacao.js";
 
 const router = Router();
 
-const SECRET_KEY = 'minha_chave_secreta';
+// =============================================
+// CONFIGURAÇÕES
+// =============================================
 
-//Rota para listar Instituições
-router.get('/instituicoes', autenticarToken, async (req, res) => {
-    try {
-        const query = `SELECT id_instituicao, nome, email_institucional, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro, bairro FROM instituicoes ORDER BY id_instituicao`;
-        const instituicoes = await BD.query(query);
-        res.status(200).json(instituicoes.rows);
-    } catch (error) {
-        console.error('Erro ao listar Instituicoes', error.message);
-        res.status(500).json({ error: 'Erro ao listar Instituicoes' + error.message });
-    }
-});
+const camposInstitucionais = [
+    "gestor",
+    "secretaria_vinculada",
+    "logradouro",
+    "cep",
+    "numero",
+    "bairro",
+    "telefone",
+    "horario_funcionamento",
+    "status_instituicao",
+];
 
-//Rota para cadastrar nova Instituição
-router.post('/instituicoes', autenticarToken, async (req, res) => {
+const selecaoInstituicao = `
+  id_instituicao,
+  nome,
+  email_institucional,
+  cep,
+  telefone,
+  horario_funcionamento,
+  status_instituicao,
+  gestor,
+  secretaria_vinculada,
+  numero,
+  logradouro,
+  bairro,
+  tipo_acesso,
+  cadastro_completo
+`;
 
-    const { nome, email_institucional, senha, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro, bairro } = req.body;
+// =============================================
+// VALIDAR CAMPOS OBRIGATÓRIOS
+// =============================================
 
-    try {
+function validarObrigatorios(body) {
+    const dados = {};
 
-        // Verificar se o email institucional já existe
-        const verificarEmail = await BD.query(`SELECT id_instituicao FROM instituicoes 
-            WHERE email_institucional = $1`, [email_institucional]);
+    for (const campo of camposInstitucionais) {
+        const valor = body?.[campo];
 
-        if (verificarEmail.rows.length > 0) {
-            return res.status(404).json({ message: 'Email institucional já cadastrado!' });
+        if (
+            typeof valor !== "string" ||
+            !valor.trim()
+        ) {
+            return {
+                erro: `O campo ${campo} é obrigatório.`,
+            };
         }
 
-        //definir a força da criptografia
-        const saltRounds = 10;
-
-        //gerando a rash da senha
-        const senhaCriptografada = await bcrypt.hash(senha, saltRounds);
-
-        const comando = `INSERT INTO instituicoes(nome, email_institucional, senha, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro, bairro) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
-        const valores = [nome, email_institucional, senhaCriptografada, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro, bairro];
-
-        await BD.query(comando, valores);
-        console.log(comando, valores);
-
-        return res.status(201).json('Instituição Cadastrada!');
-    } catch (error) {
-        console.error('Erro ao cadastrar Instituição', error.message);
-        return res.status(500).json({ error: 'Erro ao cadastrar Instituição' + error.message });
+        dados[campo] = valor.trim();
     }
-});
 
-//Rota para atualizar uma única Instituição
-router.put('/instituicoes/:id_instituicao', autenticarToken, async (req, res) => {
+    dados.cep = dados.cep.replace(/\D/g, "");
 
-    //Id recebido via parametro 
-    const { id_instituicao } = req.params;
-    //Dados do Usuario via corpo da pagina
-    const { nome, email_institucional, senha, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro, bairro } = req.body
+    if (!/^\d{8}$/.test(dados.cep)) {
+        return {
+            erro: "O CEP deve possuir 8 dígitos.",
+        };
+    }
+
+    if (dados.numero.length > 10) {
+        return {
+            erro: "O número deve ter no máximo 10 caracteres.",
+        };
+    }
+
+    const telefone = dados.telefone.replace(/\D/g, "");
+
+    if (telefone.length < 10 || telefone.length > 11) {
+        return {
+            erro: "Informe um telefone válido.",
+        };
+    }
+
+    return { dados };
+}
+
+// =============================================
+// LOGIN INSTITUCIONAL
+// POST /login-instituicao
+// =============================================
+
+router.post("/login-instituicao", async (req, res) => {
+    const { email_institucional, senha } = req.body || {};
+
+    if (
+        typeof email_institucional !== "string" ||
+        typeof senha !== "string" ||
+        !email_institucional.trim() ||
+        !senha
+    ) {
+        return res.status(400).json({
+            message: "E-mail e senha são obrigatórios.",
+        });
+    }
 
     try {
-
-        //Verificar se o usuario existe
-        const verificarInstituicao = await BD.query(`SELECT * FROM instituicoes WHERE id_instituicao = $1`, [id_instituicao]);
-        if (verificarInstituicao.rows.length === 0) {
-            return res.status(404).json({ message: 'Instituição não encontrada!' })
-        }
-
-        //definir a força da criptografia
-        const saltRounds = 10;
-        //gerando a rash da senha
-        const senhaCriptografada = await bcrypt.hash(senha, saltRounds);
-
-        //Atualiza todos os campos da tabela(PUT substituição completa)
-        const comando = `UPDATE instituicoes SET nome = $1, email_institucional = $2, senha = $3, cep = $4, telefone = $5, horario_funcionamento = $6, status_instituicao = $7, gestor = $8, secretaria_vinculada = $9, numero = $10, logradouro = $11, bairro = $12 WHERE id_instituicao = $13`;
-        const valores = [ nome, email_institucional, senhaCriptografada, cep, telefone, horario_funcionamento, status_instituicao, gestor, secretaria_vinculada, numero, logradouro, bairro, id_instituicao ];
-        await BD.query(comando, valores);
-
-        return res.status(200).json('Instituição atualizada com sucesso!')
-    }
-    catch (error) {
-        console.error('Erro ao atualizar Instituição');
-        return res.status(500).json({ error: `Erro ao atualizar Instituição ${error.message}` });
-    }
-});
-
-//Rota para DELETE -> porém só desativa as Instituições (ARRUMAR)
-router.delete('/instituicoes/:id_instituicao', autenticarToken, async (req, res) => {
-
-    //Id recebido via parametro 
-    const { id_instituicao } = req.params;
-
-    try {
-
-        // Verificar se a Instituição existe antes de tentar deletar
-        const verificarInstituicao = await BD.query(
-            `SELECT * FROM instituicoes WHERE id_instituicao = $1`,
-            [id_instituicao]
+        const resultado = await BD.query(
+            `SELECT
+        id_instituicao,
+        nome,
+        email_institucional,
+        senha,
+        cadastro_completo
+       FROM instituicoes
+       WHERE LOWER(email_institucional) = LOWER($1)`,
+            [email_institucional.trim()]
         );
 
-        if (verificarInstituicao.rows.length === 0) {
-            return res.status(404).json({ message: 'Instituição não encontrada!' });
-        }
-
-        const comando = `DELETE FROM instituicoes WHERE id_instituicao = $1`;
-        await BD.query(comando, [id_instituicao]);
-        return res.status(200).json({ message: 'Instituição desativada com sucesso!' });
-
-    } catch (error) {
-        console.error('Erro ao desativar Instiuição!', error.message);
-        return res.status(500).json({ message: 'Erro interno no servidor' + error.message });
-    }
-});
-
-//Rota para realização de Login Instituicional
-router.post('/login', autenticarToken, async (req, res) => {
-
-    const { email_institucional, senha } = req.body;
-
-    //Validação de Entrada
-    if (!email_institucional || !senha) {
-        return res.status(400).json({ message: 'Campo email e senha são obrigatórios!' });
-    }
-    try {
-        //Buscar Instituição pelo Email institucional
-        const comando = `SELECT id_instituicao, nome, email_institucional, senha FROM instituicoes WHERE email_institucional =$1`;
-        const resultado = await BD.query(comando, [email_institucional]);
-
         if (resultado.rows.length === 0) {
-            return res.status(401).json({ message: 'Email não encontrado!' });
-        };
+            return res.status(401).json({
+                message: "E-mail ou senha inválidos.",
+            });
+        }
 
         const instituicao = resultado.rows[0];
-        const senhaCorreta = await bcrypt.compare(senha, instituicao.senha)
 
-        //Verificar Senha se são iguais
+        const senhaCorreta = await bcrypt.compare(
+            senha,
+            instituicao.senha
+        );
+
         if (!senhaCorreta) {
-            return res.status(401).json({ message: 'Senha inválida!' });
+            return res.status(401).json({
+                message: "E-mail ou senha inválidos.",
+            });
         }
 
-        //Gerando token para retornar o ser usado
+        if (!process.env.JWT_SECRET) {
+            throw new Error("JWT_SECRET não configurada.");
+        }
+
         const token = jwt.sign(
-            { id_instituicao: instituicao.id_instituicao, email_institucional: instituicao.email_institucional, nome: instituicao.nome },
-            SECRET_KEY,
-            // {expiresIn: '15m'} //Tempo para expirar o token 
+            {
+                id_instituicao: instituicao.id_instituicao,
+                tipo_acesso: "instituicao",
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "8h" }
         );
 
         return res.status(200).json({
-            message: 'Login realizado com sucesso',
-            token: token,
+            message: "Login realizado com sucesso!",
+            token,
+            cadastro_completo: instituicao.cadastro_completo,
             instituicao: {
                 id: instituicao.id_instituicao,
                 nome: instituicao.nome,
-                email_institucional: instituicao.email_institucional
-            }
+                email_institucional:
+                    instituicao.email_institucional,
+                cadastro_completo:
+                    instituicao.cadastro_completo,
+            },
         });
 
     } catch (error) {
-        console.error('Erro ao realizar Login!', error.message);
-        return res.status(500).json({ message: 'Erro interno no servidor' + error.message });
+        console.error(
+            "Erro no login institucional:",
+            error.message
+        );
+
+        return res.status(500).json({
+            message: "Erro interno ao realizar login.",
+        });
     }
 });
 
-export default router;
+// =============================================
+// LISTAR INSTITUIÇÕES - ADMINISTRADOR
+// GET /instituicoes
+// =============================================
 
+router.get(
+    "/instituicoes",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        try {
+            const resultado = await BD.query(
+                `SELECT ${selecaoInstituicao}
+         FROM instituicoes
+         ORDER BY id_instituicao`
+            );
+
+            return res.status(200).json(resultado.rows);
+
+        } catch (error) {
+            console.error(
+                "Erro ao listar instituições:",
+                error.message
+            );
+
+            return res.status(500).json({
+                message: "Erro ao listar instituições.",
+            });
+        }
+    }
+);
+
+// =============================================
+// CADASTRAR INSTITUIÇÃO - ADMINISTRADOR
+// POST /instituicoes
+// =============================================
+
+router.post(
+    "/instituicoes",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        const {
+            nome,
+            email_institucional,
+            senha,
+        } = req.body || {};
+
+        if (
+            typeof nome !== "string" ||
+            typeof email_institucional !== "string" ||
+            typeof senha !== "string" ||
+            !nome.trim() ||
+            !email_institucional.trim() ||
+            senha.length < 8
+        ) {
+            return res.status(400).json({
+                message:
+                    "Nome, e-mail e senha com pelo menos 8 caracteres são obrigatórios.",
+            });
+        }
+
+        const email = email_institucional
+            .trim()
+            .toLowerCase();
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({
+                message: "E-mail institucional inválido.",
+            });
+        }
+
+        try {
+            const senhaCriptografada = await bcrypt.hash(
+                senha,
+                10
+            );
+
+            const resultado = await BD.query(
+                `INSERT INTO instituicoes (
+          nome,
+          email_institucional,
+          senha,
+          tipo_acesso,
+          cadastro_completo
+        )
+        VALUES ($1, $2, $3, $4, FALSE)
+        RETURNING
+          id_instituicao,
+          nome,
+          email_institucional,
+          cadastro_completo`,
+                [
+                    nome.trim(),
+                    email,
+                    senhaCriptografada,
+                    "Usuário Institucional",
+                ]
+            );
+
+            return res.status(201).json({
+                message: "Instituição cadastrada com sucesso!",
+                instituicao: resultado.rows[0],
+            });
+
+        } catch (error) {
+            if (error.code === "23505") {
+                return res.status(409).json({
+                    message: "E-mail institucional já cadastrado!",
+                });
+            }
+
+            console.error(
+                "Erro ao cadastrar instituição:",
+                error.message
+            );
+
+            return res.status(500).json({
+                message: "Erro ao cadastrar instituição.",
+            });
+        }
+    }
+);
+
+// =============================================
+// CONSULTAR DADOS DA INSTITUIÇÃO LOGADA
+// GET /instituicoes/me
+// =============================================
+
+router.get(
+    "/instituicoes/me",
+    autenticarToken,
+    autenticarInstituicao,
+    async (req, res) => {
+        try {
+            const resultado = await BD.query(
+                `SELECT ${selecaoInstituicao}
+         FROM instituicoes
+         WHERE id_instituicao = $1`,
+                [req.instituicao.id_instituicao]
+            );
+
+            if (resultado.rows.length === 0) {
+                return res.status(404).json({
+                    message: "Instituição não encontrada.",
+                });
+            }
+
+            return res.status(200).json(resultado.rows[0]);
+
+        } catch (error) {
+            console.error(
+                "Erro ao consultar instituição:",
+                error.message
+            );
+
+            return res.status(500).json({
+                message: "Erro ao consultar instituição.",
+            });
+        }
+    }
+);
+
+// =============================================
+// FINALIZAR PRIMEIRO CADASTRO OBRIGATÓRIO
+// PUT /instituicoes/completar-cadastro
+// =============================================
+
+router.put(
+    "/instituicoes/completar-cadastro",
+    autenticarToken,
+    autenticarInstituicao,
+    async (req, res) => {
+        // Impede refazer o cadastro inicial.
+        if (req.instituicao.cadastro_completo === true) {
+            return res.status(409).json({
+                message:
+                    "O cadastro inicial já foi concluído.",
+            });
+        }
+
+        const validacao = validarObrigatorios(req.body);
+
+        if (validacao.erro) {
+            return res.status(400).json({
+                message: validacao.erro,
+            });
+        }
+
+        const d = validacao.dados;
+
+        try {
+            // Atualiza os dados e marca o cadastro
+            // como completo na mesma operação.
+            const resultado = await BD.query(
+                `UPDATE instituicoes
+         SET
+           gestor = $1,
+           secretaria_vinculada = $2,
+           logradouro = $3,
+           cep = $4,
+           numero = $5,
+           bairro = $6,
+           telefone = $7,
+           horario_funcionamento = $8,
+           status_instituicao = $9,
+           cadastro_completo = TRUE
+         WHERE id_instituicao = $10
+           AND cadastro_completo = FALSE
+           AND NULLIF(TRIM(nome), '') IS NOT NULL
+           AND NULLIF(TRIM(email_institucional), '') IS NOT NULL
+         RETURNING ${selecaoInstituicao}`,
+                [
+                    d.gestor,
+                    d.secretaria_vinculada,
+                    d.logradouro,
+                    d.cep,
+                    d.numero,
+                    d.bairro,
+                    d.telefone,
+                    d.horario_funcionamento,
+                    d.status_instituicao,
+                    req.instituicao.id_instituicao,
+                ]
+            );
+
+            if (resultado.rows.length === 0) {
+                return res.status(409).json({
+                    message:
+                        "Não foi possível concluir o cadastro obrigatório.",
+                });
+            }
+
+            return res.status(200).json({
+                message:
+                    "Cadastro obrigatório concluído com sucesso!",
+                cadastro_completo: true,
+                instituicao: resultado.rows[0],
+            });
+
+        } catch (error) {
+            console.error(
+                "Erro ao finalizar cadastro:",
+                error.message
+            );
+
+            return res.status(500).json({
+                message:
+                    "Erro ao salvar as informações obrigatórias.",
+            });
+        }
+    }
+);
+
+// =============================================
+// EDITAR DADOS APÓS PRIMEIRO ACESSO
+// PATCH /instituicoes/me
+// =============================================
+
+router.patch(
+    "/instituicoes/me",
+    autenticarToken,
+    autenticarInstituicao,
+    exigirCadastroCompleto,
+    async (req, res) => {
+        const camposPermitidos = [
+            "gestor",
+            "secretaria_vinculada",
+            "logradouro",
+            "cep",
+            "numero",
+            "bairro",
+            "telefone",
+            "horario_funcionamento",
+        ];
+
+        const atualizacoes = [];
+        const valores = [];
+
+        for (const campo of camposPermitidos) {
+            const valorOriginal = req.body?.[campo];
+
+            if (valorOriginal === undefined) {
+                continue;
+            }
+
+            if (
+                typeof valorOriginal !== "string" ||
+                !valorOriginal.trim()
+            ) {
+                return res.status(400).json({
+                    message: `Valor inválido para ${campo}.`,
+                });
+            }
+
+            let valor = valorOriginal.trim();
+
+            if (campo === "numero" && valor.length > 10) {
+                return res.status(400).json({
+                    message:
+                        "O número deve ter no máximo 10 caracteres.",
+                });
+            }
+
+            if (campo === "cep") {
+                valor = valor.replace(/\D/g, "");
+
+                if (!/^\d{8}$/.test(valor)) {
+                    return res.status(400).json({
+                        message: "CEP inválido.",
+                    });
+                }
+            }
+
+            if (campo === "telefone") {
+                const telefone = valor.replace(/\D/g, "");
+
+                if (
+                    telefone.length < 10 ||
+                    telefone.length > 11
+                ) {
+                    return res.status(400).json({
+                        message: "Telefone inválido.",
+                    });
+                }
+            }
+
+            valores.push(valor);
+
+            atualizacoes.push(
+                `${campo} = $${valores.length}`
+            );
+        }
+
+        if (atualizacoes.length === 0) {
+            return res.status(400).json({
+                message:
+                    "Nenhum campo informado para atualização.",
+            });
+        }
+
+        valores.push(req.instituicao.id_instituicao);
+
+        try {
+            const resultado = await BD.query(
+                `UPDATE instituicoes
+         SET ${atualizacoes.join(", ")}
+         WHERE id_instituicao = $${valores.length}
+         RETURNING ${selecaoInstituicao}`,
+                valores
+            );
+
+            if (resultado.rows.length === 0) {
+                return res.status(404).json({
+                    message: "Instituição não encontrada.",
+                });
+            }
+
+            return res.status(200).json({
+                message: "Dados atualizados com sucesso!",
+                instituicao: resultado.rows[0],
+            });
+
+        } catch (error) {
+            console.error(
+                "Erro ao atualizar dados:",
+                error.message
+            );
+
+            return res.status(500).json({
+                message: "Erro ao atualizar dados.",
+            });
+        }
+    }
+);
+
+// =============================================
+// ATUALIZAR INSTITUIÇÃO - ADMINISTRADOR
+// PUT /instituicoes/:id_instituicao
+// =============================================
+
+router.put(
+    "/instituicoes/:id_instituicao",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        const id = Number(req.params.id_instituicao);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({
+                message: "ID da instituição inválido.",
+            });
+        }
+
+        const camposPermitidos = [
+            "nome",
+            "email_institucional",
+            "cep",
+            "telefone",
+            "horario_funcionamento",
+            "status_instituicao",
+            "gestor",
+            "secretaria_vinculada",
+            "numero",
+            "logradouro",
+            "bairro",
+        ];
+
+        const atualizacoes = [];
+        const valores = [];
+
+        for (const campo of camposPermitidos) {
+            const valorOriginal = req.body?.[campo];
+
+            if (valorOriginal === undefined) {
+                continue;
+            }
+
+            if (
+                valorOriginal !== null &&
+                typeof valorOriginal !== "string"
+            ) {
+                return res.status(400).json({
+                    message: `Campo ${campo} inválido.`,
+                });
+            }
+
+            if (
+                ["nome", "email_institucional"].includes(campo) &&
+                (
+                    typeof valorOriginal !== "string" ||
+                    !valorOriginal.trim()
+                )
+            ) {
+                return res.status(400).json({
+                    message: `${campo} é obrigatório.`,
+                });
+            }
+
+            const valor =
+                typeof valorOriginal === "string"
+                    ? valorOriginal.trim()
+                    : null;
+
+            if (
+                campo === "numero" &&
+                valor !== null &&
+                valor.length > 10
+            ) {
+                return res.status(400).json({
+                    message:
+                        "Número deve ter no máximo 10 caracteres.",
+                });
+            }
+
+            if (
+                campo === "email_institucional" &&
+                !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)
+            ) {
+                return res.status(400).json({
+                    message: "E-mail inválido.",
+                });
+            }
+
+            valores.push(valor);
+
+            atualizacoes.push(
+                `${campo} = $${valores.length}`
+            );
+        }
+
+        // Senha é opcional na atualização.
+        if (req.body?.senha !== undefined) {
+            if (
+                typeof req.body.senha !== "string" ||
+                req.body.senha.length < 8
+            ) {
+                return res.status(400).json({
+                    message:
+                        "A senha deve ter pelo menos 8 caracteres.",
+                });
+            }
+
+            try {
+                const hash = await bcrypt.hash(
+                    req.body.senha,
+                    10
+                );
+
+                valores.push(hash);
+
+                atualizacoes.push(
+                    `senha = $${valores.length}`
+                );
+
+            } catch (error) {
+                console.error(
+                    "Erro ao criptografar senha:",
+                    error.message
+                );
+
+                return res.status(500).json({
+                    message: "Erro ao processar a senha.",
+                });
+            }
+        }
+
+        if (atualizacoes.length === 0) {
+            return res.status(400).json({
+                message:
+                    "Informe ao menos um campo para atualizar.",
+            });
+        }
+
+        valores.push(id);
+
+        try {
+            const resultado = await BD.query(
+                `UPDATE instituicoes
+         SET ${atualizacoes.join(", ")}
+         WHERE id_instituicao = $${valores.length}
+         RETURNING ${selecaoInstituicao}`,
+                valores
+            );
+
+            if (resultado.rows.length === 0) {
+                return res.status(404).json({
+                    message: "Instituição não encontrada.",
+                });
+            }
+
+            return res.status(200).json({
+                message:
+                    "Instituição atualizada com sucesso!",
+                instituicao: resultado.rows[0],
+            });
+
+        } catch (error) {
+            if (error.code === "23505") {
+                return res.status(409).json({
+                    message:
+                        "Este e-mail institucional já está cadastrado.",
+                });
+            }
+
+            console.error(
+                "Erro ao atualizar instituição:",
+                error.message
+            );
+
+            return res.status(500).json({
+                message: "Erro ao atualizar instituição.",
+            });
+        }
+    }
+);
+
+// =============================================
+// EXCLUIR INSTITUIÇÃO - ADMINISTRADOR
+// DELETE /instituicoes/:id_instituicao
+// =============================================
+
+router.delete(
+    "/instituicoes/:id_instituicao",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        const id = Number(req.params.id_instituicao);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({
+                message: "ID da instituição inválido.",
+            });
+        }
+
+        try {
+            const resultado = await BD.query(
+                `DELETE FROM instituicoes
+         WHERE id_instituicao = $1
+         RETURNING id_instituicao`,
+                [id]
+            );
+
+            if (resultado.rows.length === 0) {
+                return res.status(404).json({
+                    message: "Instituição não encontrada.",
+                });
+            }
+
+            return res.status(200).json({
+                message:
+                    "Instituição excluída com sucesso!",
+            });
+
+        } catch (error) {
+            console.error(
+                "Erro ao excluir instituição:",
+                error.message
+            );
+
+            return res.status(500).json({
+                message: "Erro ao excluir instituição.",
+            });
+        }
+    }
+);
+
+export default router;

@@ -1,32 +1,107 @@
-import jwt from 'jsonwebtoken';
 
-//Assinatura do Servidor - só o servidor tem essa chave
-const SECRET_KEY = 'minha_chave_secreta'
+import jwt from "jsonwebtoken";
+import { BD } from "../../db.js";
 
-export function autenticarToken(req, res, next){
-    const cabecalho = req.headers['authorization']
+export function autenticarToken(req, res, next) {
+  const cabecalho = req.headers.authorization;
 
-    //extrair o token, que por padrão vem no formato BEARER
-    //bearer ihsifokijsdosjido
-    //token = ihsifokijsdosjido
-    const token = cabecalho && cabecalho.split(' ')[1]
+  const token = cabecalho?.startsWith("Bearer ")
+    ? cabecalho.slice(7)
+    : null;
 
-    //validação se o token está autorizado - Irá exibir essa mensagem
-    if(!token){
-        return res.status(401).json({message: `Token não fornecido!`})
+  if (!token) {
+    return res.status(401).json({
+      message: "Token não fornecido!",
+    });
+  }
+
+  try {
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET não configurada");
     }
 
-    //caso o token seja valido e se a assinatura for igual a secret_key
-    //ele permite o acesso
-    jwt.verify(token, SECRET_KEY, (error, usuario) =>{
-        //token é válido ou se expirou 
-        if(error){
-            return res.status(403).json({message: `Token inválido ou expirado`})
-        }
+    const usuario = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
 
-        req.usuario = usuario
-        
-        //Passa para a próxima função ou rota
-        next()
-    })
+    req.usuario = usuario;
+    next();
+
+  } catch (error) {
+    if (
+      error.name === "TokenExpiredError" ||
+      error.name === "JsonWebTokenError"
+    ) {
+      return res.status(401).json({
+        message: "Token inválido ou expirado!",
+      });
+    }
+
+    console.error("Erro de autenticação:", error.message);
+
+    return res.status(500).json({
+      message: "Erro na configuração da autenticação.",
+    });
+  }
+}
+
+// AUTORIZAÇÃO ADMINISTRATIVA
+export function autenticarAdministrador(req, res, next) {
+  if (req.usuario?.tipo_acesso !== "administrador") {
+    return res.status(403).json({
+      message: "Acesso exclusivo do administrador.",
+    });
+  }
+
+  next();
+}
+
+// AUTORIZAÇÃO INSTITUCIONAL
+export async function autenticarInstituicao(req, res, next) {
+  if (
+    req.usuario?.tipo_acesso !== "instituicao" ||
+    !Number.isInteger(req.usuario.id_instituicao)
+  ) {
+    return res.status(403).json({
+      message: "Acesso exclusivo de instituições.",
+    });
+  }
+
+  try {
+    const resultado = await BD.query(
+      `SELECT id_instituicao, cadastro_completo
+       FROM instituicoes
+       WHERE id_instituicao = $1`,
+      [req.usuario.id_instituicao]
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({
+        message: "Instituição não encontrada.",
+      });
+    }
+
+    req.instituicao = resultado.rows[0];
+    next();
+
+  } catch (error) {
+    console.error(error.message);
+
+    return res.status(500).json({
+      message: "Erro ao verificar instituição.",
+    });
+  }
+}
+
+// BLOQUEIA RECURSOS ANTES DO PRIMEIRO CADASTRO
+export function exigirCadastroCompleto(req, res, next) {
+  if (req.instituicao?.cadastro_completo !== true) {
+    return res.status(403).json({
+      message: "Complete o cadastro obrigatório.",
+      cadastro_completo: false,
+    });
+  }
+
+  next();
 }
