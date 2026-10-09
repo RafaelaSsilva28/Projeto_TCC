@@ -19,50 +19,54 @@ export default function PrincipalInst() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
-  useEffect(() => {
-    let usuario = null;
+ 
+useEffect(() => {
+  let ativo = true;
 
+  const token = localStorage.getItem("@AndraRecursos:token");
+
+  if (!token) {
+    navigate("/", { replace: true });
+    return;
+  }
+
+  async function buscarInstituicao() {
     try {
-      usuario = JSON.parse(localStorage.getItem("@AndraRecursos:usuario"));
-    } catch {
-      usuario = null;
-    }
-
-    const token = localStorage.getItem("@AndraRecursos:token");
-
-    if (!usuario || !token) {
-      navigate("/");
-      return;
-    }
-
-    async function buscarInstituicao() {
-      try {
-        const resposta = await fetch(`${enderecoServidor}/instituicoes`, {
+      const resposta = await fetch(
+        `${enderecoServidor}/instituicoes/me`,
+        {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        });
-
-        if (!resposta.ok) {
-          throw new Error("Erro ao buscar instituição");
         }
+      );
 
-        const dados = await resposta.json();
-
-        const encontrada = dados.find(
-          (item) => item.id_instituicao === usuario.id,
+      if (!resposta.ok) {
+        throw new Error(
+          `Erro ao buscar instituição: ${resposta.status}`
         );
+      }
 
-        setInstituicao(encontrada);
-      } catch (error) {
-        console.error("Erro ao carregar instituição:", error);
-      } finally {
+      const dados = await resposta.json();
+
+      if (ativo) {
+        setInstituicao(dados);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar instituição:", error);
+    } finally {
+      if (ativo) {
         setCarregando(false);
       }
     }
+  }
 
-    buscarInstituicao();
-  }, [navigate]);
+  buscarInstituicao();
+
+  return () => {
+    ativo = false;
+  };
+}, [navigate]);
 
   function sair() {
     localStorage.removeItem("@AndraRecursos:token");
