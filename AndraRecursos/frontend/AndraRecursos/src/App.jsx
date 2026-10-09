@@ -12,6 +12,7 @@ import CadastrarInstADM from "./pages/CadastrarInstADM";
 import HistoricoAdmin from "./pages/HistoricoAdmin";
 import SolicitacoesAdmin from "./pages/SolicitacoesAdmin";
 import SolicitacoesInst from "./pages/SolicitacoesInst";
+import NotificacoesAdmin from "./pages/NotificacoesAdmin";
 
 // COMPONENTES
 import LayoutAdministrador from "./components/LayoutAdministrador";
@@ -135,6 +136,15 @@ function App() {
 
         {/* ROTA NÃO ENCONTRADA */}
         <Route path="*" element={<Navigate to="/" replace />} />
+
+        <Route
+          path="/notificacoes"
+          element={
+            <LayoutAdministrador>
+              <NotificacoesAdmin />
+            </LayoutAdministrador>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
