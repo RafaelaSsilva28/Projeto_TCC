@@ -18,11 +18,9 @@ import {
   FiAlertCircle,
 } from "react-icons/fi";
 
-const etapas = [
-  "Informações",
-  "Detalhes",
-  "Revisão",
-];
+import { enderecoServidor } from "../utils";
+
+const etapas = ["Informações", "Detalhes", "Revisão"];
 
 export default function SolicitacoesInst() {
   const navigate = useNavigate();
@@ -83,9 +81,8 @@ export default function SolicitacoesInst() {
         (novo) =>
           !anteriores.some(
             (existente) =>
-              existente.name === novo.name &&
-              existente.size === novo.size
-          )
+              existente.name === novo.name && existente.size === novo.size,
+          ),
       );
 
       return [...anteriores, ...novos];
@@ -97,9 +94,7 @@ export default function SolicitacoesInst() {
   }
 
   function removerArquivo(indice) {
-    setArquivos((anteriores) =>
-      anteriores.filter((_, i) => i !== indice)
-    );
+    setArquivos((anteriores) => anteriores.filter((_, i) => i !== indice));
   }
 
   function validarEtapaAtual() {
@@ -139,26 +134,59 @@ export default function SolicitacoesInst() {
     setEtapa((anterior) => Math.max(anterior - 1, 1));
   }
 
-  function enviarSolicitacao() {
-    if (!validarEtapaAtual()) return;
+    const [enviando, setEnviando] = useState(false);
 
-    /*
-      Este exemplo prepara a solicitação para revisão.
-      Para gravar no banco de dados, conecte esta função
-      à rota POST real da sua API.
-    */
+    async function enviarSolicitacao() {
+      if (!validarEtapaAtual()) return;
 
-    setErro("");
-    setSucesso(
-      "Formulário validado! Para registrar a solicitação, conecte o envio à API."
-    );
-  }
+      setErro("");
+      setSucesso("");
+      setEnviando(true);
+
+      try {
+        const resposta = await fetch(`${enderecoServidor}/solicitacoes`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            titulo: formulario.titulo,
+            setor: formulario.setor,
+            prioridade: formulario.prioridade,
+            descricao: formulario.descricao,
+          }),
+        });
+
+        const dados = await resposta.json().catch(() => ({}));
+
+        if (!resposta.ok) {
+          throw new Error(
+            dados.mensagem ||
+              dados.erro ||
+              "Não foi possível cadastrar a solicitação.",
+          );
+        }
+
+        setSucesso("Solicitação cadastrada com sucesso!");
+        setFormulario({
+          titulo: "",
+          setor: "",
+          prioridade: "Média",
+          descricao: "",
+        });
+        setArquivos([]);
+        setEtapa(1);
+      } catch (erro) {
+        setErro(erro.message || "Não foi possível conectar ao servidor.");
+      } finally {
+        setEnviando(false);
+      }
+    }
 
   const classeInput =
     "mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#082d56] focus:ring-2 focus:ring-[#082d56]/10";
 
-  const classeLabel =
-    "block text-sm font-semibold text-gray-700";
+  const classeLabel = "block text-sm font-semibold text-gray-700";
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -172,17 +200,13 @@ export default function SolicitacoesInst() {
       {/* MENU LATERAL */}
       <aside
         className={`fixed left-0 top-0 z-40 h-screen w-64 shrink-0 transform bg-[#082d56] text-white transition-transform duration-300 lg:sticky ${
-          menuAberto
-            ? "translate-x-0"
-            : "-translate-x-full lg:translate-x-0"
+          menuAberto ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
         <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
           <div>
             <h1 className="text-xl font-bold">AndraRecursos</h1>
-            <p className="mt-1 text-xs text-blue-200">
-              Área da Instituição
-            </p>
+            <p className="mt-1 text-xs text-blue-200">Área da Instituição</p>
           </div>
 
           <button
@@ -237,7 +261,9 @@ export default function SolicitacoesInst() {
 
           <button
             type="button"
-            onClick={() => setErro("A página de configurações ainda não está conectada.")}
+            onClick={() =>
+              setErro("A página de configurações ainda não está conectada.")
+            }
             className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-white/10"
           >
             <FiSettings size={19} />
@@ -319,9 +345,7 @@ export default function SolicitacoesInst() {
                       {indice > 0 && (
                         <div
                           className={`absolute right-1/2 top-5 h-0.5 w-full ${
-                            numero <= etapa
-                              ? "bg-[#082d56]"
-                              : "bg-gray-200"
+                            numero <= etapa ? "bg-[#082d56]" : "bg-gray-200"
                           }`}
                         />
                       )}
@@ -333,11 +357,7 @@ export default function SolicitacoesInst() {
                             : "border-gray-300 bg-white text-gray-500"
                         }`}
                       >
-                        {concluida ? (
-                          <FiCheckCircle size={19} />
-                        ) : (
-                          numero
-                        )}
+                        {concluida ? <FiCheckCircle size={19} /> : numero}
                       </div>
 
                       <span
@@ -369,12 +389,10 @@ export default function SolicitacoesInst() {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-500">
-                  {etapa === 1 &&
-                    "Informe o assunto e o setor responsável."}
+                  {etapa === 1 && "Informe o assunto e o setor responsável."}
                   {etapa === 2 &&
                     "Explique o que precisa e anexe documentos, se necessário."}
-                  {etapa === 3 &&
-                    "Confira os dados antes de concluir."}
+                  {etapa === 3 && "Confira os dados antes de concluir."}
                 </p>
               </div>
 
@@ -623,7 +641,11 @@ export default function SolicitacoesInst() {
               <div className="mt-8 flex flex-col-reverse justify-between gap-3 border-t border-gray-100 pt-6 sm:flex-row">
                 <button
                   type="button"
-                  onClick={etapa === 1 ? () => navigate("/principal-inst") : voltarEtapa}
+                  onClick={
+                    etapa === 1
+                      ? () => navigate("/principal-inst")
+                      : voltarEtapa
+                  }
                   className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                 >
                   <FiArrowLeft size={17} />

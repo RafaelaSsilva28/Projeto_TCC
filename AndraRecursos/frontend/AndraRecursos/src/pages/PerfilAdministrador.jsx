@@ -12,7 +12,7 @@ import {
     FiX,
     FiTrash2,
     FiRefreshCw,
-    FiBuilding,
+    FiHome,
     FiMapPin,
     FiPhone,
     FiBriefcase,
@@ -573,7 +573,7 @@ export default function PerfilAdministrador() {
                 <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                     <div className="mb-6 flex items-center gap-3">
                         <span className="rounded-xl bg-blue-100 p-3 text-[#1759ad]">
-                            <FiBuilding size={21} />
+                            <FiHome size={21} />
                         </span>
 
                         <div>
@@ -589,7 +589,7 @@ export default function PerfilAdministrador() {
 
                     <div className="grid gap-5 sm:grid-cols-2">
                         <CampoInfo
-                            Icone={FiBuilding}
+                            Icone={FiHome}
                             titulo="Razão social"
                             valor={instituicao.razaoSocial}
                             grande
