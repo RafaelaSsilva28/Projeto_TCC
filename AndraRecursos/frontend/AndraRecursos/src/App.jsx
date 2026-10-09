@@ -19,6 +19,8 @@ import CadastrarInstADM from "./pages/CadastrarInstADM";
 import HistoricoAdmin from "./pages/HistoricoAdmin";
 import SolicitacoesAdmin from "./pages/SolicitacoesAdmin";
 import SolicitacoesInst from "./pages/SolicitacoesInst";
+import NotificacoesInst from "./pages/NotificaçõesInst";
+import HistoricoInst from "./pages/HistoricoInst";
 
 // ============================================
 // COMPONENTES
@@ -133,6 +135,16 @@ function App() {
           <Route
             path="/solicitacoes-inst"
             element={<SolicitacoesInst />}
+          />
+
+          <Route
+            path="/historico-inst"
+            element={<HistoricoInst />}
+          />
+
+          <Route
+            path="/notificacoes-inst"
+            element={<NotificacoesInst />}
           />
       
         </Route>

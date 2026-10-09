@@ -119,10 +119,10 @@ export default function PrincipalInst() {
             <span>Principal</span>
           </button>
 
-        {/* BOTAO SOLICITACAO */}
+          {/* BOTAO SOLICITACAO */}
           <button
             type="button"
-            onClick={{}=> {
+            onClick={() => {
               setMenuAberto(false);
               navigate("/solicitacoes-inst");
             }}
@@ -143,6 +143,7 @@ export default function PrincipalInst() {
 
           <button
             type="button"
+            onClick={() => navigate("/notificacoes-inst")}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-white/10 transition"
           >
             <FiBell size={19} />

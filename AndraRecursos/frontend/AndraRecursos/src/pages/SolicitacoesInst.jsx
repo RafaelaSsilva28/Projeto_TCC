@@ -1,4 +1,3 @@
-jsx
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -24,7 +23,7 @@ const etapas = [
     "Revisão",
 ];
 
-export default function NovaSolicitacao() {
+export default function SolicitacoesInst() {
     const navigate = useNavigate();
     const inputArquivo = useRef(null);
 
