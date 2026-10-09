@@ -241,22 +241,7 @@ export default function LayoutAdministrador({ children }) {
             {tituloAtual}
           </span>
 
-          {/* PESQUISA */}
-          <div className="order-3 flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 xl:order-none xl:w-64">
-
-            <IconeAdministrador
-              tipo="busca"
-              className="h-5 w-5 shrink-0 text-gray-400"
-            />
-
-            <input
-              type="search"
-              placeholder="Buscar recursos..."
-              aria-label="Buscar recursos"
-              className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-gray-400"
-            />
-
-          </div>
+         
 
           {/* AÇÕES SUPERIORES */}
           <div className="flex shrink-0 items-center gap-3 sm:gap-5">
