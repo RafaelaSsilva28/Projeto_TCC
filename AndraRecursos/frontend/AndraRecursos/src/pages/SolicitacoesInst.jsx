@@ -136,52 +136,65 @@ export default function SolicitacoesInst() {
 
     const [enviando, setEnviando] = useState(false);
 
-    async function enviarSolicitacao() {
-      if (!validarEtapaAtual()) return;
+async function enviarSolicitacao() {
+  if (!validarEtapaAtual()) return;
 
-      setErro("");
-      setSucesso("");
-      setEnviando(true);
+  const token = localStorage.getItem("@AndraRecursos:token");
 
-      try {
-        const resposta = await fetch(`${enderecoServidor}/solicitacoes`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            titulo: formulario.titulo,
-            setor: formulario.setor,
-            prioridade: formulario.prioridade,
-            descricao: formulario.descricao,
-          }),
-        });
+  if (!token) {
+    setErro("Sua sessão expirou. Faça login novamente.");
+    return;
+  }
 
-        const dados = await resposta.json().catch(() => ({}));
+  setErro("");
+  setSucesso("");
+  setEnviando(true);
 
-        if (!resposta.ok) {
-          throw new Error(
-            dados.mensagem ||
-              dados.erro ||
-              "Não foi possível cadastrar a solicitação.",
-          );
-        }
-
-        setSucesso("Solicitação cadastrada com sucesso!");
-        setFormulario({
-          titulo: "",
-          setor: "",
-          prioridade: "Média",
-          descricao: "",
-        });
-        setArquivos([]);
-        setEtapa(1);
-      } catch (erro) {
-        setErro(erro.message || "Não foi possível conectar ao servidor.");
-      } finally {
-        setEnviando(false);
+  try {
+    const resposta = await fetch(
+      `${enderecoServidor}/solicitacoes`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          titulo: formulario.titulo,
+          setor: formulario.setor,
+          prioridade: formulario.prioridade,
+          descricao: formulario.descricao,
+        }),
       }
+    );
+
+    const dados = await resposta.json().catch(() => ({}));
+
+    if (!resposta.ok) {
+      throw new Error(
+        dados.mensagem ||
+        dados.erro ||
+        `Erro ao enviar solicitação (${resposta.status}).`
+      );
     }
+
+    setSucesso("Solicitação cadastrada com sucesso!");
+
+    setFormulario({
+      titulo: "",
+      setor: "",
+      prioridade: "Média",
+      descricao: "",
+    });
+
+    setArquivos([]);
+    setEtapa(1);
+  } catch (erro) {
+    setErro(erro.message || "Erro ao conectar com a API.");
+  } finally {
+    setEnviando(false);
+  }
+}
 
   const classeInput =
     "mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#082d56] focus:ring-2 focus:ring-[#082d56]/10";
@@ -451,6 +464,7 @@ export default function SolicitacoesInst() {
                       <option value="Tecnologia">Tecnologia</option>
                       <option value="Recursos Humanos">Recursos Humanos</option>
                       <option value="Financeiro">Financeiro</option>
+                      <option value="Financeiro">ALimentício</option>
                       <option value="Outro">Outro</option>
                     </select>
                   </div>
