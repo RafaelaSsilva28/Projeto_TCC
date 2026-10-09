@@ -271,7 +271,7 @@ export default function HistoricoInst() {
             type="button"
             onClick={() => {
               setMenuAberto(false);
-              // Configure aqui a rota de solicitações da instituição.
+              navigate("/solicitacoes-inst");
             }}
             className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-white/10"
           >
@@ -293,7 +293,7 @@ export default function HistoricoInst() {
             type="button"
             onClick={() => {
               setMenuAberto(false);
-              alert("A página de notificações ainda não está configurada.");
+              navigate("/notificacoes-inst");
             }}
             className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-white/10"
           >
@@ -305,7 +305,7 @@ export default function HistoricoInst() {
             type="button"
             onClick={() => {
               setMenuAberto(false);
-              alert("A página de configurações ainda não está configurada.");
+              navigate("/configuracoes-inst");
             }}
             className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-white/10"
           >

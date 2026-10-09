@@ -8,6 +8,9 @@ import {
   FiTrash2,
   FiCheckCircle,
   FiAlertCircle,
+  FiMenu,
+  FiHome,
+  FiClipboard,
 } from "react-icons/fi";
 
 const LIMITE_ARQUIVO = 10 * 1024 * 1024;
@@ -530,38 +533,3 @@ export default function SolicitacoesInst() {
     </div>
   );
 }
-
-{
-  /* CABEÇALHO */
-}
-<header className="flex h-20 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8">
-  <div className="flex items-center gap-4">
-    <button
-      type="button"
-      aria-label="Abrir menu"
-      onClick={() => setMenuAberto(true)}
-      className="text-gray-600 lg:hidden"
-    >
-      <FiMenu size={24} />
-    </button>
-
-    <div>
-      <h2 className="text-lg font-semibold text-gray-800 sm:text-xl">
-        Solicitações
-      </h2>
-      <p className="text-xs text-gray-500 sm:text-sm">
-        Histórico da instituição
-      </p>
-    </div>
-  </div>
-
-  <button
-    type="button"
-    aria-label="Atualizar histórico"
-    onClick={buscarHistorico}
-    disabled={carregando}
-    className="rounded-lg p-2 text-gray-600 transition hover:bg-gray-100 hover:text-[#082d56] disabled:opacity-50"
-  >
-    <FiRefreshCw size={21} className={carregando ? "animate-spin" : ""} />
-  </button>
-</header>;
