@@ -1,60 +1,152 @@
+
+import "dotenv/config";
+
 import express from "express";
+import cors from "cors";
+
 import { testarConexao } from "./db.js";
+
 import rotasAdministradores from "./src/routes/rotasAdministradores.js";
 import rotasInstituicoes from "./src/routes/rotasInstituicoes.js";
-import rotasSolicitacoes from "./src/routes/rotasSolicitacoes.js"
+import rotasSolicitacoes from "./src/routes/rotasSolicitacoes.js";
 import rotasDocumentos from "./src/routes/rotasDocumentos.js";
 import rotasNotificacoes from "./src/routes/rotasNotificacoes.js";
 import rotasHistoricoSolicitacoes from "./src/routes/rotasHistoricoSolicitacoes.js";
-import rotasRespostasADM from "./src/routes/rotasRespostasADM.js"
+import rotasRespostasADM from "./src/routes/rotasRespostasADM.js";
 import rotasDashboard from "./src/routes/rotasDashboard.js";
 
-// Usando swagger
-// import swaggerUi from "swagger-ui-express";
 import documentacao from "./config/swagger.js";
-import cors from "cors";
 
 const app = express();
-app.use(cors());
 
+// ======================================
+// MIDDLEWARES
+// ======================================
+
+app.use(cors());
 app.use(express.json());
-// app.use("/swagger", swaggerUi.serve, swaggerUi.setup(documentacao));
+
+// ======================================
+// ROTA PRINCIPAL
+// ======================================
+
+app.get("/", (req, res) => {
+  res.status(200).json({
+    mensagem: "API AndraRecursos funcionando!",
+    status: "online",
+  });
+});
+
+// ======================================
+// DOCUMENTAÇÃO SWAGGER
+// ======================================
 
 app.get("/swagger", (req, res) => {
-  res.send(`<!DOCTYPE html>
-  <html><head>
-  <title>API de FinanControl</title>
-  <meta charset="utf-8"/>
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css">
-  </head><body>
-  <div id="swagger-ui"></div>
-  <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
-  <script>
-  SwaggerUIBundle({
-  spec: ${JSON.stringify(documentacao)},
-  dom_id: '#swagger-ui'})
-  </script>
-  </body></html>`);
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8" />
+        <title>API AndraRecursos</title>
+
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/swagger-ui-dist/swagger-ui.css"
+        />
+      </head>
+
+      <body>
+        <div id="swagger-ui"></div>
+
+        <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+
+        <script>
+          SwaggerUIBundle({
+            spec: ${JSON.stringify(documentacao)},
+            dom_id: "#swagger-ui"
+          });
+        </script>
+      </body>
+    </html>
+  `);
 });
 
-app.get("/", async (req, res) => {
-  await testarConexao();
-  res.redirect("/swagger"); // Descomente esta linha para redirecionar automaticamente
-});
+// ======================================
+// ROTAS DA API
+// ======================================
 
-// Utilizando rotas
+// Administradores
 app.use(rotasAdministradores);
-app.use(rotasInstituicoes); 
-app.use(rotasSolicitacoes); 
-app.use(rotasDocumentos); 
-app.use(rotasNotificacoes); 
+
+// Instituições
+app.use(rotasInstituicoes);
+
+// Solicitações
+app.use(rotasSolicitacoes);
+
+// Documentos
+app.use(rotasDocumentos);
+
+// Notificações
+app.use(rotasNotificacoes);
+
+// Histórico
 app.use(rotasHistoricoSolicitacoes);
+
+// Respostas administrativas
 app.use(rotasRespostasADM);
+
+// Dashboard
 app.use(rotasDashboard);
 
-const porta = 3001;
+// ======================================
+// ROTA NÃO ENCONTRADA
+// ======================================
 
-app.listen(porta, async () => {
-  console.log(`API AndraRecursos: http://localhost:${porta}`);
-  await testarConexao();
+app.use((req, res) => {
+  res.status(404).json({
+    message: "Rota não encontrada.",
+    caminho: req.originalUrl,
+  });
 });
+
+// ======================================
+// TRATAMENTO DE ERROS
+// ======================================
+
+app.use((error, req, res, next) => {
+  console.error("Erro na API:", error);
+
+  res.status(500).json({
+    message: "Erro interno no servidor.",
+  });
+});
+
+// ======================================
+// EXECUÇÃO LOCAL
+// ======================================
+
+if (!process.env.VERCEL) {
+  const porta = Number(process.env.PORT || 3001);
+
+  app.listen(porta, async () => {
+    console.log(
+      `API AndraRecursos: http://localhost:${porta}`
+    );
+
+    try {
+      await testarConexao();
+    } catch (error) {
+      console.error(
+        "Erro ao conectar ao Neon:",
+        error.message
+      );
+    }
+  });
+}
+
+// ======================================
+// EXPORTAÇÃO PARA VERCEL
+// ======================================
+
+export default app;
