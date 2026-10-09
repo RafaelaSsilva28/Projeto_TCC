@@ -15,6 +15,7 @@ import rotasHistoricoSolicitacoes from "./src/routes/rotasHistoricoSolicitacoes.
 import rotasRespostasADM from "./src/routes/rotasRespostasADM.js";
 import rotasDashboard from "./src/routes/rotasDashboard.js";
 import rotasHistoricoInst from "./src/routes/rotasHistoricoInst.js"; 
+import rotasConfiguracoesAdmin from "./src/routes/rotasConfiguracoesAdmin.js";
 
 import documentacao from "./config/swagger.js";
 
@@ -103,6 +104,8 @@ app.use(rotasDashboard);
 //Historico instituição
 app.use(rotasHistoricoInst);
 
+//configurações 
+app.use(rotasConfiguracoesAdmin);
 // ======================================
 // ROTA NÃO ENCONTRADA
 // ======================================
