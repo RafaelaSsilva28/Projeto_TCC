@@ -1,15 +1,116 @@
-import express, { Router } from "express";
+
+import { Router } from "express";
 import { BD } from "../../db.js";
-import { autenticarToken } from "../middlewares/Autenticacao.js";
+
+import {
+  autenticarToken,
+  autenticarAdministrador,
+} from "../middlewares/Autenticacao.js";
 
 const router = Router();
 
-// GET - Listar todo o histórico
+// =============================================
+// GET - LISTAR HISTÓRICO ADMINISTRATIVO
+// =============================================
+// Retorna a movimentação mais recente
+// de cada solicitação.
+//
+// Inclui:
+// - Instituição
+// - Título da solicitação
+// - Status atual
+// - Prioridade
+// - Descrição
+// - Data da última movimentação
 
 router.get(
   "/historico-solicitacoes",
   autenticarToken,
+  autenticarAdministrador,
   async (req, res) => {
+    try {
+      const comando = `
+        SELECT *
+        FROM (
+          SELECT DISTINCT ON (s.id_solicitacoes)
+            h.id_historico,
+            h.id_solicitacao,
+            h.descricao,
+            h.prioridade,
+            h.data_alteracao,
+
+            TO_CHAR(
+              h.data_alteracao,
+              'DD/MM/YYYY'
+            ) AS data_formatada,
+
+            s.titulo AS titulo_solicitacao,
+            s.status AS status,
+            i.nome AS nome_instituicao
+
+          FROM historico_solicitacoes h
+
+          INNER JOIN solicitacoes s
+            ON h.id_solicitacao = s.id_solicitacoes
+
+          LEFT JOIN instituicoes i
+            ON s.id_instituicao = i.id_instituicao
+
+          ORDER BY
+            s.id_solicitacoes,
+            h.data_alteracao DESC NULLS LAST,
+            h.id_historico DESC
+        ) AS ultimos_historicos
+
+        ORDER BY
+          data_alteracao DESC NULLS LAST,
+          id_historico DESC
+      `;
+
+      const resultado = await BD.query(comando);
+
+      return res.status(200).json(resultado.rows);
+
+    } catch (error) {
+      console.error(
+        "Erro ao listar histórico:",
+        error.message
+      );
+
+      return res.status(500).json({
+        error: "Erro ao listar histórico.",
+      });
+    }
+  }
+);
+
+// =============================================
+// GET - HISTÓRICO DE UMA SOLICITAÇÃO
+// =============================================
+// Retorna todas as movimentações associadas
+// a uma solicitação específica.
+//
+// Disponível para administradores.
+// O controle de acesso institucional a um
+// histórico próprio deve ser implementado
+// separadamente.
+
+router.get(
+  "/historico-solicitacoes/solicitacao/:id_solicitacao",
+  autenticarToken,
+  autenticarAdministrador,
+  async (req, res) => {
+    const { id_solicitacao } = req.params;
+
+    if (
+      !Number.isInteger(Number(id_solicitacao)) ||
+      Number(id_solicitacao) <= 0
+    ) {
+      return res.status(400).json({
+        error: "ID da solicitação inválido.",
+      });
+    }
+
     try {
       const comando = `
         SELECT
@@ -19,142 +120,271 @@ router.get(
           h.status,
           h.prioridade,
           h.data_alteracao,
+
           TO_CHAR(
             h.data_alteracao,
             'DD/MM/YYYY'
-          ) AS data_formatada,
-          s.titulo AS titulo_solicitacao
+          ) AS data_formatada
+
         FROM historico_solicitacoes h
-        LEFT JOIN solicitacoes s
-          ON h.id_solicitacao = s.id_solicitacoes
+
+        WHERE h.id_solicitacao = $1
+
         ORDER BY
-          h.data_alteracao DESC NULLS LAST,
-          h.id_historico DESC
+          h.data_alteracao ASC NULLS LAST,
+          h.id_historico ASC
       `;
 
-      const historico = await BD.query(comando);
+      const resultado = await BD.query(
+        comando,
+        [id_solicitacao]
+      );
 
-      return res.status(200).json(historico.rows);
+      return res.status(200).json(resultado.rows);
 
     } catch (error) {
       console.error(
-        "Erro ao listar histórico:",
+        "Erro ao buscar histórico da solicitação:",
         error.message
       );
 
       return res.status(500).json({
-        message: "Erro ao listar histórico.",
+        error: "Erro ao buscar histórico da solicitação.",
       });
     }
   }
 );
 
+// =============================================
+// POST - CADASTRAR HISTÓRICO
+// =============================================
 
-// GET - Buscar histórico por solicitação
-router.get("/historico-solicitacoes/solicitacao/:id_solicitacao", autenticarToken, async (req, res) => {
-  const { id_solicitacao } = req.params;
-  try {
-    const query = `
-      SELECT * FROM historico_solicitacoes
-      WHERE id_solicitacao = $1
-      ORDER BY data_alteracao ASC
-    `;
-
-    const historico = await BD.query(query, [id_solicitacao]);
-
-    res.status(200).json(historico.rows);
-
-  } catch (error) {
-    console.error("Erro ao buscar histórico da solicitação", error.message);
-    res.status(500).json({ error: "Erro ao buscar histórico da solicitação" + error.message });
-  }
-});
-
-// POST - Criar novo histórico
-router.post("/historico-solicitacoes", autenticarToken, async (req, res) => {
-  const { id_solicitacao, descricao, status, prioridade } = req.body;
-
-  try {
-    const comando = `INSERT INTO historico_solicitacoes( id_solicitacao, descricao, status, prioridade ) 
-            VALUES($1, $2, $3, $4)`;
-
-    const valores = [id_solicitacao, descricao, status, prioridade];
-
-    await BD.query(comando, valores);
-    console.log(comando, valores);
-
-    return res.status(201).json("Histórico cadastrado");
-  } catch (error) {
-    console.error("Erro ao cadastrar histórico", error.message);
-    return res.status(500).json({ error: "Erro ao cadastrar histórico" + error.message });
-  }
-});
-
-// PUT - Atualizar histórico
-router.put("/historico-solicitacoes/:id_historico", autenticarToken, async (req, res) => {
-  //Id recebido via parametro
-
-  const { id_historico } = req.params;
-  //Dados do Usuario via corpo da pagina
-  const { id_solicitacao, descricao, status, prioridade } = req.body;
-
-  try {
-    //Verificar se o usuario existe
-    const verificarHistorico = await BD.query(
-      `SELECT * FROM historico_solicitacoes WHERE id_historico = $1`,
-      [id_historico],
-    );
-    if (verificarHistorico.rows.length === 0) {
-      return res.status(404).json({ message: "Solicitação não encontrada" });
-    }
-
-    //Atualiza todos os campos da tabela(PUT substituição completa)
-    const comando = `UPDATE historico_solicitacoes SET id_solicitacao = $1, descricao = $2, status = $3, prioridade = $4
-      WHERE id_historico = $5`;
-
-    const valores = [
+router.post(
+  "/historico-solicitacoes",
+  autenticarToken,
+  autenticarAdministrador,
+  async (req, res) => {
+    const {
       id_solicitacao,
       descricao,
       status,
       prioridade,
-      id_historico,
-    ];
-    await BD.query(comando, valores);
+    } = req.body;
 
-    return res.status(200).json("Histórico atualizado com sucesso");
-  } catch (error) {
-    console.error("Erro ao atualizar histórico");
-    return res.status(500).json({ error: "Erro ao atualizar histórico" + error.message });
+    if (
+      !Number.isInteger(Number(id_solicitacao)) ||
+      Number(id_solicitacao) <= 0 ||
+      typeof descricao !== "string" ||
+      !descricao.trim() ||
+      typeof status !== "string" ||
+      !status.trim() ||
+      typeof prioridade !== "string" ||
+      !prioridade.trim()
+    ) {
+      return res.status(400).json({
+        error: "Preencha todos os campos corretamente.",
+      });
+    }
+
+    try {
+      const verificarSolicitacao = await BD.query(
+        `
+          SELECT id_solicitacoes
+          FROM solicitacoes
+          WHERE id_solicitacoes = $1
+        `,
+        [id_solicitacao]
+      );
+
+      if (verificarSolicitacao.rows.length === 0) {
+        return res.status(404).json({
+          error: "Solicitação não encontrada.",
+        });
+      }
+
+      const comando = `
+        INSERT INTO historico_solicitacoes (
+          id_solicitacao,
+          descricao,
+          status,
+          prioridade
+        )
+        VALUES ($1, $2, $3, $4)
+        RETURNING *
+      `;
+
+      const valores = [
+        id_solicitacao,
+        descricao.trim(),
+        status.trim(),
+        prioridade.trim(),
+      ];
+
+      const resultado = await BD.query(
+        comando,
+        valores
+      );
+
+      return res.status(201).json({
+        message: "Histórico cadastrado com sucesso.",
+        historico: resultado.rows[0],
+      });
+
+    } catch (error) {
+      console.error(
+        "Erro ao cadastrar histórico:",
+        error.message
+      );
+
+      return res.status(500).json({
+        error: "Erro ao cadastrar histórico.",
+      });
+    }
   }
-});
+);
 
-// DELETE - Deletar histórico
-router.delete("/historico-solicitacoes/:id_historico", autenticarToken, async (req, res) => {
-  //Id recebido via parametro
-  const { id_historico } = req.params;
+// =============================================
+// PUT - ATUALIZAR HISTÓRICO
+// =============================================
 
-  try {
+router.put(
+  "/historico-solicitacoes/:id_historico",
+  autenticarToken,
+  autenticarAdministrador,
+  async (req, res) => {
+    const { id_historico } = req.params;
 
-    // Verificar se a Solicitação existe antes de tentar deletar
-        const verificarHistorico = await BD.query(
-            `SELECT * FROM historico_solicitacoes WHERE id_historico = $1`,
-            [id_historico]
-        );
+    const {
+      id_solicitacao,
+      descricao,
+      status,
+      prioridade,
+    } = req.body;
 
-        if (verificarHistorico.rows.length === 0) {
-            return res.status(404).json({ message: "Histórico não encontrado!" });
-        }
+    if (
+      !Number.isInteger(Number(id_historico)) ||
+      Number(id_historico) <= 0 ||
+      !Number.isInteger(Number(id_solicitacao)) ||
+      Number(id_solicitacao) <= 0 ||
+      typeof descricao !== "string" ||
+      !descricao.trim() ||
+      typeof status !== "string" ||
+      !status.trim() ||
+      typeof prioridade !== "string" ||
+      !prioridade.trim()
+    ) {
+      return res.status(400).json({
+        error: "Dados do histórico inválidos.",
+      });
+    }
 
-    const comando = `DELETE FROM historico_solicitacoes WHERE id_historico = $1`;
-    // const comando = `DELETE FROM usuarios WHERE id_usuario = $1`
-    await BD.query(comando, [id_historico]);
-    return res.status(200).json({ message: " Histórico excluido com sucesso" });
-  } catch (error) {
-    console.error("Erro ao excluir histórico", error.message);
-    return res
-      .status(500)
-      .json({ message: "Erro interno no servidor" + error.message });
+    try {
+      const comando = `
+        UPDATE historico_solicitacoes
+
+        SET
+          id_solicitacao = $1,
+          descricao = $2,
+          status = $3,
+          prioridade = $4
+
+        WHERE id_historico = $5
+
+        RETURNING *
+      `;
+
+      const valores = [
+        id_solicitacao,
+        descricao.trim(),
+        status.trim(),
+        prioridade.trim(),
+        id_historico,
+      ];
+
+      const resultado = await BD.query(
+        comando,
+        valores
+      );
+
+      if (resultado.rows.length === 0) {
+        return res.status(404).json({
+          error: "Histórico não encontrado.",
+        });
+      }
+
+      return res.status(200).json({
+        message: "Histórico atualizado com sucesso.",
+        historico: resultado.rows[0],
+      });
+
+    } catch (error) {
+      console.error(
+        "Erro ao atualizar histórico:",
+        error.message
+      );
+
+      return res.status(500).json({
+        error: "Erro ao atualizar histórico.",
+      });
+    }
   }
-});
+);
+
+// =============================================
+// DELETE - EXCLUIR HISTÓRICO
+// =============================================
+
+router.delete(
+  "/historico-solicitacoes/:id_historico",
+  autenticarToken,
+  autenticarAdministrador,
+  async (req, res) => {
+    const { id_historico } = req.params;
+
+    if (
+      !Number.isInteger(Number(id_historico)) ||
+      Number(id_historico) <= 0
+    ) {
+      return res.status(400).json({
+        error: "ID do histórico inválido.",
+      });
+    }
+
+    try {
+      const comando = `
+        DELETE FROM historico_solicitacoes
+
+        WHERE id_historico = $1
+
+        RETURNING id_historico
+      `;
+
+      const resultado = await BD.query(
+        comando,
+        [id_historico]
+      );
+
+      if (resultado.rows.length === 0) {
+        return res.status(404).json({
+          error: "Histórico não encontrado.",
+        });
+      }
+
+      return res.status(200).json({
+        message: "Histórico excluído com sucesso.",
+      });
+
+    } catch (error) {
+      console.error(
+        "Erro ao excluir histórico:",
+        error.message
+      );
+
+      return res.status(500).json({
+        error: "Erro ao excluir histórico.",
+      });
+    }
+  }
+);
 
 export default router;
