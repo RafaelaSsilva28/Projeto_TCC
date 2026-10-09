@@ -230,12 +230,12 @@ export default function HistoricoInst() {
           onClick={() => setMenuAberto(false)}
         />
       )}
-      {/* MENU LATERAL INSTITUCIONAL
+      {/* MENU LATERAL INSTITUCIONAL */}
       <aside
         className={`fixed left-0 top-0 z-40 h-screen w-64 shrink-0 transform bg-[#082d56] text-white transition-transform duration-300 lg:sticky lg:translate-x-0 ${
           menuAberto ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
-      > */}
+      >
         {/* CABEÇALHO DO MENU */}
         <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
           <div>
