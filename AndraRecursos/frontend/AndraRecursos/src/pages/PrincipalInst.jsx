@@ -1,30 +1,86 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import {
-  FiBell,
-  FiClipboard,
   FiHome,
-  FiLogOut,
-  FiMenu,
-  FiSettings,
-  FiUser,
-  FiX,
+  FiClipboard,
   FiClock,
+  FiCheckCircle,
+  FiUser,
   FiFileText,
+  FiPhone,
+  FiMapPin,
+  FiRefreshCw,
+  FiArrowRight,
+  FiAlertCircle,
 } from "react-icons/fi";
+
 import { enderecoServidor } from "../utils";
+import LayoutInstituicao from "../components/LayoutInstituicao";
+
+const API = String(enderecoServidor).replace(/\/$/, "");
+
+function CartaoIndicador({
+  titulo,
+  valor,
+  Icone,
+  cor,
+  fundo,
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div>
+        <p className="text-sm text-slate-500">
+          {titulo}
+        </p>
+
+        <p className="mt-3 text-2xl font-bold text-[#082d56]">
+          {valor}
+        </p>
+      </div>
+
+      <span className={`rounded-xl p-3 ${fundo} ${cor}`}>
+        <Icone size={21} />
+      </span>
+    </div>
+  );
+}
+
+function DadoInstituicao({ Icone, titulo, valor }) {
+  return (
+    <div className="flex items-start gap-3">
+      <Icone
+        size={19}
+        className="mt-0.5 shrink-0 text-[#1755ad]"
+      />
+
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500">
+          {titulo}
+        </p>
+
+        <p className="mt-1 break-words text-sm font-semibold text-[#082d56]">
+          {valor || "Não informado"}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function PrincipalInst() {
   const navigate = useNavigate();
 
   const [instituicao, setInstituicao] = useState(null);
-  const [menuAberto, setMenuAberto] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
 
   useEffect(() => {
     let ativo = true;
 
-    const token = localStorage.getItem("@AndraRecursos:token");
+    const token = localStorage.getItem(
+      "@AndraRecursos:token"
+    );
 
     if (!token) {
       navigate("/", { replace: true });
@@ -32,24 +88,36 @@ export default function PrincipalInst() {
     }
 
     async function buscarInstituicao() {
+      setCarregando(true);
+      setErro("");
+
       try {
-        const resposta = await fetch(`${enderecoServidor}/instituicoes/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const resposta = await fetch(
+          `${API}/instituicoes/me`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const dados = await resposta.json().catch(() => null);
 
         if (!resposta.ok) {
-          throw new Error(`Erro ao buscar instituição: ${resposta.status}`);
+          throw new Error(
+            dados?.message ||
+              dados?.error ||
+              `Erro ${resposta.status} ao buscar instituição.`
+          );
         }
-
-        const dados = await resposta.json();
 
         if (ativo) {
           setInstituicao(dados);
         }
       } catch (error) {
-        console.error("Erro ao carregar instituição:", error);
+        if (ativo) {
+          setErro(error.message);
+        }
       } finally {
         if (ativo) {
           setCarregando(false);
@@ -64,323 +132,200 @@ export default function PrincipalInst() {
     };
   }, [navigate]);
 
-  function sair() {
-    localStorage.removeItem("@AndraRecursos:token");
-    localStorage.removeItem("@AndraRecursos:usuario");
-    localStorage.removeItem("@AndraRecursos:lembrar");
-
-    navigate("/");
-  }
-
   if (carregando) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-[#082d56] font-medium">Carregando...</div>
+      <div className="flex min-h-screen items-center justify-center gap-3 bg-[#f4f6f9] text-sm font-semibold text-[#082d56]">
+        <FiRefreshCw className="animate-spin" />
+        Carregando instituição...
       </div>
     );
   }
 
+  const endereco = instituicao?.logradouro
+    ? [
+        instituicao.logradouro,
+        instituicao.numero,
+        instituicao.bairro,
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : "Não informado";
+
   return (
-    <div className="min-h-screen bg-gray-100 flex">
-      {menuAberto && (
-        <div
-          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
-          onClick={() => setMenuAberto(false)}
-        />
-      )}
+    <LayoutInstituicao nomeInstituicao={instituicao?.nome}>
 
-      <aside
-        className={`fixed lg:sticky z-40 top-0 left-0 h-screen w-64 shrink-0 bg-[#082d56] text-white transform transition-transform duration-300 ${
-          menuAberto ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
-      >
-        <div className="h-20 flex items-center justify-between px-6 border-b border-white/10">
-          <div>
-            <h1 className="text-xl font-bold">AndraRecursos</h1>
-            <p className="text-xs text-blue-200 mt-1">Área da Instituição</p>
+      <div className="mx-auto max-w-7xl space-y-6">
+
+        {/* ERRO */}
+        {erro && (
+          <div
+            role="alert"
+            className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          >
+            <FiAlertCircle />
+            {erro}
           </div>
+        )}
 
-          <button
-            type="button"
-            aria-label="Fechar menu"
-            onClick={() => setMenuAberto(false)}
-            className="lg:hidden text-white"
-          >
-            <FiX size={22} />
-          </button>
-        </div>
-
-        <nav className="p-4 space-y-2">
-          <button
-            type="button"
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-white/10 text-white"
-            onClick={() => setMenuAberto(false)}
-          >
-            <FiHome size={19} />
-            <span>Principal</span>
-          </button>
-
-          {/* BOTAO SOLICITACAO */}
-          <button
-            type="button"
-            onClick={() => {
-              setMenuAberto(false);
-              navigate("/solicitacoes-inst");
-            }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-white/10 transition"
-          >
-            <FiClipboard size={19} />
-            <span>Solicitações</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/historico-inst")}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-white/10 transition"
-          >
-            <FiClock size={19} />
-            <span>Histórico Solicitações</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/notificacoes-inst")}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-white/10 transition"
-          >
-            <FiBell size={19} />
-            <span>Notificações</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/relatorios-inst")}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-white/10 transition"
-          >
-            <FiFileText size={19} />
-            <span>Relatórios</span>
-          </button>
-
-          <button
-            type="button"
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-white/10 transition"
-          >
-            <FiSettings size={19} />
-            <span>Configurações</span>
-          </button>
-        </nav>
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <button
-            type="button"
-            onClick={sair}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-red-500/20 hover:text-white transition"
-          >
-            <FiLogOut size={19} />
-            <span>Sair</span>
-          </button>
-        </div>
-      </aside>
-
-      <div className="flex-1 min-w-0">
-        <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              aria-label="Abrir menu"
-              onClick={() => setMenuAberto(true)}
-              className="lg:hidden text-gray-600"
-            >
-              <FiMenu size={24} />
-            </button>
+        {/* BOAS-VINDAS */}
+        <section className="overflow-hidden rounded-2xl bg-[#082d56] p-6 text-white shadow-sm sm:p-8">
+          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
 
             <div>
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
-                Principal
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-500">
-                Painel da instituição
+              <p className="mb-2 text-sm text-blue-200">
+                Bem-vindo(a) ao AndraRecursos
               </p>
+
+              <h1 className="text-2xl font-bold sm:text-3xl">
+                {instituicao?.nome || "Instituição"}
+              </h1>
+
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-blue-100">
+                Acompanhe suas solicitações, consulte o
+                histórico e gerencie as informações da instituição.
+              </p>
+            </div>
+
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white/10">
+              <FiHome size={29} />
+            </span>
+          </div>
+        </section>
+
+        {/* INDICADORES */}
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <CartaoIndicador
+            titulo="Solicitações"
+            valor="—"
+            Icone={FiClipboard}
+            cor="text-[#1755ad]"
+            fundo="bg-blue-50"
+          />
+
+          <CartaoIndicador
+            titulo="Pendentes"
+            valor="—"
+            Icone={FiClock}
+            cor="text-amber-600"
+            fundo="bg-amber-50"
+          />
+
+          <CartaoIndicador
+            titulo="Aprovadas"
+            valor="—"
+            Icone={FiCheckCircle}
+            cor="text-green-600"
+            fundo="bg-green-50"
+          />
+
+          <CartaoIndicador
+            titulo="Status da instituição"
+            valor={instituicao?.status_instituicao || "Não informado"}
+            Icone={FiHome}
+            cor="text-green-600"
+            fundo="bg-green-50"
+          />
+        </section>
+
+        {/* OBSERVAÇÃO DOS INDICADORES */}
+        <p className="text-xs text-slate-500">
+          Os indicadores de solicitações serão preenchidos
+          quando a consulta institucional de solicitações
+          estiver integrada à API.
+        </p>
+
+        {/* SEÇÕES INFERIORES */}
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+
+          {/* SOLICITAÇÕES RECENTES */}
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
+              <div>
+                <h2 className="text-lg font-bold text-[#082d56]">
+                  Solicitações Recentes
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Acompanhe os pedidos da sua instituição.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate("/solicitacoes-inst")}
+                className="flex items-center gap-2 text-sm font-semibold text-[#1755ad] hover:underline"
+              >
+                Ver solicitações
+                <FiArrowRight />
+              </button>
+            </div>
+
+            <div className="flex min-h-64 flex-col items-center justify-center px-5 py-10 text-center">
+
+              <span className="mb-4 rounded-full bg-slate-100 p-4 text-slate-400">
+                <FiClipboard size={27} />
+              </span>
+
+              <h3 className="font-semibold text-[#082d56]">
+                Solicitações ainda não carregadas
+              </h3>
+
+              <p className="mt-2 max-w-sm text-sm text-slate-500">
+                Consulte a página de Solicitações para
+                visualizar os pedidos disponíveis.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => navigate("/solicitacoes-inst")}
+                className="mt-5 rounded-lg bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#164675]"
+              >
+                Ir para solicitações
+              </button>
             </div>
           </div>
 
-          <button
-            type="button"
-            aria-label="Notificações"
-            className="relative text-gray-600 hover:text-[#082d56] transition"
-          >
-            <FiBell size={22} />
+          {/* DADOS INSTITUCIONAIS */}
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 p-5">
+              <h2 className="text-lg font-bold text-[#082d56]">
+                Dados da Instituição
+              </h2>
 
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
-          </button>
-        </header>
-
-        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-          <section className="bg-[#082d56] rounded-xl p-6 sm:p-8 text-white mb-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-              <div>
-                <p className="text-blue-200 text-sm mb-2">Bem-vindo(a)</p>
-
-                <h1 className="text-2xl sm:text-3xl font-bold">
-                  {instituicao?.nome || "Instituição"}
-                </h1>
-
-                <p className="text-blue-100 mt-2 text-sm">
-                  Gerencie as solicitações e informações da sua instituição.
-                </p>
-              </div>
-
-              <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center">
-                <FiHome size={28} />
-              </div>
-            </div>
-          </section>
-
-          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Solicitações</p>
-                  <h3 className="text-2xl font-bold text-gray-800 mt-2">0</h3>
-                </div>
-
-                <div className="w-11 h-11 rounded-lg bg-blue-50 text-[#082d56] flex items-center justify-center">
-                  <FiClipboard size={21} />
-                </div>
-              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Informações cadastrais
+              </p>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Pendentes</p>
-                  <h3 className="text-2xl font-bold text-gray-800 mt-2">0</h3>
-                </div>
+            <div className="space-y-6 p-5">
+              <DadoInstituicao
+                Icone={FiUser}
+                titulo="Gestor"
+                valor={instituicao?.gestor}
+              />
 
-                <div className="w-11 h-11 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center">
-                  <FiClipboard size={21} />
-                </div>
-              </div>
+              <DadoInstituicao
+                Icone={FiFileText}
+                titulo="Secretaria vinculada"
+                valor={instituicao?.secretaria_vinculada}
+              />
+
+              <DadoInstituicao
+                Icone={FiMapPin}
+                titulo="Endereço"
+                valor={endereco}
+              />
+
+              <DadoInstituicao
+                Icone={FiPhone}
+                titulo="Telefone"
+                valor={instituicao?.telefone}
+              />
             </div>
-
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Aprovadas</p>
-                  <h3 className="text-2xl font-bold text-gray-800 mt-2">0</h3>
-                </div>
-
-                <div className="w-11 h-11 rounded-lg bg-green-50 text-green-600 flex items-center justify-center">
-                  <FiClipboard size={21} />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Status</p>
-
-                  <h3 className="text-lg font-bold text-gray-800 mt-2">
-                    {instituicao?.status_instituicao || "Não informado"}
-                  </h3>
-                </div>
-
-                <div className="w-11 h-11 rounded-lg bg-green-50 text-green-600 flex items-center justify-center">
-                  <FiHome size={21} />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="p-5 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  Solicitações recentes
-                </h2>
-
-                <p className="text-sm text-gray-500 mt-1">
-                  Acompanhe as solicitações realizadas pela instituição.
-                </p>
-              </div>
-
-              <div className="p-5">
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <div className="w-14 h-14 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mb-4">
-                    <FiClipboard size={25} />
-                  </div>
-
-                  <h3 className="font-medium text-gray-700">
-                    Nenhuma solicitação encontrada
-                  </h3>
-
-                  <p className="text-sm text-gray-500 mt-1">
-                    As solicitações da instituição aparecerão aqui.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="p-5 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  Dados da instituição
-                </h2>
-              </div>
-
-              <div className="p-5 space-y-4">
-                <div className="flex items-start gap-3">
-                  <FiUser className="text-[#082d56] mt-1" size={19} />
-
-                  <div>
-                    <p className="text-xs text-gray-500">Gestor</p>
-                    <p className="text-sm font-medium text-gray-800">
-                      {instituicao?.gestor || "Não informado"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <FiClipboard className="text-[#082d56] mt-1" size={19} />
-
-                  <div>
-                    <p className="text-xs text-gray-500">
-                      Secretaria vinculada
-                    </p>
-                    <p className="text-sm font-medium text-gray-800">
-                      {instituicao?.secretaria_vinculada || "Não informado"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <FiHome className="text-[#082d56] mt-1" size={19} />
-
-                  <div>
-                    <p className="text-xs text-gray-500">Endereço</p>
-                    <p className="text-sm font-medium text-gray-800">
-                      {instituicao?.logradouro
-                        ? `${instituicao.logradouro}, ${instituicao.numero || "S/N"}`
-                        : "Não informado"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <FiBell className="text-[#082d56] mt-1" size={19} />
-
-                  <div>
-                    <p className="text-xs text-gray-500">Telefone</p>
-                    <p className="text-sm font-medium text-gray-800">
-                      {instituicao?.telefone || "Não informado"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </main>
+          </div>
+        </section>
       </div>
-    </div>
+    </LayoutInstituicao>
   );
 }
