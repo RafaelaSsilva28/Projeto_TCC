@@ -230,13 +230,13 @@ export default function HistoricoInst() {
           onClick={() => setMenuAberto(false)}
         />
       )}
-
       {/* MENU LATERAL INSTITUCIONAL */}
       <aside
         className={`fixed left-0 top-0 z-40 h-screen w-64 shrink-0 transform bg-[#082d56] text-white transition-transform duration-300 lg:sticky lg:translate-x-0 ${
-          menuAberto ? "translate-x-0" : "-translate-x-full"
+          menuAberto ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
+        {/* CABEÇALHO DO MENU */}
         <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
           <div>
             <h1 className="text-xl font-bold">AndraRecursos</h1>
@@ -253,10 +253,14 @@ export default function HistoricoInst() {
           </button>
         </div>
 
+        {/* NAVEGAÇÃO */}
         <nav className="space-y-2 p-4">
           <button
             type="button"
-            onClick={() => navigate("/principal-inst")}
+            onClick={() => {
+              setMenuAberto(false);
+              navigate("/principal-inst");
+            }}
             className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-white/10"
           >
             <FiHome size={19} />
@@ -265,12 +269,24 @@ export default function HistoricoInst() {
 
           <button
             type="button"
+            onClick={() => {
+              setMenuAberto(false);
+              // Configure aqui a rota de solicitações da instituição.
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-white/10"
+          >
+            <FiClipboard size={19} />
+            <span>Solicitações</span>
+          </button>
+
+          <button
+            type="button"
             aria-current="page"
             onClick={() => setMenuAberto(false)}
             className="flex w-full items-center gap-3 rounded-lg bg-white/10 px-4 py-3 text-white"
           >
-            <FiClipboard size={19} />
-            <span>Solicitações</span>
+            <FiClock size={19} />
+            <span>Histórico Solicitações</span>
           </button>
 
           <button
@@ -298,6 +314,7 @@ export default function HistoricoInst() {
           </button>
         </nav>
 
+        {/* BOTÃO SAIR */}
         <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 p-4">
           <button
             type="button"
@@ -598,7 +615,6 @@ export default function HistoricoInst() {
           </section>
         </main>
       </div>
-
       {/* MODAL DE DETALHES */}
       {solicitacaoSelecionada && (
         <div

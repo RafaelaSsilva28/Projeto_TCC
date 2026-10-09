@@ -9,6 +9,7 @@ import {
   FiSettings,
   FiUser,
   FiX,
+  FiClock,
 } from "react-icons/fi";
 import { enderecoServidor } from "../utils";
 
@@ -19,54 +20,48 @@ export default function PrincipalInst() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
- 
-useEffect(() => {
-  let ativo = true;
+  useEffect(() => {
+    let ativo = true;
 
-  const token = localStorage.getItem("@AndraRecursos:token");
+    const token = localStorage.getItem("@AndraRecursos:token");
 
-  if (!token) {
-    navigate("/", { replace: true });
-    return;
-  }
+    if (!token) {
+      navigate("/", { replace: true });
+      return;
+    }
 
-  async function buscarInstituicao() {
-    try {
-      const resposta = await fetch(
-        `${enderecoServidor}/instituicoes/me`,
-        {
+    async function buscarInstituicao() {
+      try {
+        const resposta = await fetch(`${enderecoServidor}/instituicoes/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+        });
+
+        if (!resposta.ok) {
+          throw new Error(`Erro ao buscar instituição: ${resposta.status}`);
         }
-      );
 
-      if (!resposta.ok) {
-        throw new Error(
-          `Erro ao buscar instituição: ${resposta.status}`
-        );
-      }
+        const dados = await resposta.json();
 
-      const dados = await resposta.json();
-
-      if (ativo) {
-        setInstituicao(dados);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar instituição:", error);
-    } finally {
-      if (ativo) {
-        setCarregando(false);
+        if (ativo) {
+          setInstituicao(dados);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar instituição:", error);
+      } finally {
+        if (ativo) {
+          setCarregando(false);
+        }
       }
     }
-  }
 
-  buscarInstituicao();
+    buscarInstituicao();
 
-  return () => {
-    ativo = false;
-  };
-}, [navigate]);
+    return () => {
+      ativo = false;
+    };
+  }, [navigate]);
 
   function sair() {
     localStorage.removeItem("@AndraRecursos:token");
@@ -124,12 +119,26 @@ useEffect(() => {
             <span>Principal</span>
           </button>
 
+        {/* BOTAO SOLICITACAO */}
           <button
             type="button"
+            onClick={{}=> {
+              setMenuAberto(false);
+              navigate("/solicitacoes-inst");
+            }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-white/10 transition"
           >
             <FiClipboard size={19} />
             <span>Solicitações</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/historico-inst")}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-white/10 transition"
+          >
+            <FiClock size={19} />
+            <span>Histórico Solicitações</span>
           </button>
 
           <button

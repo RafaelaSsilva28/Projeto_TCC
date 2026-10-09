@@ -11,28 +11,20 @@ import {
 // ============================================
 
 import Login from "./pages/Login";
-
 import PrincipalAdm from "./pages/PrincipalAdm";
 import PrincipalInst from "./pages/PrincipalInst";
-
 import ObrigatorioInst from "./pages/ObrigatorioInst";
-
 import PerfilAdministrador from "./pages/PerfilAdministrador";
-
 import CadastrarInstADM from "./pages/CadastrarInstADM";
-
 import HistoricoAdmin from "./pages/HistoricoAdmin";
-
-import HistoricoInst from "./pages/HistoricoInst";
-
 import SolicitacoesAdmin from "./pages/SolicitacoesAdmin";
+import SolicitacoesInst from "./pages/SolicitacoesInst";
 
 // ============================================
 // COMPONENTES
 // ============================================
 
 import LayoutAdministrador from "./components/LayoutAdministrador";
-
 import ProtecaoInstituicao from "./components/ProtecaoInstituicao";
 
 // ============================================
@@ -44,18 +36,8 @@ function App() {
     <BrowserRouter>
       <Routes>
 
-        {/* ===================================
-            LOGIN
-        =================================== */}
-
-        <Route
-          path="/"
-          element={<Login />}
-        />
-
-        {/* ===================================
-            ÁREA ADMINISTRATIVA
-        =================================== */}
+        {/* LOGIN */}
+        <Route path="/" element={<Login />} />
 
         {/* DASHBOARD ADMINISTRATIVO */}
         <Route
@@ -67,7 +49,7 @@ function App() {
           }
         />
 
-        {/* PERFIL DO ADMINISTRADOR */}
+        {/* PERFIL ADMINISTRATIVO */}
         <Route
           path="/perfilAdministrador"
           element={
@@ -97,74 +79,14 @@ function App() {
           }
         />
 
-        {/* CORRIGIR LINKS ANTIGOS DO HISTÓRICO */}
+        {/* LINK ANTIGO DO HISTÓRICO */}
         <Route
           path="/historico"
           element={
-            <Navigate
-              to="/historico-adm"
-              replace
-            />
+            <Navigate to="/historico-adm" replace />
           }
         />
 
-        {/* ===================================
-            PRIMEIRO ACESSO INSTITUCIONAL
-        =================================== */}
-
-        <Route
-          element={
-            <ProtecaoInstituicao
-              exigirCadastro={false}
-            />
-          }
-        >
-          <Route
-            path="/obrigatorio-inst"
-            element={<ObrigatorioInst />}
-          />
-        </Route>
-
-        {/* ===================================
-            ÁREA INSTITUCIONAL LIBERADA
-        =================================== */}
-
-        <Route
-          element={
-            <ProtecaoInstituicao
-              exigirCadastro={true}
-            />
-          }
-        >
-          {/* DASHBOARD INSTITUCIONAL */}
-          <Route
-            path="/principal-inst"
-            element={<PrincipalInst />}
-          />
-
-          {/* ADICIONE FUTURAS PÁGINAS INSTITUCIONAIS AQUI */}
-
-          {/* HISTÓRICO DE SOLICITAÇÕES DA INSTITUIÇÃO */}
-          <Route
-            path="/historico-inst"
-            element={<HistoricoInst />}
-          />
-
-        </Route>
-
-        {/* ===================================
-            ROTAS NÃO ENCONTRADAS
-        =================================== */}
-
-        <Route
-          path="*"
-          element={
-            <Navigate
-              to="/"
-              replace
-            />
-          }
-        />
         {/* LISTA DE SOLICITAÇÕES */}
         <Route
           path="/solicitacoes"
@@ -175,7 +97,7 @@ function App() {
           }
         />
 
-        {/* DETALHES DA SOLICITAÇÃO */}
+        {/* DETALHES DE UMA SOLICITAÇÃO */}
         <Route
           path="/solicitacoes/:id"
           element={
@@ -183,6 +105,42 @@ function App() {
               <SolicitacoesAdmin />
             </LayoutAdministrador>
           }
+        />
+
+        {/* PRIMEIRO ACESSO INSTITUCIONAL */}
+        <Route
+          element={
+            <ProtecaoInstituicao exigirCadastro={false} />
+          }
+        >
+          <Route
+            path="/obrigatorio-inst"
+            element={<ObrigatorioInst />}
+          />
+        </Route>
+
+        {/* ÁREA INSTITUCIONAL */}
+        <Route
+          element={
+            <ProtecaoInstituicao exigirCadastro={true} />
+          }
+        >
+          <Route
+            path="/principal-inst"
+            element={<PrincipalInst />}
+          />
+      
+          <Route
+            path="/solicitacoes-inst"
+            element={<SolicitacoesInst />}
+          />
+      
+        </Route>
+
+        {/* ROTA NÃO ENCONTRADA */}
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
         />
 
       </Routes>
