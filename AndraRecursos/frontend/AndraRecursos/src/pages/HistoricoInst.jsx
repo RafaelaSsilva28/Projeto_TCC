@@ -21,6 +21,9 @@ import {
 } from "react-icons/fi";
 import { enderecoServidor } from "../utils";
 
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+
 export default function HistoricoInst() {
   const navigate = useNavigate();
 
@@ -158,49 +161,124 @@ export default function HistoricoInst() {
       return;
     }
 
-    function escaparCSV(valor) {
-      return `"${String(valor ?? "").replace(/"/g, '""')}"`;
-    }
-
-    const colunas = [
-      "ID do histórico",
-      "ID da solicitação",
-      "Solicitação",
-      "Status",
-      "Prioridade",
-      "Data da alteração",
-      "Descrição",
-    ];
-
-    const linhas = historicoFiltrado.map((item) => [
-      item.id_historico,
-      item.id_solicitacao,
-      item.titulo_solicitacao,
-      item.status,
-      item.prioridade,
-      item.data_alteracao,
-      item.descricao,
-    ]);
-
-    const conteudo = [colunas, ...linhas]
-      .map((linha) => linha.map(escaparCSV).join(";"))
-      .join("\r\n");
-
-    const arquivo = new Blob(["\uFEFF" + conteudo], {
-      type: "text/csv;charset=utf-8;",
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
     });
 
-    const url = URL.createObjectURL(arquivo);
-    const link = document.createElement("a");
+    const larguraPagina = doc.internal.pageSize.getWidth();
+    const alturaPagina = doc.internal.pageSize.getHeight();
+    const azul = [8, 45, 86]; // #082d56
 
-    link.href = url;
-    link.download = "historico-instituicao.csv";
+    // CABEÇALHO
+    doc.setFillColor(...azul);
+    doc.rect(0, 0, larguraPagina, 24, "F");
 
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("AndraRecursos", 14, 11);
 
-    URL.revokeObjectURL(url);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Relatório - Histórico de solicitações da instituição", 14, 18);
+
+    // INFORMAÇÕES DO RELATÓRIO
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(9);
+
+    const geradoEm = new Date().toLocaleString("pt-BR");
+    doc.text(`Gerado em: ${geradoEm}`, 14, 31);
+    doc.text(
+      `Registros exportados: ${historicoFiltrado.length} de ${totalRegistros}`,
+      14,
+      36,
+    );
+    doc.text(
+      `Aprovados: ${totalAprovados}   |   Pendentes: ${totalPendentes}`,
+      14,
+      41,
+    );
+
+    if (pesquisa.trim()) {
+      doc.text(
+        `Filtro aplicado: "${pesquisa.trim()}"`,
+        larguraPagina - 14,
+        31,
+        {
+          align: "right",
+        },
+      );
+    }
+
+    // TABELA
+    autoTable(doc, {
+      startY: 46,
+      head: [
+        [
+          "ID Solicitação",
+          "Solicitação",
+          "Status",
+          "Prioridade",
+          "Data",
+          "Descrição",
+        ],
+      ],
+      body: historicoFiltrado.map((item) => [
+        item.id_solicitacao ?? "-",
+        item.titulo_solicitacao || "-",
+        item.status || "Não informado",
+        item.prioridade || "-",
+        item.data_alteracao || "Sem data",
+        item.descricao || "-",
+      ]),
+      styles: {
+        font: "helvetica",
+        fontSize: 8,
+        cellPadding: 2.5,
+        overflow: "linebreak",
+        valign: "middle",
+      },
+      headStyles: {
+        fillColor: azul,
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250],
+      },
+      columnStyles: {
+        0: { cellWidth: 24 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 32 },
+        5: { cellWidth: "auto" },
+      },
+      margin: { left: 14, right: 14, bottom: 14 },
+    });
+
+    // RODAPÉ COM NUMERAÇÃO DE PÁGINAS
+    const totalPaginas = doc.getNumberOfPages();
+
+    for (let i = 1; i <= totalPaginas; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text(
+        `Página ${i} de ${totalPaginas}`,
+        larguraPagina - 14,
+        alturaPagina - 6,
+        {
+          align: "right",
+        },
+      );
+      doc.text("AndraRecursos - Área da Instituição", 14, alturaPagina - 6);
+    }
+
+    const dataArquivo = new Date().toISOString().slice(0, 10);
+    doc.save(`historico-instituicao-${dataArquivo}.pdf`);
   }
 
   const totalRegistros = historico.length;
