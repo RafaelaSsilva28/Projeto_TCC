@@ -5,33 +5,50 @@ import { autenticarToken } from "../middlewares/Autenticacao.js";
 const router = Router();
 
 // GET - Listar todo o histórico
-router.get("/historico-solicitacoes", autenticarToken, async (req, res) => {
-  try {
-    const comando = `
-      SELECT 
-        h.id_historico,
-        h.descricao,
-        h.status,
-        h.prioridade,
-        TO_CHAR(h.data_alteracao, 'DD/MM/YYYY') AS data_alteracao,
-        s.titulo AS titulo_solicitacao
-      FROM historico_solicitacoes h
-      LEFT JOIN solicitacoes s ON h.id_solicitacao = s.id_solicitacoes
-    `;
 
-    //Cria uma variável para receber o retorno do SQL
-    const historico = await BD.query(comando);
+router.get(
+  "/historico-solicitacoes",
+  autenticarToken,
+  async (req, res) => {
+    try {
+      const comando = `
+        SELECT
+          h.id_historico,
+          h.id_solicitacao,
+          h.descricao,
+          h.status,
+          h.prioridade,
+          h.data_alteracao,
+          TO_CHAR(
+            h.data_alteracao,
+            'DD/MM/YYYY'
+          ) AS data_formatada,
+          s.titulo AS titulo_solicitacao
+        FROM historico_solicitacoes h
+        LEFT JOIN solicitacoes s
+          ON h.id_solicitacao = s.id_solicitacoes
+        ORDER BY
+          h.data_alteracao DESC NULLS LAST,
+          h.id_historico DESC
+      `;
 
-    //Retorno para a pagina, o json com os dados buscados do SQL
-    res.status(200).json(historico.rows);
-  } 
-  catch (error) {
-    console.error(" Erro ao listar histórico ", error.message);
-    res
-      .status(500)
-      .json({ error: "Erro ao listar histórico " + error.message });
+      const historico = await BD.query(comando);
+
+      return res.status(200).json(historico.rows);
+
+    } catch (error) {
+      console.error(
+        "Erro ao listar histórico:",
+        error.message
+      );
+
+      return res.status(500).json({
+        message: "Erro ao listar histórico.",
+      });
+    }
   }
-});
+);
+
 
 // GET - Buscar histórico por solicitação
 router.get("/historico-solicitacoes/solicitacao/:id_solicitacao", autenticarToken, async (req, res) => {
