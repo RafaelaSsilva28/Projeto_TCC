@@ -21,17 +21,17 @@ router.get(
   autenticarAdministrador,
   async (req, res) => {
     try {
-      const resultado = await BD.query(`
-        SELECT
-          id_resposta,
-          mensagem,
-          data_resposta,
-          id_solicitacao,
-          id_administrador
-        FROM respostas_adm
-        ORDER BY data_resposta DESC NULLS LAST,
-                 id_resposta DESC
-      `);
+      const resultado = await BD.query(
+  `INSERT INTO respostas_adm (
+    mensagem,
+    data_resposta,
+    id_solicitacao,
+    id_administrador
+  )
+  VALUES ($1, CURRENT_TIMESTAMP, $2, $3)
+  RETURNING *`,
+  [mensagem, idSolicitacao, idAdministrador]
+);
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
