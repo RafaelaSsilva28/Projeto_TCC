@@ -6,10 +6,9 @@ import {
   Navigate,
 } from "react-router-dom";
 
-// ============================================
-// PÁGINAS
-// ============================================
+import { Toaster } from "react-hot-toast";
 
+// PÁGINAS
 import Login from "./pages/Login";
 import PrincipalAdm from "./pages/PrincipalAdm";
 import PrincipalInst from "./pages/PrincipalInst";
@@ -18,26 +17,48 @@ import PerfilAdministrador from "./pages/PerfilAdministrador";
 import CadastrarInstADM from "./pages/CadastrarInstADM";
 import HistoricoAdmin from "./pages/HistoricoAdmin";
 import SolicitacoesAdmin from "./pages/SolicitacoesAdmin";
-import SolicitacoesInst from "./pages/SolicitacoesInst";
-import NotificacoesInst from "./pages/NotificaçõesInst";
-import HistoricoInst from "./pages/HistoricoInst";
 
-// ============================================
 // COMPONENTES
-// ============================================
-
 import LayoutAdministrador from "./components/LayoutAdministrador";
 import ProtecaoInstituicao from "./components/ProtecaoInstituicao";
-
-// ============================================
-// APP
-// ============================================
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      {/* NOTIFICAÇÕES DO SISTEMA */}
+      <Toaster
+        position="top-right"
+        reverseOrder={false}
+        gutter={12}
+        toastOptions={{
+          duration: 3500,
+          style: {
+            background: "#ffffff",
+            color: "#082d56",
+            border: "1px solid #e2e8f0",
+            borderRadius: "14px",
+            padding: "15px 18px",
+            fontSize: "14px",
+            fontWeight: "500",
+            boxShadow: "0 10px 30px rgba(8,45,86,0.15)",
+          },
+          success: {
+            iconTheme: {
+              primary: "#15803d",
+              secondary: "#ffffff",
+            },
+          },
+          error: {
+            duration: 4500,
+            iconTheme: {
+              primary: "#dc2626",
+              secondary: "#ffffff",
+            },
+          },
+        }}
+      />
 
+      <Routes>
         {/* LOGIN */}
         <Route path="/" element={<Login />} />
 
@@ -81,7 +102,6 @@ function App() {
           }
         />
 
-        {/* LINK ANTIGO DO HISTÓRICO */}
         <Route
           path="/historico"
           element={
@@ -89,7 +109,7 @@ function App() {
           }
         />
 
-        {/* LISTA DE SOLICITAÇÕES */}
+        {/* SOLICITAÇÕES ADMINISTRATIVAS */}
         <Route
           path="/solicitacoes"
           element={
@@ -99,7 +119,7 @@ function App() {
           }
         />
 
-        {/* DETALHES DE UMA SOLICITAÇÃO */}
+        {/* DETALHES PELO BOTÃO SABER MAIS */}
         <Route
           path="/solicitacoes/:id"
           element={
@@ -131,22 +151,6 @@ function App() {
             path="/principal-inst"
             element={<PrincipalInst />}
           />
-      
-          <Route
-            path="/solicitacoes-inst"
-            element={<SolicitacoesInst />}
-          />
-
-          <Route
-            path="/historico-inst"
-            element={<HistoricoInst />}
-          />
-
-          <Route
-            path="/notificacoes-inst"
-            element={<NotificacoesInst />}
-          />
-      
         </Route>
 
         {/* ROTA NÃO ENCONTRADA */}
@@ -154,7 +158,6 @@ function App() {
           path="*"
           element={<Navigate to="/" replace />}
         />
-
       </Routes>
     </BrowserRouter>
   );
