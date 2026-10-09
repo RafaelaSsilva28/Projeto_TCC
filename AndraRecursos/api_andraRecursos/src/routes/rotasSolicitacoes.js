@@ -239,6 +239,76 @@ router.post(
     }
 );
 
+router.post(
+    "/solicitacoes/intituicoes",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        const {
+            titulo,
+            descricao,
+            prioridade,
+            setor,
+            status,
+            data_pedido,
+            id_instituicao,
+        } = req.body;
+
+        if (
+            !titulo?.trim() ||
+            !descricao?.trim() ||
+            !prioridade?.trim() ||
+            !setor?.trim() ||
+            !idValido(id_instituicao)
+        ) {
+            return res.status(400).json({
+                error: "Preencha os dados obrigatórios.",
+            });
+        }
+
+        try {
+            const resultado = await BD.query(
+                `
+          INSERT INTO solicitacoes (
+            titulo,
+            descricao,
+            prioridade,
+            setor,
+            status,
+            data_pedido,
+            id_instituicao
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING *
+        `,
+                [
+                    titulo.trim(),
+                    descricao.trim(),
+                    prioridade.trim(),
+                    setor.trim(),
+                    status || "pendente",
+                    data_pedido || new Date(),
+                    id_instituicao,
+                ]
+            );
+
+            return res.status(201).json({
+                message: "Solicitação cadastrada com sucesso.",
+                solicitacao: resultado.rows[0],
+            });
+        } catch (error) {
+            console.error(
+                "Erro ao cadastrar solicitação:",
+                error.message
+            );
+
+            return res.status(500).json({
+                error: "Erro ao cadastrar solicitação.",
+            });
+        }
+    }
+);
+
 // ============================================
 // PATCH - ATUALIZAR STATUS E HISTÓRICO
 // ============================================
