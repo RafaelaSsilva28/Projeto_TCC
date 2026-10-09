@@ -140,8 +140,14 @@ function App() {
             element={<PrincipalInst />}
           />
 
-          {/* ADICIONE FUTURAS PÁGINAS
-              INSTITUCIONAIS AQUI */}
+          {/* ADICIONE FUTURAS PÁGINAS INSTITUCIONAIS AQUI */}
+
+          {/* HISTÓRICO DE SOLICITAÇÕES DA INSTITUIÇÃO */}
+          <Route
+            path="/historico-inst"
+            element={<HistoricoInst />}
+          />
+
         </Route>
 
         {/* ===================================

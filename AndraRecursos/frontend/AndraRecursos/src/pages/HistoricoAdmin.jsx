@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
     FiDownload,
@@ -12,12 +13,25 @@ import {
     FiCalendar,
     FiAlertCircle,
     FiFileText,
+    FiArrowUpRight,
+    FiClipboard,
+    FiClock,
+    FiFlag,
+    FiHome,
 } from "react-icons/fi";
 
 import { enderecoServidor } from "../utils";
 
 const ROTA_HISTORICO = "/historico-solicitacoes";
 const LIMITE_PAGINA = 10;
+
+// Ajuste apenas se a rota real da página de
+// solicitações tiver outro endereço.
+const ROTA_SOLICITACOES = "/solicitacoes";
+
+// ============================================
+// FORMATAR STATUS
+// ============================================
 
 function formatarStatus(status) {
     const valor = String(status || "")
@@ -29,7 +43,7 @@ function formatarStatus(status) {
     if (["aprovada", "aprovado", "deferida"].includes(valor)) {
         return {
             texto: "APROVADA",
-            estilo: "bg-[#c8eed8] text-[#227248]",
+            estilo: "bg-green-100 text-green-700",
         };
     }
 
@@ -38,16 +52,21 @@ function formatarStatus(status) {
     ) {
         return {
             texto: "RECUSADA",
-            estilo: "bg-[#f8d2d2] text-[#ad3333]",
+            estilo: "bg-red-100 text-red-700",
         };
     }
 
-    if (
-        ["pendente", "em andamento", "aguardando"].includes(valor)
-    ) {
+    if (valor === "em andamento") {
+        return {
+            texto: "EM ANDAMENTO",
+            estilo: "bg-blue-100 text-blue-700",
+        };
+    }
+
+    if (["pendente", "aguardando"].includes(valor)) {
         return {
             texto: "PENDENTE",
-            estilo: "bg-[#fff0c5] text-[#926400]",
+            estilo: "bg-yellow-100 text-yellow-700",
         };
     }
 
@@ -57,15 +76,18 @@ function formatarStatus(status) {
     };
 }
 
+// ============================================
+// FORMATAR DATA
+// ============================================
+
 function formatarData(registro) {
     if (registro.data_formatada) {
         return registro.data_formatada;
     }
 
-    // Compatibilidade com a resposta antiga da API.
     const valor = registro.data_alteracao;
 
-    if (!valor) return "Data não informada";
+    if (!valor) return "Não informada";
 
     const texto = String(valor);
 
@@ -92,31 +114,42 @@ function formatarData(registro) {
     }).format(data);
 }
 
+// ============================================
+// NORMALIZAR DADOS DA API
+// ============================================
+
 function formatarRegistro(registro) {
     return {
         id_historico: registro.id_historico,
+
         id_solicitacao: registro.id_solicitacao ?? null,
 
-        // Será exibido o nome da instituição quando
-        // o backend fornecer este campo.
         instituicao:
-            registro.nome_instituicao ??
-            registro.instituicao ??
-            null,
+            registro.nome_instituicao ||
+            "Instituição não informada",
 
         titulo:
-            registro.titulo_solicitacao ??
+            registro.titulo_solicitacao ||
             "Solicitação sem título",
 
-        descricao: registro.descricao ?? "",
-        status: registro.status ?? "Não informado",
-        prioridade: registro.prioridade ?? "Não informada",
+        descricao: registro.descricao || "",
+
+        status: registro.status || "Não informado",
+
+        prioridade:
+            registro.prioridade || "Não informada",
+
         data: formatarData(registro),
+
         dataOriginal: registro.data_alteracao,
     };
 }
 
-function csvSeguro(valor) {
+// ============================================
+// PROTEÇÃO DO ARQUIVO CSV
+// ============================================
+
+function escaparCSV(valor) {
     let texto = String(valor ?? "");
 
     if (/^\s*[=+\-@]/.test(texto)) {
@@ -126,7 +159,13 @@ function csvSeguro(valor) {
     return `"${texto.replace(/"/g, '""')}"`;
 }
 
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
+
 export default function HistoricoAdmin() {
+    const navigate = useNavigate();
+
     const [historico, setHistorico] = useState([]);
     const [carregando, setCarregando] = useState(true);
     const [erro, setErro] = useState("");
@@ -138,9 +177,9 @@ export default function HistoricoAdmin() {
 
     const [detalhes, setDetalhes] = useState(null);
 
-    // =============================================
-    // CONSULTAR HISTÓRICO NA API / NEON
-    // =============================================
+    // ==========================================
+    // BUSCAR HISTÓRICO NA API
+    // ==========================================
 
     useEffect(() => {
         const controlador = new AbortController();
@@ -185,28 +224,11 @@ export default function HistoricoAdmin() {
 
                 if (!Array.isArray(resultado)) {
                     throw new Error(
-                        "A API não retornou uma lista de históricos."
+                        "A API não retornou uma lista válida."
                     );
                 }
 
                 const registros = resultado.map(formatarRegistro);
-
-                // A API nova já retorna em ordem decrescente.
-                // Ordenação adicional para compatibilidade.
-                registros.sort((a, b) => {
-                    const dataA = Date.parse(a.dataOriginal);
-                    const dataB = Date.parse(b.dataOriginal);
-
-                    if (
-                        Number.isFinite(dataA) &&
-                        Number.isFinite(dataB)
-                    ) {
-                        return dataB - dataA;
-                    }
-
-                    return (b.id_historico ?? 0) -
-                        (a.id_historico ?? 0);
-                });
 
                 if (!controlador.signal.aborted) {
                     setHistorico(registros);
@@ -219,6 +241,7 @@ export default function HistoricoAdmin() {
                 ) {
                     setErro(error.message);
                 }
+
             } finally {
                 if (!controlador.signal.aborted) {
                     setCarregando(false);
@@ -231,9 +254,9 @@ export default function HistoricoAdmin() {
         return () => controlador.abort();
     }, [atualizar]);
 
-    // =============================================
+    // ==========================================
     // FILTRO E PESQUISA
-    // =============================================
+    // ==========================================
 
     const historicoFiltrado = useMemo(() => {
         const termo = pesquisa.toLowerCase().trim();
@@ -247,12 +270,11 @@ export default function HistoricoAdmin() {
                     item.descricao,
                     item.id_solicitacao,
                     item.id_historico,
-                ]
-                    .some((valor) =>
-                        String(valor ?? "")
-                            .toLowerCase()
-                            .includes(termo)
-                    );
+                ].some((valor) =>
+                    String(valor ?? "")
+                        .toLowerCase()
+                        .includes(termo)
+                );
 
             const status = formatarStatus(item.status).texto;
 
@@ -264,9 +286,9 @@ export default function HistoricoAdmin() {
         });
     }, [historico, pesquisa, filtroStatus]);
 
-    // =============================================
+    // ==========================================
     // PAGINAÇÃO
-    // =============================================
+    // ==========================================
 
     const totalPaginas = Math.max(
         1,
@@ -290,9 +312,9 @@ export default function HistoricoAdmin() {
         setPagina(1);
     }
 
-    // =============================================
-    // EXPORTAR RELATÓRIO CSV
-    // =============================================
+    // ==========================================
+    // EXPORTAR RELATÓRIO
+    // ==========================================
 
     function exportarRelatorio() {
         if (historicoFiltrado.length === 0) return;
@@ -311,7 +333,7 @@ export default function HistoricoAdmin() {
         const linhas = historicoFiltrado.map((item) => [
             item.id_historico,
             item.id_solicitacao,
-            item.instituicao || "Não informada",
+            item.instituicao,
             item.titulo,
             formatarStatus(item.status).texto,
             item.prioridade,
@@ -320,9 +342,9 @@ export default function HistoricoAdmin() {
         ]);
 
         const csv = [
-            cabecalho.map(csvSeguro).join(";"),
+            cabecalho.map(escaparCSV).join(";"),
             ...linhas.map((linha) =>
-                linha.map(csvSeguro).join(";")
+                linha.map(escaparCSV).join(";")
             ),
         ].join("\r\n");
 
@@ -335,7 +357,7 @@ export default function HistoricoAdmin() {
         const link = document.createElement("a");
 
         link.href = url;
-        link.download = "historico-andrarecursos.csv";
+        link.download = "historico-administrativo.csv";
 
         document.body.appendChild(link);
         link.click();
@@ -344,15 +366,32 @@ export default function HistoricoAdmin() {
         URL.revokeObjectURL(url);
     }
 
-    // =============================================
+    // ==========================================
+    // SABER MAIS
+    // ==========================================
+
+    function saberMais() {
+        if (!detalhes?.id_solicitacao) return;
+
+        const id = detalhes.id_solicitacao;
+
+        setDetalhes(null);
+
+        navigate(
+            `${ROTA_SOLICITACOES}/${encodeURIComponent(id)}`
+        );
+    }
+
+    // ==========================================
     // INTERFACE
-    // =============================================
+    // ==========================================
 
     return (
         <div className="min-w-0">
 
-            {/* CABEÇALHO DA PÁGINA */}
+            {/* CABEÇALHO DO HISTÓRICO */}
             <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+
                 <div>
                     <h1 className="text-[28px] font-bold text-[#082d56]">
                         Histórico
@@ -370,17 +409,17 @@ export default function HistoricoAdmin() {
                         carregando ||
                         historicoFiltrado.length === 0
                     }
-                    className="flex items-center gap-2 rounded-md bg-[#082d56] px-5 py-3 text-sm font-semibold text-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-[#124675] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-md bg-[#082d56] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#164675] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <FiDownload size={17} />
                     Exportar Relatório
                 </button>
             </div>
 
-            {/* CONTEÚDO BRANCO DO HISTÓRICO */}
-            <section className="min-h-[490px] rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+            {/* PAINEL */}
+            <section className="min-h-[480px] rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
 
-                {/* PESQUISA E FILTROS */}
+                {/* FILTROS */}
                 <div className="mb-6 flex flex-col gap-3 md:flex-row">
 
                     <div className="relative flex-1">
@@ -396,7 +435,7 @@ export default function HistoricoAdmin() {
                                 mudarPesquisa(e.target.value)
                             }
                             placeholder="Pesquisar instituição ou solicitação..."
-                            className="w-full rounded-lg border border-gray-200 bg-[#f7f7f7] py-3 pl-10 pr-4 text-sm outline-none transition focus:border-[#082d56] focus:ring-2 focus:ring-blue-100"
+                            className="w-full rounded-lg border border-gray-200 bg-[#f7f7f7] py-3 pl-10 pr-4 text-sm outline-none focus:border-[#082d56] focus:ring-2 focus:ring-blue-100"
                         />
                     </div>
 
@@ -405,14 +444,27 @@ export default function HistoricoAdmin() {
                         onChange={(e) =>
                             mudarStatus(e.target.value)
                         }
-                        className="rounded-lg border border-gray-200 bg-[#f7f7f7] px-4 py-3 text-sm text-[#082d56] outline-none focus:border-[#082d56]"
+                        className="rounded-lg border border-gray-200 bg-[#f7f7f7] px-4 py-3 text-sm text-[#082d56] outline-none"
                     >
                         <option value="todos">
                             Todos os status
                         </option>
-                        <option value="APROVADA">Aprovadas</option>
-                        <option value="RECUSADA">Recusadas</option>
-                        <option value="PENDENTE">Pendentes</option>
+
+                        <option value="APROVADA">
+                            Aprovadas
+                        </option>
+
+                        <option value="RECUSADA">
+                            Recusadas
+                        </option>
+
+                        <option value="PENDENTE">
+                            Pendentes
+                        </option>
+
+                        <option value="EM ANDAMENTO">
+                            Em andamento
+                        </option>
                     </select>
 
                     <button
@@ -427,7 +479,7 @@ export default function HistoricoAdmin() {
                     </button>
                 </div>
 
-                {/* ERRO DA API */}
+                {/* ERROS */}
                 {erro && (
                     <div className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                         <FiAlertCircle
@@ -446,36 +498,28 @@ export default function HistoricoAdmin() {
                     </div>
                 )}
 
-                {/* LISTA DE REGISTROS */}
+                {/* REGISTROS */}
                 {!carregando && !erro && (
                     <>
-                        <div className="space-y-4">
+                        <div className="space-y-3">
 
                             {itensPagina.map((item) => {
                                 const status = formatarStatus(item.status);
 
                                 return (
-                                    <div
+                                    <article
                                         key={item.id_historico}
-                                        className="grid grid-cols-1 items-center gap-4 rounded-lg border border-[#d7d7d7] bg-[#f1f1f1] px-5 py-5 shadow-[0_2px_3px_rgba(0,0,0,0.13)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md md:grid-cols-[minmax(0,2fr)_110px_110px_auto]"
+                                        className="grid grid-cols-1 items-center gap-3 rounded-lg border border-[#dddddd] bg-[#f1f1f1] px-5 py-4 shadow-[0_2px_2px_rgba(0,0,0,0.15)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md md:grid-cols-[minmax(0,2fr)_125px_115px_130px]"
                                     >
-                                        {/* NOME DA INSTITUIÇÃO / TÍTULO */}
+                                        {/* INSTITUIÇÃO */}
                                         <div className="min-w-0">
-                                            <h3 className="text-sm font-bold leading-snug text-[#082d56]">
-                                                {item.instituicao || item.titulo}
+                                            <h3 className="text-sm font-bold text-[#082d56]">
+                                                {item.instituicao}
                                             </h3>
 
-                                            {item.instituicao && (
-                                                <p className="mt-1 truncate text-xs text-gray-500">
-                                                    {item.titulo}
-                                                </p>
-                                            )}
-
-                                            {item.id_solicitacao && (
-                                                <p className="mt-1 text-xs text-gray-500">
-                                                    Solicitação #{item.id_solicitacao}
-                                                </p>
-                                            )}
+                                            <p className="mt-1 text-xs text-gray-600">
+                                                {item.titulo}
+                                            </p>
                                         </div>
 
                                         {/* STATUS */}
@@ -488,7 +532,7 @@ export default function HistoricoAdmin() {
                                         </div>
 
                                         {/* DATA */}
-                                        <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                        <div className="flex items-center gap-2 text-xs text-gray-600">
                                             <FiCalendar size={14} />
                                             {item.data}
                                         </div>
@@ -503,11 +547,10 @@ export default function HistoricoAdmin() {
                                             Ver Solicitação
                                         </button>
 
-                                    </div>
+                                    </article>
                                 );
                             })}
 
-                            {/* SEM REGISTROS */}
                             {itensPagina.length === 0 && (
                                 <div className="flex min-h-56 flex-col items-center justify-center gap-3 text-center">
                                     <FiFileText
@@ -520,7 +563,6 @@ export default function HistoricoAdmin() {
                                     </p>
                                 </div>
                             )}
-
                         </div>
 
                         {/* PAGINAÇÃO */}
@@ -547,8 +589,7 @@ export default function HistoricoAdmin() {
                                                 Math.max(1, atual - 1)
                                             )
                                         }
-                                        className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                        aria-label="Página anterior"
+                                        className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:opacity-40"
                                     >
                                         <FiChevronLeft size={18} />
                                     </button>
@@ -565,8 +606,7 @@ export default function HistoricoAdmin() {
                                                 Math.min(totalPaginas, atual + 1)
                                             )
                                         }
-                                        className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                        aria-label="Próxima página"
+                                        className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:opacity-40"
                                     >
                                         <FiChevronRight size={18} />
                                     </button>
@@ -578,30 +618,40 @@ export default function HistoricoAdmin() {
                 )}
             </section>
 
-            {/* MODAL DE DETALHES */}
+            {/* ======================================
+          MODAL DE DETALHES
+      ====================================== */}
+
             {detalhes && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[#07182b]/65 p-4 backdrop-blur-[3px]"
                     onClick={() => setDetalhes(null)}
                 >
                     <section
                         role="dialog"
                         aria-modal="true"
-                        aria-labelledby="detalhes-historico"
+                        aria-labelledby="titulo-detalhes"
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl"
+                        className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl"
                     >
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
+
+                        {/* CABEÇALHO DO MODAL */}
+                        <div className="flex items-start justify-between gap-4 border-b border-gray-100 bg-[#f7f9fc] px-6 py-5">
+
+                            <div className="min-w-0">
+                                <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#47719e]">
+                                    Detalhes da Solicitação
+                                </p>
+
                                 <h2
-                                    id="detalhes-historico"
+                                    id="titulo-detalhes"
                                     className="text-xl font-bold text-[#082d56]"
                                 >
-                                    Detalhes da Solicitação
+                                    {detalhes.titulo}
                                 </h2>
 
-                                <p className="mt-1 text-xs text-gray-500">
-                                    Histórico #{detalhes.id_historico}
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Solicitação #{detalhes.id_solicitacao}
                                 </p>
                             </div>
 
@@ -609,93 +659,135 @@ export default function HistoricoAdmin() {
                                 type="button"
                                 onClick={() => setDetalhes(null)}
                                 aria-label="Fechar detalhes"
-                                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                                className="rounded-full p-2 text-gray-500 transition hover:bg-gray-200"
                             >
                                 <FiX size={20} />
                             </button>
                         </div>
 
-                        <div className="mt-6 space-y-4 text-sm">
-                            {detalhes.instituicao && (
-                                <div>
-                                    <p className="text-xs text-gray-500">
-                                        Instituição
-                                    </p>
-                                    <p className="font-semibold text-[#082d56]">
-                                        {detalhes.instituicao}
+                        {/* INFORMAÇÕES */}
+                        <div className="space-y-5 px-6 py-6">
+
+                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
+                                {/* INSTITUIÇÃO */}
+                                <div className="flex items-start gap-3">
+                                    <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
+                                        <FiHome size={17} />
+                                    </span>
+
+                                    <div>
+                                        <p className="mb-1 text-xs text-gray-500">
+                                            Instituição
+                                        </p>
+
+                                        <p className="text-sm font-semibold text-[#082d56]">
+                                            {detalhes.instituicao}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* STATUS */}
+                                <div className="flex items-start gap-3">
+                                    <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
+                                        <FiClipboard size={17} />
+                                    </span>
+
+                                    <div>
+                                        <p className="mb-1 text-xs text-gray-500">
+                                            Status atual
+                                        </p>
+
+                                        <span
+                                            className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${formatarStatus(detalhes.status).estilo
+                                                }`}
+                                        >
+                                            {formatarStatus(detalhes.status).texto}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* PRIORIDADE */}
+                                <div className="flex items-start gap-3">
+                                    <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
+                                        <FiFlag size={17} />
+                                    </span>
+
+                                    <div>
+                                        <p className="mb-1 text-xs text-gray-500">
+                                            Prioridade
+                                        </p>
+
+                                        <p className="text-sm font-semibold capitalize text-[#082d56]">
+                                            {detalhes.prioridade}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* DATA */}
+                                <div className="flex items-start gap-3">
+                                    <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
+                                        <FiClock size={17} />
+                                    </span>
+
+                                    <div>
+                                        <p className="mb-1 text-xs text-gray-500">
+                                            Última atualização
+                                        </p>
+
+                                        <p className="text-sm font-semibold text-[#082d56]">
+                                            {detalhes.data}
+                                        </p>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            {/* DESCRIÇÃO */}
+                            <div className="rounded-xl border border-[#e6edf5] bg-[#f7f9fc] p-4">
+
+                                <div className="mb-2 flex items-center gap-2">
+                                    <FiFileText
+                                        size={16}
+                                        className="text-[#47719e]"
+                                    />
+
+                                    <p className="text-xs font-semibold text-[#47719e]">
+                                        Descrição da movimentação
                                     </p>
                                 </div>
-                            )}
 
-                            <div>
-                                <p className="text-xs text-gray-500">
-                                    Solicitação
-                                </p>
-                                <p className="font-semibold text-[#082d56]">
-                                    {detalhes.titulo}
+                                <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                                    {detalhes.descricao ||
+                                        "Nenhuma descrição registrada."}
                                 </p>
                             </div>
 
-                            {detalhes.id_solicitacao && (
-                                <div>
-                                    <p className="text-xs text-gray-500">
-                                        ID da Solicitação
-                                    </p>
-                                    <p className="font-medium">
-                                        {detalhes.id_solicitacao}
-                                    </p>
-                                </div>
-                            )}
-
-                            <div>
-                                <p className="text-xs text-gray-500">
-                                    Status
-                                </p>
-                                <span
-                                    className={`mt-1 inline-flex rounded-full px-3 py-1 text-xs font-bold ${formatarStatus(detalhes.status).estilo
-                                        }`}
-                                >
-                                    {formatarStatus(detalhes.status).texto}
-                                </span>
-                            </div>
-
-                            <div>
-                                <p className="text-xs text-gray-500">
-                                    Prioridade
-                                </p>
-                                <p className="font-medium">
-                                    {detalhes.prioridade}
-                                </p>
-                            </div>
-
-                            <div>
-                                <p className="text-xs text-gray-500">
-                                    Data da alteração
-                                </p>
-                                <p className="font-medium">
-                                    {detalhes.data}
-                                </p>
-                            </div>
-
-                            {detalhes.descricao && (
-                                <div>
-                                    <p className="text-xs text-gray-500">
-                                        Descrição
-                                    </p>
-                                    <p className="whitespace-pre-wrap text-gray-700">
-                                        {detalhes.descricao}
-                                    </p>
-                                </div>
-                            )}
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => setDetalhes(null)}
-                            className="mt-7 w-full rounded-lg bg-[#082d56] py-3 text-sm font-semibold text-white transition hover:bg-[#164675]"
-                        >
-                            Fechar
-                        </button>
+                        {/* BOTÕES DO MODAL */}
+                        <div className="flex flex-col gap-3 border-t border-gray-100 bg-[#fcfcfd] px-6 py-5 sm:flex-row">
+
+                            <button
+                                type="button"
+                                onClick={() => setDetalhes(null)}
+                                className="flex-1 rounded-lg border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+                            >
+                                Fechar
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={saberMais}
+                                disabled={!detalhes.id_solicitacao}
+                                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#082d56] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#164675] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Saber mais
+                                <FiArrowUpRight size={18} />
+                            </button>
+
+                        </div>
+
                     </section>
                 </div>
             )}
