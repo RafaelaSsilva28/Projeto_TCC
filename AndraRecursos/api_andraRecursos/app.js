@@ -16,6 +16,7 @@ import rotasRespostasADM from "./src/routes/rotasRespostasADM.js";
 import rotasDashboard from "./src/routes/rotasDashboard.js";
 import rotasHistoricoInst from "./src/routes/rotasHistoricoInst.js"; 
 import rotasConfiguracoesAdmin from "./src/routes/rotasConfiguracoesAdmin.js";
+import rotasPerfilAdministrador from "./src/routes/rotasPerfilAdministrador.js";
 
 import documentacao from "./config/swagger.js";
 
@@ -26,7 +27,7 @@ const app = express();
 // ======================================
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
 // ======================================
 // ROTA PRINCIPAL
@@ -106,6 +107,8 @@ app.use(rotasHistoricoInst);
 
 //configurações 
 app.use(rotasConfiguracoesAdmin);
+
+app.use(rotasPerfilAdministrador);
 // ======================================
 // ROTA NÃO ENCONTRADA
 // ======================================
