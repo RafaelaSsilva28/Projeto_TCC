@@ -25,6 +25,8 @@ import HistoricoAdmin from "./pages/HistoricoAdmin";
 
 import HistoricoInst from "./pages/HistoricoInst";
 
+import SolicitacoesAdmin from "./pages/SolicitacoesAdmin";
+
 // ============================================
 // COMPONENTES
 // ============================================
@@ -161,6 +163,25 @@ function App() {
               to="/"
               replace
             />
+          }
+        />
+        {/* LISTA DE SOLICITAÇÕES */}
+        <Route
+          path="/solicitacoes"
+          element={
+            <LayoutAdministrador>
+              <SolicitacoesAdmin />
+            </LayoutAdministrador>
+          }
+        />
+
+        {/* DETALHES DA SOLICITAÇÃO */}
+        <Route
+          path="/solicitacoes/:id"
+          element={
+            <LayoutAdministrador>
+              <SolicitacoesAdmin />
+            </LayoutAdministrador>
           }
         />
 

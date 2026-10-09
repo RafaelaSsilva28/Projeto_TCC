@@ -165,132 +165,227 @@ export default function ObrigatorioInst() {
     navigate("/", { replace: true });
   }
 
-  async function finalizarCadastro(event) {
-    event.preventDefault();
+  
+async function finalizarCadastro(event) {
+  event.preventDefault();
 
-    if (salvando) return;
+  if (salvando) return;
 
-    setErro("");
+  setErro("");
 
-    const token = localStorage.getItem(
-      "@AndraRecursos:token"
+  const token = localStorage.getItem("@AndraRecursos:token");
+
+  if (!token) {
+    setErro("Sessão expirada. Faça login novamente.");
+    return;
+  }
+
+  const faltando = Object.values(dados).some(
+    (valor) => !String(valor).trim()
+  );
+
+  if (faltando) {
+    setErro("Todos os campos são obrigatórios.");
+    return;
+  }
+
+  const cepNumerico = dados.cep.replace(/\D/g, "");
+  const telefoneNumerico = dados.telefone.replace(/\D/g, "");
+
+  if (cepNumerico.length !== 8) {
+    setErro("O CEP deve possuir 8 números.");
+    return;
+  }
+
+  if (
+    telefoneNumerico.length < 10 ||
+    telefoneNumerico.length > 11
+  ) {
+    setErro("Informe um telefone válido.");
+    return;
+  }
+
+  setSalvando(true);
+
+  const controlador = new AbortController();
+  const temporizador = setTimeout(() => controlador.abort(), 15000);
+
+  try {
+    console.log("Enviando cadastro obrigatório...");
+
+    const resposta = await fetch(
+      `${enderecoServidor}/instituicoes/completar-cadastro`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(dados),
+        signal: controlador.signal,
+      }
     );
 
-    if (!token) {
-      setErro("Sessão expirada. Faça login novamente.");
-      return;
-    }
+    const resultado = await resposta.json();
 
-    const faltando = Object.values(dados).some(
-      (valor) => !String(valor).trim()
-    );
+    console.log("Status da API:", resposta.status);
+    console.log("Resposta da API:", resultado);
 
-    if (faltando) {
-      setErro("Todos os campos são obrigatórios.");
-      return;
-    }
-
-    const cepNumerico = dados.cep.replace(/\D/g, "");
-    const telefoneNumerico = dados.telefone.replace(
-      /\D/g,
-      ""
-    );
-
-    if (cepNumerico.length !== 8) {
-      setErro("O CEP deve possuir 8 números.");
-      return;
-    }
-
-    if (
-      telefoneNumerico.length < 10 ||
-      telefoneNumerico.length > 11
-    ) {
-      setErro("Informe um telefone válido.");
-      return;
-    }
-
-    setSalvando(true);
-
-    try {
-      const resposta = await fetch(
-        `${enderecoServidor}/instituicoes/completar-cadastro`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(dados),
-        }
+    if (!resposta.ok) {
+      throw new Error(
+        resultado.message || "Erro ao finalizar cadastro."
       );
-
-      const resultado = await resposta.json();
-
-      if (!resposta.ok) {
-        throw new Error(
-          resultado.message || "Erro ao finalizar cadastro."
-        );
-      }
-
-      if (resultado.cadastro_completo !== true) {
-        throw new Error(
-          "O cadastro não foi confirmado pelo servidor."
-        );
-      }
-
-      setSucesso(true);
-
-    } catch (error) {
-      setErro(error.message);
-    } finally {
-      setSalvando(false);
     }
+
+    if (resultado.cadastro_completo !== true) {
+      throw new Error(
+        "A API não confirmou a conclusão do cadastro."
+      );
+    }
+
+    setSucesso(true);
+
+  } catch (error) {
+    console.error("Erro ao finalizar cadastro:", error);
+
+    if (error.name === "AbortError") {
+      setErro(
+        "A API demorou mais de 15 segundos para responder. Verifique a conexão antes de tentar novamente."
+      );
+    } else {
+      setErro(error.message || "Não foi possível finalizar o cadastro.");
+    }
+  } finally {
+    clearTimeout(temporizador);
+    setSalvando(false);
   }
+}
+  // async function finalizarCadastro(event) {
+  //   event.preventDefault();
 
-  if (carregando) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f3f5f8]">
-        <div className="flex items-center gap-3 text-[#082d56]">
-          <FiLoader className="animate-spin text-2xl" />
-          <span>Carregando informações...</span>
-        </div>
-      </div>
-    );
-  }
+  //   if (salvando) return;
 
-  if (sucesso) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f3f5f8] p-4">
-        <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-lg">
+  //   setErro("");
 
-          <FiCheckCircle className="mx-auto text-6xl text-green-600" />
+  //   const token = localStorage.getItem(
+  //     "@AndraRecursos:token"
+  //   );
 
-          <h1 className="mt-5 text-2xl font-bold text-[#082d56]">
-            Acesso liberado!
-          </h1>
+  //   if (!token) {
+  //     setErro("Sessão expirada. Faça login novamente.");
+  //     return;
+  //   }
 
-          <p className="mt-3 text-gray-600">
-            O cadastro obrigatório de
-            <strong className="block text-[#06458f]">
-              {instituicao?.nome}
-            </strong>
-            foi concluído com sucesso.
-          </p>
+  //   const faltando = Object.values(dados).some(
+  //     (valor) => !String(valor).trim()
+  //   );
 
-          <button
-            type="button"
-            onClick={() =>
-              navigate("/principal-inst", { replace: true })
-            }
-            className="mt-6 w-full rounded-lg bg-[#06458f] px-5 py-3 font-semibold text-white hover:bg-[#04366d]"
-          >
-            Acessar Dashboard
-          </button>
+  //   if (faltando) {
+  //     setErro("Todos os campos são obrigatórios.");
+  //     return;
+  //   }
 
-        </div>
-      </div>
-    );
-  }
+  //   const cepNumerico = dados.cep.replace(/\D/g, "");
+  //   const telefoneNumerico = dados.telefone.replace(
+  //     /\D/g,
+  //     ""
+  //   );
+
+  //   if (cepNumerico.length !== 8) {
+  //     setErro("O CEP deve possuir 8 números.");
+  //     return;
+  //   }
+
+  //   if (
+  //     telefoneNumerico.length < 10 ||
+  //     telefoneNumerico.length > 11
+  //   ) {
+  //     setErro("Informe um telefone válido.");
+  //     return;
+  //   }
+
+  //   setSalvando(true);
+
+  //   try {
+  //     const resposta = await fetch(
+  //       `${enderecoServidor}/instituicoes/completar-cadastro`,
+  //       {
+  //         method: "PUT",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //         body: JSON.stringify(dados),
+  //       }
+  //     );
+
+  //     const resultado = await resposta.json();
+
+  //     if (!resposta.ok) {
+  //       throw new Error(
+  //         resultado.message || "Erro ao finalizar cadastro."
+  //       );
+  //     }
+
+  //     if (resultado.cadastro_completo !== true) {
+  //       throw new Error(
+  //         "O cadastro não foi confirmado pelo servidor."
+  //       );
+  //     }
+
+  //     setSucesso(true);
+
+  //   } catch (error) {
+  //     setErro(error.message);
+  //   } finally {
+  //     setSalvando(false);
+  //   }
+  // }
+
+  // if (carregando) {
+  //   return (
+  //     <div className="flex min-h-screen items-center justify-center bg-[#f3f5f8]">
+  //       <div className="flex items-center gap-3 text-[#082d56]">
+  //         <FiLoader className="animate-spin text-2xl" />
+  //         <span>Carregando informações...</span>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+
+  // if (sucesso) {
+  //   return (
+  //     <div className="flex min-h-screen items-center justify-center bg-[#f3f5f8] p-4">
+  //       <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-lg">
+
+  //         <FiCheckCircle className="mx-auto text-6xl text-green-600" />
+
+  //         <h1 className="mt-5 text-2xl font-bold text-[#082d56]">
+  //           Acesso liberado!
+  //         </h1>
+
+  //         <p className="mt-3 text-gray-600">
+  //           O cadastro obrigatório de
+  //           <strong className="block text-[#06458f]">
+  //             {instituicao?.nome}
+  //           </strong>
+  //           foi concluído com sucesso.
+  //         </p>
+
+  //         <button
+  //           type="button"
+  //           onClick={() =>
+  //             navigate("/principal-inst", { replace: true })
+  //           }
+  //           className="mt-6 w-full rounded-lg bg-[#06458f] px-5 py-3 font-semibold text-white hover:bg-[#04366d]"
+  //         >
+  //           Acessar Dashboard
+  //         </button>
+
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <main className="min-h-screen bg-[#e9edf3] px-4 py-6 font-sans text-gray-800 sm:px-6 lg:px-10">
