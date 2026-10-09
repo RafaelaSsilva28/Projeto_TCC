@@ -1,28 +1,31 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FiArrowLeft,
-  FiArrowRight,
-  FiUploadCloud,
-  FiFileText,
-  FiTrash2,
-  FiCheckCircle,
-  FiAlertCircle,
-  FiMenu,
-  FiHome,
-  FiClipboard,
+    FiArrowLeft,
+    FiArrowRight,
+    FiUploadCloud,
+    FiFileText,
+    FiTrash2,
+    FiCheckCircle,
+    FiAlertCircle,
+    FiMenu,
+    FiHome,
+    FiClipboard,
+    FiX,
+    FiClock,
+    FiBell,
+    FiSettings,
+    FiLogOut,
 } from "react-icons/fi";
 
 const LIMITE_ARQUIVO = 10 * 1024 * 1024;
 const TIPOS_ACEITOS = ["application/pdf", "image/jpeg", "image/png"];
-const [menuAberto, setMenuAberto] = useState(false);
-
 const etapas = ["Informações Básicas", "Descrição e Anexos", "Revisão"];
 
 export default function SolicitacoesInst() {
   const navigate = useNavigate();
   const inputArquivo = useRef(null);
-
+  const [menuAberto, setMenuAberto] = useState(false);
   const [etapa, setEtapa] = useState(1);
   const [dados, setDados] = useState({
     titulo: "",
@@ -139,9 +142,8 @@ export default function SolicitacoesInst() {
       )}
       {/* MENU LATERAL INSTITUCIONAL */}
       <aside
-        className={`fixed left-0 top-0 z-40 h-screen w-64 shrink-0 transform bg-[#082d56] text-white transition-transform duration-300 lg:sticky lg:translate-x-0 ${
-          menuAberto ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
+        className={`fixed left-0 top-0 z-40 h-screen w-64 shrink-0 transform bg-[#082d56] text-white transition-transform duration-300 lg:sticky lg:translate-x-0 ${menuAberto ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }`}
       >
         {/* CABEÇALHO DO MENU */}
         <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
@@ -255,19 +257,17 @@ export default function SolicitacoesInst() {
                 className="relative z-10 flex flex-col items-center gap-1"
               >
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl font-bold ${
-                    ativo
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl font-bold ${ativo
                       ? "bg-[#08489b] text-white"
                       : "bg-gray-200 text-gray-600"
-                  }`}
+                    }`}
                 >
                   {numero < etapa ? <FiCheckCircle size={18} /> : numero}
                 </div>
 
                 <span
-                  className={`text-center text-[10px] font-semibold sm:text-xs ${
-                    ativo ? "text-[#08489b]" : "text-gray-500"
-                  }`}
+                  className={`text-center text-[10px] font-semibold sm:text-xs ${ativo ? "text-[#08489b]" : "text-gray-500"
+                    }`}
                 >
                   {nome}
                 </span>

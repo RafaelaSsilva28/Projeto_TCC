@@ -1,6 +1,5 @@
 
-import { useEffect, useState } from "react";
-
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 import {
@@ -24,15 +23,23 @@ import AnexosSolicitacao from "./AnexosSolicitacao";
 const API = String(enderecoServidor).replace(/\/$/, "");
 
 // ============================================
-// FORMATAR STATUS
+// NORMALIZAR TEXTOS
 // ============================================
 
-function visualizarStatus(valor) {
-    const status = String(valor ?? "")
+function normalizarTexto(valor) {
+    return String(valor ?? "")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase()
         .trim();
+}
+
+// ============================================
+// FORMATAR STATUS
+// ============================================
+
+function visualizarStatus(valor) {
+    const status = normalizarTexto(valor);
 
     if (["aprovada", "aprovado"].includes(status)) {
         return {
@@ -77,7 +84,7 @@ function formatarData(valor) {
 
     const texto = String(valor);
 
-    // Sua API retorna algumas datas já formatadas.
+    // Datas já formatadas pela API.
     if (/^\d{2}\/\d{2}\/\d{4}/.test(texto)) {
         return texto;
     }
@@ -141,7 +148,7 @@ function normalizarSolicitacao(item) {
 }
 
 // ============================================
-// COMPONENTE
+// COMPONENTE PRINCIPAL
 // ============================================
 
 export default function DetalhesSolicitacaoAdmin({
@@ -155,7 +162,7 @@ export default function DetalhesSolicitacaoAdmin({
     );
 
     const [atual, setAtual] = useState(
-        solicitacao || null
+        solicitacao ?? null
     );
 
     const [eventos, setEventos] = useState([]);
@@ -163,12 +170,16 @@ export default function DetalhesSolicitacaoAdmin({
     const [resposta, setResposta] = useState("");
 
     const [carregando, setCarregando] = useState(true);
+
     const [salvando, setSalvando] = useState(false);
 
     const [erro, setErro] = useState("");
 
-    // NOVO: confirmação personalizada
     const [confirmacao, setConfirmacao] = useState(null);
+
+    // Evita disparar verificações duplicadas
+    // na mesma abertura do componente.
+    const verificacaoAbertura = useRef(null);
 
     // ==========================================
     // REQUISIÇÕES AUTENTICADAS
@@ -215,125 +226,264 @@ export default function DetalhesSolicitacaoAdmin({
     }
 
     // ==========================================
-    // CARREGAR SOLICITAÇÃO E HISTÓRICO
+    // BUSCAR DADOS ATUAIS DA SOLICITAÇÃO
+    // ==========================================
+
+    async function buscarSolicitacaoAtual() {
+        const dados = await chamarAPI("/solicitacoes");
+
+        const lista = Array.isArray(dados)
+            ? dados
+            : dados?.solicitacoes ??
+            dados?.dados ??
+            [];
+
+        if (!Array.isArray(lista)) {
+            throw new Error(
+                "A API retornou uma lista inválida."
+            );
+        }
+
+        const encontrada = lista.find(
+            (item) =>
+                Number(
+                    item.id_solicitacoes ??
+                    item.id_solicitacao ??
+                    item.id
+                ) === id
+        );
+
+        if (!encontrada) {
+            throw new Error(
+                "Solicitação não encontrada na API."
+            );
+        }
+
+        return normalizarSolicitacao(encontrada);
+    }
+
+    // ==========================================
+    // BUSCAR HISTÓRICO DE COMUNICAÇÃO
+    // ==========================================
+
+    async function buscarComunicacao() {
+        const [
+            dadosHistorico,
+            dadosRespostas,
+        ] = await Promise.all([
+            chamarAPI(
+                `/historico-solicitacoes/solicitacao/${id}`
+            ),
+
+            chamarAPI(
+                `/respostas-adm/solicitacao/${id}`
+            ),
+        ]);
+
+        const movimentacoes = (
+            Array.isArray(dadosHistorico)
+                ? dadosHistorico
+                : []
+        ).map((item) => ({
+            chave: `historico-${item.id_historico}`,
+            tipo: "movimentacao",
+            autor: "SISTEMA / MOVIMENTAÇÃO",
+            mensagem: item.descricao,
+            data: item.data_alteracao,
+        }));
+
+        const mensagens = (
+            Array.isArray(dadosRespostas)
+                ? dadosRespostas
+                : []
+        ).map((item) => ({
+            chave: `resposta-${item.id_resposta}`,
+            tipo: "resposta",
+            autor: "ADMINISTRADOR",
+            mensagem: item.mensagem,
+            data: item.data_resposta,
+        }));
+
+        // Mais antigos primeiro.
+        return [
+            ...movimentacoes,
+            ...mensagens,
+        ].sort((a, b) => {
+            const dataA = new Date(a.data).getTime();
+            const dataB = new Date(b.data).getTime();
+
+            if (
+                !Number.isFinite(dataA) &&
+                !Number.isFinite(dataB)
+            ) {
+                return 0;
+            }
+
+            if (!Number.isFinite(dataA)) return 1;
+            if (!Number.isFinite(dataB)) return -1;
+
+            return dataA - dataB;
+        });
+    }
+
+    // ==========================================
+    // ATUALIZAR CONTEÚDO DO MODAL
     // ==========================================
 
     async function carregarDetalhes() {
-        if (!Number.isInteger(id) || id <= 0) {
-            return;
-        }
-
         setCarregando(true);
         setErro("");
 
         try {
             const [
-                dadosSolicitacoes,
-                dadosHistorico,
-                dadosRespostas,
+                dadosSolicitacao,
+                dadosComunicacao,
             ] = await Promise.all([
-                chamarAPI("/solicitacoes"),
-
-                chamarAPI(
-                    `/historico-solicitacoes/solicitacao/${id}`
-                ),
-
-                chamarAPI(
-                    `/respostas-adm/solicitacao/${id}`
-                ),
+                buscarSolicitacaoAtual(),
+                buscarComunicacao(),
             ]);
 
-            // BUSCAR A SOLICITAÇÃO
-            const lista = Array.isArray(dadosSolicitacoes)
-                ? dadosSolicitacoes
-                : dadosSolicitacoes?.solicitacoes ??
-                dadosSolicitacoes?.dados ??
-                [];
-
-            const encontrada = Array.isArray(lista)
-                ? lista.find(
-                    (item) =>
-                        Number(
-                            item.id_solicitacoes ??
-                            item.id_solicitacao ??
-                            item.id
-                        ) === id
-                )
-                : null;
-
-            if (!encontrada) {
-                throw new Error(
-                    "Solicitação não encontrada na API."
-                );
-            }
-
-            setAtual(
-                normalizarSolicitacao(encontrada)
-            );
-
-            // MOVIMENTAÇÕES DA SOLICITAÇÃO
-            const movimentacoes = (
-                Array.isArray(dadosHistorico)
-                    ? dadosHistorico
-                    : []
-            ).map((item) => ({
-                chave: `historico-${item.id_historico}`,
-                tipo: "movimentacao",
-                autor: "SISTEMA / MOVIMENTAÇÃO",
-                mensagem: item.descricao,
-                data: item.data_alteracao,
-            }));
-
-            // RESPOSTAS DO ADMINISTRADOR
-            const mensagens = (
-                Array.isArray(dadosRespostas)
-                    ? dadosRespostas
-                    : []
-            ).map((item) => ({
-                chave: `resposta-${item.id_resposta}`,
-                tipo: "resposta",
-                autor: "ADMINISTRADOR",
-                mensagem: item.mensagem,
-                data: item.data_resposta,
-            }));
-
-            // LINHA DO TEMPO CRONOLÓGICA
-            const linhaDoTempo = [
-                ...movimentacoes,
-                ...mensagens,
-            ].sort((a, b) => {
-                const tempoA = new Date(a.data).getTime();
-                const tempoB = new Date(b.data).getTime();
-
-                if (
-                    !Number.isFinite(tempoA) &&
-                    !Number.isFinite(tempoB)
-                ) {
-                    return 0;
-                }
-
-                if (!Number.isFinite(tempoA)) return 1;
-                if (!Number.isFinite(tempoB)) return -1;
-
-                return tempoA - tempoB;
-            });
-
-            setEventos(linhaDoTempo);
-
+            setAtual(dadosSolicitacao);
+            setEventos(dadosComunicacao);
         } catch (error) {
             setErro(error.message);
+            throw error;
         } finally {
             setCarregando(false);
         }
     }
 
+    // ==========================================
+    // NOVO: PENDENTE -> EM ANDAMENTO
+    // AO ABRIR O DETALHAMENTO
+    // ==========================================
+
+    async function verificarAbertura() {
+        const encontrada = await buscarSolicitacaoAtual();
+
+        if (
+            normalizarTexto(encontrada.status) !== "pendente"
+        ) {
+            return {
+                alterou: false,
+                solicitacao: encontrada,
+            };
+        }
+
+        // Usa a rota PATCH que já grava o histórico
+        // da mudança no Neon.
+        const resultado = await chamarAPI(
+            `/solicitacoes/${id}/status`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    status: "em andamento",
+                }),
+            }
+        );
+
+        return {
+            alterou:
+                normalizarTexto(resultado?.solicitacao?.status) ===
+                "em andamento" ||
+                Boolean(resultado?.solicitacao) === false,
+
+            solicitacao: {
+                ...encontrada,
+                status: "em andamento",
+            },
+        };
+    }
+
+    // ==========================================
+    // EXECUTAR QUANDO ABRIR A SOLICITAÇÃO
+    // ==========================================
+
     useEffect(() => {
-        carregarDetalhes();
+        if (!Number.isInteger(id) || id <= 0) {
+            return;
+        }
+
+        let ativo = true;
+
+        async function iniciar() {
+            setCarregando(true);
+            setErro("");
+
+            try {
+                let promessa;
+
+                if (
+                    verificacaoAbertura.current?.id === id
+                ) {
+                    promessa =
+                        verificacaoAbertura.current.promessa;
+                } else {
+                    promessa = verificarAbertura();
+
+                    verificacaoAbertura.current = {
+                        id,
+                        promessa,
+                    };
+                }
+
+                const resultadoAbertura = await promessa;
+
+                if (!ativo) return;
+
+                // Consulta o banco novamente, trazendo
+                // tanto o status como as mensagens.
+                const [
+                    dadosSolicitacao,
+                    dadosComunicacao,
+                ] = await Promise.all([
+                    buscarSolicitacaoAtual(),
+                    buscarComunicacao(),
+                ]);
+
+                if (!ativo) return;
+
+                setAtual(dadosSolicitacao);
+                setEventos(dadosComunicacao);
+
+                if (resultadoAbertura.alterou) {
+                    toast.success(
+                        "Solicitação colocada em andamento!",
+                        {
+                            id: `abertura-${id}`,
+                        }
+                    );
+
+                    // Atualiza a tabela e os indicadores.
+                    onAtualizar?.();
+                }
+            } catch (error) {
+                if (!ativo) return;
+
+                setErro(error.message);
+
+                toast.error(
+                    error.message ||
+                    "Não foi possível abrir a solicitação."
+                );
+            } finally {
+                if (ativo) {
+                    setCarregando(false);
+                }
+            }
+        }
+
+        iniciar();
+
+        return () => {
+            ativo = false;
+        };
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     // ==========================================
-    // ABRIR CONFIRMAÇÃO PERSONALIZADA
+    // ABRIR CONFIRMAÇÃO
     // ==========================================
 
     function solicitarConfirmacao(novoStatus) {
@@ -373,15 +523,12 @@ export default function DetalhesSolicitacaoAdmin({
                     : "Solicitação recusada com sucesso!"
             );
 
-            // Fecha o modal e atualiza os cartões.
-            // O toast permanece visível no aplicativo.
             onClose?.();
             onAtualizar?.();
-
         } catch (error) {
             toast.error(
                 error.message ||
-                "Erro ao atualizar a solicitação."
+                "Erro ao atualizar solicitação."
             );
         } finally {
             setSalvando(false);
@@ -389,7 +536,7 @@ export default function DetalhesSolicitacaoAdmin({
     }
 
     // ==========================================
-    // ENVIAR RESPOSTA
+    // ENVIAR RESPOSTA DO ADMINISTRADOR
     // ==========================================
 
     async function enviarResposta() {
@@ -408,24 +555,27 @@ export default function DetalhesSolicitacaoAdmin({
         setErro("");
 
         try {
-            await chamarAPI("/respostas-adm", {
-                method: "POST",
-                body: JSON.stringify({
-                    id_solicitacao: id,
-                    mensagem,
-                }),
-            });
+            await chamarAPI(
+                "/respostas-adm",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        id_solicitacao: id,
+                        mensagem,
+                    }),
+                }
+            );
 
-            // A mensagem já foi salva no banco.
             setResposta("");
+
+            const comunicacaoAtualizada =
+                await buscarComunicacao();
+
+            setEventos(comunicacaoAtualizada);
 
             toast.success(
                 "Resposta enviada com sucesso!"
             );
-
-            // Recarrega o histórico de comunicação.
-            await carregarDetalhes();
-
         } catch (error) {
             toast.error(
                 error.message ||
@@ -437,10 +587,13 @@ export default function DetalhesSolicitacaoAdmin({
     }
 
     // ==========================================
-    // ID INVÁLIDO
+    // VALIDAR ID
     // ==========================================
 
-    if (!Number.isInteger(id) || id <= 0) {
+    if (
+        !Number.isInteger(id) ||
+        id <= 0
+    ) {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
                 <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
@@ -487,22 +640,15 @@ export default function DetalhesSolicitacaoAdmin({
                 aria-labelledby="titulo-solicitacao-admin"
                 className="relative flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
             >
-                {/* ====================================
-            CABEÇALHO
-        ==================================== */}
-
+                {/* CABEÇALHO */}
                 <header className="flex items-start justify-between gap-4 border-b border-gray-200 bg-[#f3f5f8] p-5 sm:p-6">
-
                     <div className="flex min-w-0 items-start gap-4">
-
                         <span className="rounded-xl bg-blue-100 p-3 text-[#1759ad]">
                             <FiFileText size={24} />
                         </span>
 
                         <div className="min-w-0">
-
                             <div className="mb-2 flex flex-wrap items-center gap-2">
-
                                 <span className="text-xs font-semibold text-gray-500">
                                     #{id}
                                 </span>
@@ -512,7 +658,6 @@ export default function DetalhesSolicitacaoAdmin({
                                 >
                                     {situacao.texto}
                                 </span>
-
                             </div>
 
                             <h2
@@ -522,7 +667,6 @@ export default function DetalhesSolicitacaoAdmin({
                                 {atual?.titulo ??
                                     "Carregando solicitação..."}
                             </h2>
-
                         </div>
                     </div>
 
@@ -535,13 +679,9 @@ export default function DetalhesSolicitacaoAdmin({
                     >
                         <FiX size={21} />
                     </button>
-
                 </header>
 
-                {/* ====================================
-            CONTEÚDO PRINCIPAL
-        ==================================== */}
-
+                {/* CONTEÚDO */}
                 <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-2">
 
                     {/* COLUNA ESQUERDA */}
@@ -554,7 +694,6 @@ export default function DetalhesSolicitacaoAdmin({
 
                         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
 
-                            {/* INSTITUIÇÃO */}
                             <div>
                                 <p className="mb-1 flex items-center gap-2 text-xs text-gray-500">
                                     <FiHome />
@@ -567,7 +706,6 @@ export default function DetalhesSolicitacaoAdmin({
                                 </p>
                             </div>
 
-                            {/* DATA */}
                             <div>
                                 <p className="mb-1 flex items-center gap-2 text-xs text-gray-500">
                                     <FiCalendar />
@@ -579,7 +717,6 @@ export default function DetalhesSolicitacaoAdmin({
                                 </p>
                             </div>
 
-                            {/* PRIORIDADE */}
                             <div>
                                 <p className="mb-1 flex items-center gap-2 text-xs text-gray-500">
                                     <FiFlag />
@@ -592,7 +729,6 @@ export default function DetalhesSolicitacaoAdmin({
                                 </p>
                             </div>
 
-                            {/* SETOR */}
                             <div>
                                 <p className="mb-1 text-xs text-gray-500">
                                     Setor responsável
@@ -603,31 +739,26 @@ export default function DetalhesSolicitacaoAdmin({
                                         "Não informado"}
                                 </p>
                             </div>
-
                         </div>
 
                         {/* DESCRIÇÃO */}
                         <div className="mt-6">
-
                             <h4 className="mb-2 text-sm font-semibold text-[#1759ad]">
                                 Descrição do Recurso
                             </h4>
 
                             <div className="min-h-32 rounded-lg border border-gray-200 bg-[#f7f7f7] p-4">
-
                                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
                                     {atual?.descricao ||
                                         "Nenhuma descrição registrada."}
                                 </p>
-
                             </div>
                         </div>
 
-                        {/* ANEXOS REAIS DA API */}
+                        {/* ANEXOS */}
                         <AnexosSolicitacao
                             idSolicitacao={id}
                         />
-
                     </div>
 
                     {/* COLUNA DIREITA */}
@@ -638,7 +769,6 @@ export default function DetalhesSolicitacaoAdmin({
                             Histórico de Comunicação
                         </h3>
 
-                        {/* LINHA DO TEMPO */}
                         <div className="max-h-64 min-h-32 space-y-4 overflow-y-auto pr-2">
 
                             {carregando ? (
@@ -656,7 +786,6 @@ export default function DetalhesSolicitacaoAdmin({
                                                 : "border-blue-300"
                                             }`}
                                     >
-
                                         <span
                                             className={`absolute -left-[6px] top-1 h-2.5 w-2.5 rounded-full ${evento.tipo === "resposta"
                                                     ? "bg-green-600"
@@ -665,7 +794,6 @@ export default function DetalhesSolicitacaoAdmin({
                                         />
 
                                         <div className="flex flex-wrap items-center justify-between gap-1">
-
                                             <p
                                                 className={`text-xs font-bold ${evento.tipo === "resposta"
                                                         ? "text-green-700"
@@ -679,13 +807,11 @@ export default function DetalhesSolicitacaoAdmin({
                                                 <FiClock />
                                                 {formatarData(evento.data)}
                                             </span>
-
                                         </div>
 
                                         <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">
                                             {evento.mensagem}
                                         </p>
-
                                     </div>
                                 ))
 
@@ -694,12 +820,10 @@ export default function DetalhesSolicitacaoAdmin({
                                     Nenhuma comunicação registrada.
                                 </p>
                             )}
-
                         </div>
 
-                        {/* CAMPO DE RESPOSTA */}
+                        {/* RESPOSTA */}
                         <div className="mt-6 border-t border-gray-100 pt-5">
-
                             <label
                                 htmlFor="mensagem-admin"
                                 className="mb-2 block text-sm font-semibold text-[#082d56]"
@@ -745,12 +869,11 @@ export default function DetalhesSolicitacaoAdmin({
                                     ? "Enviando..."
                                     : "Responder"}
                             </button>
-
                         </div>
                     </div>
                 </div>
 
-                {/* ERRO DE CARREGAMENTO */}
+                {/* ERRO */}
                 {erro && (
                     <div className="mx-5 my-3 flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
                         <FiAlertCircle className="mt-0.5 shrink-0" />
@@ -758,15 +881,11 @@ export default function DetalhesSolicitacaoAdmin({
                     </div>
                 )}
 
-                {/* ====================================
-            RODAPÉ PRINCIPAL
-        ==================================== */}
-
+                {/* RODAPÉ */}
                 <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-[#f3f5f8] px-5 py-4 sm:px-6">
 
                     <div className="flex flex-wrap gap-3">
 
-                        {/* APROVAR */}
                         <button
                             type="button"
                             onClick={() =>
@@ -778,13 +897,12 @@ export default function DetalhesSolicitacaoAdmin({
                                 !atual ||
                                 situacao.texto === "APROVADA"
                             }
-                            className="flex items-center gap-2 rounded-lg bg-green-700 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex items-center gap-2 rounded-lg bg-green-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-green-800 disabled:opacity-50"
                         >
                             <FiCheckCircle />
                             Aprovar
                         </button>
 
-                        {/* RECUSAR */}
                         <button
                             type="button"
                             onClick={() =>
@@ -796,7 +914,7 @@ export default function DetalhesSolicitacaoAdmin({
                                 !atual ||
                                 situacao.texto === "RECUSADA"
                             }
-                            className="flex items-center gap-2 rounded-lg bg-red-700 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex items-center gap-2 rounded-lg bg-red-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-800 disabled:opacity-50"
                         >
                             <FiXCircle />
                             Recusar
@@ -813,13 +931,9 @@ export default function DetalhesSolicitacaoAdmin({
                         <FiX />
                         Fechar
                     </button>
-
                 </footer>
 
-                {/* ====================================
-            MODAL DE CONFIRMAÇÃO ESTILIZADO
-        ==================================== */}
-
+                {/* CONFIRMAÇÃO PERSONALIZADA */}
                 {confirmacao && (
                     <div className="absolute inset-0 z-[60] flex items-center justify-center bg-[#06172b]/65 p-4 backdrop-blur-sm">
 
@@ -860,8 +974,8 @@ export default function DetalhesSolicitacaoAdmin({
                                     className="mt-3 text-sm leading-relaxed text-gray-500"
                                 >
                                     {aprovando
-                                        ? "Tem certeza de que deseja aprovar esta solicitação? O status será atualizado no sistema."
-                                        : "Tem certeza de que deseja recusar esta solicitação? O status será atualizado no sistema."}
+                                        ? "Tem certeza de que deseja aprovar esta solicitação?"
+                                        : "Tem certeza de que deseja recusar esta solicitação?"}
                                 </p>
 
                                 <div className="mt-4 rounded-lg bg-[#f3f5f8] px-4 py-3">
@@ -873,36 +987,30 @@ export default function DetalhesSolicitacaoAdmin({
                                         {atual?.titulo}
                                     </p>
                                 </div>
-
                             </div>
 
                             <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 p-5 sm:flex-row">
 
-                                {/* CANCELAR */}
                                 <button
                                     type="button"
-                                    onClick={() =>
-                                        setConfirmacao(null)
-                                    }
+                                    onClick={() => setConfirmacao(null)}
                                     disabled={salvando}
-                                    className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 disabled:opacity-50"
+                                    className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-50"
                                 >
                                     Cancelar
                                 </button>
 
-                                {/* CONFIRMAR */}
                                 <button
                                     type="button"
                                     onClick={() =>
                                         alterarStatus(confirmacao)
                                     }
                                     disabled={salvando}
-                                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white transition disabled:opacity-50 ${aprovando
+                                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 ${aprovando
                                             ? "bg-green-700 hover:bg-green-800"
                                             : "bg-red-700 hover:bg-red-800"
                                         }`}
                                 >
-
                                     {salvando && (
                                         <FiRefreshCw className="animate-spin" />
                                     )}
@@ -912,14 +1020,12 @@ export default function DetalhesSolicitacaoAdmin({
                                         : aprovando
                                             ? "Sim, aprovar"
                                             : "Sim, recusar"}
-
                                 </button>
-
                             </div>
+
                         </div>
                     </div>
                 )}
-
             </section>
         </div>
     );
