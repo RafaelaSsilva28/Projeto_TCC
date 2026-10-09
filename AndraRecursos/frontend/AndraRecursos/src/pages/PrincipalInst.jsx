@@ -10,6 +10,7 @@ import {
   FiUser,
   FiX,
   FiClock,
+  FiFileText,
 } from "react-icons/fi";
 import { enderecoServidor } from "../utils";
 
@@ -148,6 +149,15 @@ export default function PrincipalInst() {
           >
             <FiBell size={19} />
             <span>Notificações</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/relatorios-inst")}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-white/10 transition"
+          >
+            <FiFileText size={19} />
+            <span>Relatórios</span>
           </button>
 
           <button
