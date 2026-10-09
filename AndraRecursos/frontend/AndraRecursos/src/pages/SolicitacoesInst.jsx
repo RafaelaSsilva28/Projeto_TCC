@@ -1,8 +1,14 @@
-
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
 import {
+  FiMenu,
+  FiX,
+  FiHome,
+  FiClipboard,
+  FiClock,
+  FiBell,
+  FiSettings,
+  FiLogOut,
   FiArrowLeft,
   FiArrowRight,
   FiUploadCloud,
@@ -10,81 +16,63 @@ import {
   FiTrash2,
   FiCheckCircle,
   FiAlertCircle,
-  FiMenu,
-  FiHome,
-  FiClipboard,
-  FiX,
-  FiClock,
-  FiBell,
-  FiSettings,
-  FiLogOut,
 } from "react-icons/fi";
+
+const etapas = [
+  "Informações",
+  "Detalhes",
+  "Revisão",
+];
 
 export default function SolicitacoesInst() {
   const navigate = useNavigate();
-  const inputArquivoRef = useRef(null);
+  const inputArquivo = useRef(null);
 
-  const [etapa, setEtapa] = useState(1);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [etapa, setEtapa] = useState(1);
   const [arquivos, setArquivos] = useState([]);
   const [erro, setErro] = useState("");
-  const [enviando, setEnviando] = useState(false);
+  const [sucesso, setSucesso] = useState("");
 
-  const [dados, setDados] = useState({
+  const [formulario, setFormulario] = useState({
     titulo: "",
     setor: "",
-    prioridade: "Media",
+    prioridade: "Média",
     descricao: "",
   });
 
-  const etapas = [
-    { numero: 1, titulo: "Informações" },
-    { numero: 2, titulo: "Anexos" },
-    { numero: 3, titulo: "Revisão" },
-  ];
-
   function sair() {
     localStorage.removeItem("@AndraRecursos:token");
-    localStorage.removeItem("@AndraRecursos:usuario");
-    localStorage.removeItem("@AndraRecursos:lembrar");
-
-    navigate("/", { replace: true });
+    localStorage.removeItem("@AndraRecursos:instituicao");
+    navigate("/");
   }
 
   function atualizarCampo(event) {
     const { name, value } = event.target;
 
-    setDados((anterior) => ({
+    setFormulario((anterior) => ({
       ...anterior,
       [name]: value,
     }));
 
     setErro("");
+    setSucesso("");
   }
 
   function adicionarArquivos(event) {
     const selecionados = Array.from(event.target.files || []);
-    const permitidos = [
-      "application/pdf",
-      "image/jpeg",
-      "image/png",
-    ];
-
+    const permitidos = ["application/pdf", "image/jpeg", "image/png"];
     const tamanhoMaximo = 10 * 1024 * 1024;
 
     for (const arquivo of selecionados) {
       if (!permitidos.includes(arquivo.type)) {
-        setErro(
-          `O arquivo "${arquivo.name}" não é permitido. Envie PDF, JPG ou PNG.`
-        );
+        setErro("Envie somente arquivos PDF, JPG ou PNG.");
         event.target.value = "";
         return;
       }
 
       if (arquivo.size > tamanhoMaximo) {
-        setErro(
-          `O arquivo "${arquivo.name}" ultrapassa o limite de 10 MB.`
-        );
+        setErro(`O arquivo "${arquivo.name}" ultrapassa o limite de 10 MB.`);
         event.target.value = "";
         return;
       }
@@ -94,9 +82,9 @@ export default function SolicitacoesInst() {
       const novos = selecionados.filter(
         (novo) =>
           !anteriores.some(
-            (anterior) =>
-              anterior.name === novo.name &&
-              anterior.size === novo.size
+            (existente) =>
+              existente.name === novo.name &&
+              existente.size === novo.size
           )
       );
 
@@ -104,6 +92,7 @@ export default function SolicitacoesInst() {
     });
 
     setErro("");
+    setSucesso("");
     event.target.value = "";
   }
 
@@ -111,26 +100,29 @@ export default function SolicitacoesInst() {
     setArquivos((anteriores) =>
       anteriores.filter((_, i) => i !== indice)
     );
-
-    setErro("");
   }
 
   function validarEtapaAtual() {
-    setErro("");
-
     if (etapa === 1) {
-      if (
-        !dados.titulo.trim() ||
-        !dados.setor.trim() ||
-        !dados.descricao.trim()
-      ) {
-        setErro("Preencha todos os campos obrigatórios.");
+      if (!formulario.titulo.trim() || !formulario.setor) {
+        setErro("Preencha o título e selecione o setor responsável.");
+        return false;
+      }
+    }
+
+    if (etapa === 2) {
+      if (!formulario.descricao.trim()) {
+        setErro("Descreva os detalhes da solicitação.");
         return false;
       }
 
-      return true;
+      if (formulario.descricao.trim().length < 10) {
+        setErro("A descrição precisa ter pelo menos 10 caracteres.");
+        return false;
+      }
     }
 
+    setErro("");
     return true;
   }
 
@@ -143,103 +135,83 @@ export default function SolicitacoesInst() {
 
   function voltarEtapa() {
     setErro("");
+    setSucesso("");
     setEtapa((anterior) => Math.max(anterior - 1, 1));
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function enviarSolicitacao(event) {
-    event.preventDefault();
-    setErro("");
-
-    if (!validarEtapaAtual()) {
-      setEtapa(1);
-      return;
-    }
+  function enviarSolicitacao() {
+    if (!validarEtapaAtual()) return;
 
     /*
-      O formulário está estruturado, mas o envio precisa ser
-      conectado ao endpoint de criação de solicitações da API.
-      Ainda não há uma requisição POST nesta função.
+      Este exemplo prepara a solicitação para revisão.
+      Para gravar no banco de dados, conecte esta função
+      à rota POST real da sua API.
     */
 
-    setErro(
-      "O formulário está pronto, mas o envio ainda precisa ser conectado à API."
+    setErro("");
+    setSucesso(
+      "Formulário validado! Para registrar a solicitação, conecte o envio à API."
     );
   }
 
-  function formatarTamanho(bytes) {
-    if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(1)} KB`;
-    }
+  const classeInput =
+    "mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#082d56] focus:ring-2 focus:ring-[#082d56]/10";
 
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  const itemMenu =
-    "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors";
-
-  const itemInativo =
-    "text-slate-600 hover:bg-blue-50 hover:text-blue-700";
-
-  const itemAtivo =
-    "bg-blue-50 text-blue-700";
+  const classeLabel =
+    "block text-sm font-semibold text-gray-700";
 
   return (
-    <div className="flex min-h-screen bg-gray-100 text-slate-800">
-      {/* Fundo escuro do menu no celular */}
+    <div className="flex min-h-screen bg-gray-100">
       {menuAberto && (
-        <button
-          type="button"
-          aria-label="Fechar menu"
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
           onClick={() => setMenuAberto(false)}
         />
       )}
 
-      {/* Menu lateral */}
+      {/* MENU LATERAL */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 lg:static lg:translate-x-0 ${
-          menuAberto ? "translate-x-0" : "-translate-x-full"
+        className={`fixed left-0 top-0 z-40 h-screen w-64 shrink-0 transform bg-[#082d56] text-white transition-transform duration-300 lg:sticky ${
+          menuAberto
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="flex h-20 items-center justify-between border-b border-slate-100 px-6">
+        <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-blue-800">
-              AndraRecursos
-            </h1>
-            <p className="mt-1 text-xs text-slate-500">
-              Área da instituição
+            <h1 className="text-xl font-bold">AndraRecursos</h1>
+            <p className="mt-1 text-xs text-blue-200">
+              Área da Instituição
             </p>
           </div>
 
           <button
             type="button"
-            onClick={() => setMenuAberto(false)}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
             aria-label="Fechar menu"
+            onClick={() => setMenuAberto(false)}
+            className="text-white lg:hidden"
           >
-            <FiX size={21} />
+            <FiX size={22} />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-2 overflow-y-auto p-4">
-          <p className="mb-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Menu principal
-          </p>
-
+        <nav className="space-y-2 p-4">
           <button
             type="button"
-            onClick={() => navigate("/principal-inst")}
-            className={`${itemMenu} ${itemInativo}`}
+            onClick={() => {
+              setMenuAberto(false);
+              navigate("/principal-inst");
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-white/10"
           >
             <FiHome size={19} />
-            <span>Painel inicial</span>
+            <span>Principal</span>
           </button>
 
           <button
             type="button"
-            onClick={() => navigate("/solicitacoes-inst")}
-            className={`${itemMenu} ${itemAtivo}`}
+            onClick={() => setMenuAberto(false)}
+            className="flex w-full items-center gap-3 rounded-lg bg-white/10 px-4 py-3 text-white"
           >
             <FiClipboard size={19} />
             <span>Solicitações</span>
@@ -248,501 +220,442 @@ export default function SolicitacoesInst() {
           <button
             type="button"
             onClick={() => navigate("/historico-inst")}
-            className={`${itemMenu} ${itemInativo}`}
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-white/10"
           >
             <FiClock size={19} />
-            <span>Histórico</span>
-          </button>
-
-          <div className="!my-5 border-t border-slate-100" />
-
-          <p className="mb-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Conta
-          </p>
-
-          <button
-            type="button"
-            onClick={() => navigate("/perfil-inst")}
-            className={`${itemMenu} ${itemInativo}`}
-          >
-            <FiSettings size={19} />
-            <span>Perfil da instituição</span>
+            <span>Histórico Solicitações</span>
           </button>
 
           <button
             type="button"
             onClick={() => navigate("/notificacoes-inst")}
-            className={`${itemMenu} ${itemInativo}`}
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-white/10"
           >
             <FiBell size={19} />
             <span>Notificações</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setErro("A página de configurações ainda não está conectada.")}
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-white/10"
+          >
+            <FiSettings size={19} />
+            <span>Configurações</span>
+          </button>
         </nav>
 
-        <div className="border-t border-slate-100 p-4">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 p-4">
           <button
             type="button"
             onClick={sair}
-            className={`${itemMenu} text-red-600 hover:bg-red-50`}
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-blue-100 transition hover:bg-red-500/20 hover:text-white"
           >
             <FiLogOut size={19} />
-            <span>Sair da conta</span>
+            <span>Sair</span>
           </button>
         </div>
       </aside>
 
-      {/* Conteúdo principal */}
+      {/* CONTEÚDO PRINCIPAL */}
       <div className="min-w-0 flex-1">
-        {/* Cabeçalho */}
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
+        <header className="flex h-20 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => setMenuAberto(true)}
-              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
               aria-label="Abrir menu"
+              onClick={() => setMenuAberto(true)}
+              className="text-gray-600 lg:hidden"
             >
-              <FiMenu size={23} />
+              <FiMenu size={24} />
             </button>
 
             <div>
-              <p className="text-sm text-slate-500">
-                Área da instituição
-              </p>
-              <h2 className="text-lg font-semibold text-slate-800">
-                Nova solicitação
+              <h2 className="text-lg font-semibold text-gray-800 sm:text-xl">
+                Solicitações
               </h2>
+              <p className="text-xs text-gray-500 sm:text-sm">
+                Registre uma nova solicitação da instituição
+              </p>
             </div>
           </div>
 
-          <div className="hidden items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 sm:flex">
-            <FiClipboard size={17} />
-            Solicitações
-          </div>
+          <button
+            type="button"
+            aria-label="Notificações"
+            onClick={() => navigate("/notificacoes-inst")}
+            className="relative text-gray-600 transition hover:text-[#082d56]"
+          >
+            <FiBell size={22} />
+            <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
+          </button>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl p-4 sm:p-6 lg:p-8">
-          {/* Introdução */}
-          <div className="mb-8">
-            <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-blue-700">
-              Atendimento institucional
-            </p>
-
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              Registre uma solicitação
-            </h1>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
-              Preencha as informações abaixo para registrar sua
-              solicitação. Revise os dados antes de finalizar.
-            </p>
-          </div>
-
-          {/* Indicador das etapas */}
-          <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
-            <div className="flex items-start">
-              {etapas.map((item, indice) => {
-                const concluida = etapa > item.numero;
-                const atual = etapa === item.numero;
-
-                return (
-                  <div
-                    key={item.numero}
-                    className={`relative flex flex-1 flex-col items-center ${
-                      indice < etapas.length - 1
-                        ? "after:absolute after:left-1/2 after:top-5 after:h-0.5 after:w-full after:translate-x-1/2 after:bg-slate-200"
-                        : ""
-                    }`}
-                  >
-                    <div
-                      className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold ${
-                        concluida
-                          ? "border-blue-700 bg-blue-700 text-white"
-                          : atual
-                            ? "border-blue-700 bg-white text-blue-700"
-                            : "border-slate-200 bg-white text-slate-400"
-                      }`}
-                    >
-                      {concluida ? (
-                        <FiCheckCircle size={19} />
-                      ) : (
-                        item.numero
-                      )}
-                    </div>
-
-                    <span
-                      className={`mt-3 text-center text-xs font-medium sm:text-sm ${
-                        atual || concluida
-                          ? "text-blue-800"
-                          : "text-slate-400"
-                      }`}
-                    >
-                      {item.titulo}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Formulário */}
-          <form
-            onSubmit={enviarSolicitacao}
-            className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-          >
-            <div className="border-b border-slate-100 px-5 py-5 sm:px-8">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {etapa === 1
-                  ? "Informações da solicitação"
-                  : etapa === 2
-                    ? "Documentos e anexos"
-                    : "Revise sua solicitação"}
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                {etapa === 1
-                  ? "Informe os detalhes necessários para entendermos sua necessidade."
-                  : etapa === 2
-                    ? "Adicione documentos que possam ajudar na análise."
-                    : "Confira os dados preenchidos antes de concluir."}
+        <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+          <div className="space-y-7">
+            {/* TÍTULO */}
+            <section>
+              <h1 className="text-2xl font-bold text-[#082d56] sm:text-3xl">
+                Nova solicitação
+              </h1>
+              <p className="mt-2 text-sm text-gray-500">
+                Preencha as informações abaixo para registrar sua solicitação.
               </p>
-            </div>
+            </section>
 
-            <div className="space-y-6 p-5 sm:p-8">
-              {/* Etapa 1 */}
-              {etapa === 1 && (
-                <>
-                  <div>
-                    <label
-                      htmlFor="titulo"
-                      className="mb-2 block text-sm font-semibold text-slate-700"
+            {/* INDICADOR DE ETAPAS */}
+            <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex items-start">
+                {etapas.map((nome, indice) => {
+                  const numero = indice + 1;
+                  const concluida = numero < etapa;
+                  const atual = numero === etapa;
+
+                  return (
+                    <div
+                      key={nome}
+                      className="relative flex flex-1 flex-col items-center"
                     >
-                      Título da solicitação *
-                    </label>
-
-                    <input
-                      id="titulo"
-                      name="titulo"
-                      type="text"
-                      value={dados.titulo}
-                      onChange={atualizarCampo}
-                      placeholder="Ex.: Solicitação de materiais"
-                      maxLength={150}
-                      required
-                      className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                      <label
-                        htmlFor="setor"
-                        className="mb-2 block text-sm font-semibold text-slate-700"
-                      >
-                        Setor responsável *
-                      </label>
-
-                      <input
-                        id="setor"
-                        name="setor"
-                        type="text"
-                        value={dados.setor}
-                        onChange={atualizarCampo}
-                        placeholder="Informe o setor"
-                        maxLength={100}
-                        required
-                        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="prioridade"
-                        className="mb-2 block text-sm font-semibold text-slate-700"
-                      >
-                        Prioridade *
-                      </label>
-
-                      <select
-                        id="prioridade"
-                        name="prioridade"
-                        value={dados.prioridade}
-                        onChange={atualizarCampo}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      >
-                        <option value="Baixa">Baixa</option>
-                        <option value="Media">Média</option>
-                        <option value="Alta">Alta</option>
-                        <option value="Urgente">Urgente</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="descricao"
-                      className="mb-2 block text-sm font-semibold text-slate-700"
-                    >
-                      Descrição da solicitação *
-                    </label>
-
-                    <textarea
-                      id="descricao"
-                      name="descricao"
-                      value={dados.descricao}
-                      onChange={atualizarCampo}
-                      placeholder="Descreva sua solicitação com o máximo de detalhes possível..."
-                      rows={6}
-                      maxLength={3000}
-                      required
-                      className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-
-                    <p className="mt-2 text-right text-xs text-slate-400">
-                      {dados.descricao.length}/3000 caracteres
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {/* Etapa 2 */}
-              {etapa === 2 && (
-                <>
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-800">
-                      Anexar documentos
-                    </h3>
-
-                    <p className="mt-1 text-sm leading-6 text-slate-500">
-                      Formatos aceitos: PDF, JPG e PNG. Tamanho máximo
-                      de 10 MB por arquivo.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => inputArquivoRef.current?.click()}
-                    className="flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center transition hover:border-blue-400 hover:bg-blue-50/50"
-                  >
-                    <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-                      <FiUploadCloud size={28} />
-                    </span>
-
-                    <span className="font-semibold text-slate-800">
-                      Clique para selecionar arquivos
-                    </span>
-
-                    <span className="mt-2 text-sm text-slate-500">
-                      Você pode adicionar mais de um documento
-                    </span>
-                  </button>
-
-                  <input
-                    ref={inputArquivoRef}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                    multiple
-                    onChange={adicionarArquivos}
-                    className="hidden"
-                  />
-
-                  {arquivos.length > 0 && (
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-semibold text-slate-700">
-                        Arquivos selecionados ({arquivos.length})
-                      </h3>
-
-                      {arquivos.map((arquivo, indice) => (
+                      {indice > 0 && (
                         <div
-                          key={`${arquivo.name}-${arquivo.size}-${indice}`}
-                          className="flex items-center gap-3 rounded-xl border border-slate-200 p-4"
-                        >
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                            <FiFileText size={21} />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-slate-800">
-                              {arquivo.name}
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-500">
-                              {formatarTamanho(arquivo.size)}
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removerArquivo(indice)}
-                            aria-label={`Remover ${arquivo.name}`}
-                            className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                          >
-                            <FiTrash2 size={18} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <p className="text-xs text-slate-500">
-                    Os anexos são opcionais. Você pode continuar sem
-                    adicionar arquivos.
-                  </p>
-                </>
-              )}
-
-              {/* Etapa 3 */}
-              {etapa === 3 && (
-                <div className="space-y-6">
-                  <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-                    <div className="flex gap-3">
-                      <FiCheckCircle
-                        className="mt-0.5 shrink-0 text-blue-700"
-                        size={20}
-                      />
-
-                      <div>
-                        <p className="font-semibold text-blue-900">
-                          Confira antes de finalizar
-                        </p>
-
-                        <p className="mt-1 text-sm leading-6 text-blue-800">
-                          Verifique se as informações estão corretas.
-                          Você pode voltar às etapas anteriores para
-                          fazer alterações.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-5">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                        Título
-                      </p>
-                      <p className="mt-1 break-words font-medium text-slate-800">
-                        {dados.titulo}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                          Setor responsável
-                        </p>
-                        <p className="mt-1 font-medium text-slate-800">
-                          {dados.setor}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                          Prioridade
-                        </p>
-                        <p className="mt-1 font-medium text-slate-800">
-                          {dados.prioridade === "Media"
-                            ? "Média"
-                            : dados.prioridade}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                        Descrição
-                      </p>
-                      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">
-                        {dados.descricao}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                        Anexos ({arquivos.length})
-                      </p>
-
-                      {arquivos.length === 0 ? (
-                        <p className="mt-2 text-sm text-slate-500">
-                          Nenhum arquivo anexado.
-                        </p>
-                      ) : (
-                        <ul className="mt-2 space-y-2">
-                          {arquivos.map((arquivo, indice) => (
-                            <li
-                              key={`${arquivo.name}-${arquivo.size}-${indice}`}
-                              className="flex items-center gap-2 text-sm text-slate-700"
-                            >
-                              <FiFileText
-                                className="shrink-0 text-blue-700"
-                                size={17}
-                              />
-                              <span className="break-all">
-                                {arquivo.name}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                          className={`absolute right-1/2 top-5 h-0.5 w-full ${
+                            numero <= etapa
+                              ? "bg-[#082d56]"
+                              : "bg-gray-200"
+                          }`}
+                        />
                       )}
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Mensagem de erro */}
+                      <div
+                        className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold ${
+                          concluida || atual
+                            ? "border-[#082d56] bg-[#082d56] text-white"
+                            : "border-gray-300 bg-white text-gray-500"
+                        }`}
+                      >
+                        {concluida ? (
+                          <FiCheckCircle size={19} />
+                        ) : (
+                          numero
+                        )}
+                      </div>
+
+                      <span
+                        className={`mt-3 text-center text-xs sm:text-sm ${
+                          atual
+                            ? "font-semibold text-[#082d56]"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {nome}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* FORMULÁRIO */}
+            <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-8">
+              <div className="mb-6 border-b border-gray-100 pb-5">
+                <p className="text-sm font-medium text-[#082d56]">
+                  Etapa {etapa} de 3
+                </p>
+
+                <h2 className="mt-2 text-xl font-bold text-gray-800">
+                  {etapa === 1 && "Informações da solicitação"}
+                  {etapa === 2 && "Detalhes da solicitação"}
+                  {etapa === 3 && "Revise suas informações"}
+                </h2>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  {etapa === 1 &&
+                    "Informe o assunto e o setor responsável."}
+                  {etapa === 2 &&
+                    "Explique o que precisa e anexe documentos, se necessário."}
+                  {etapa === 3 &&
+                    "Confira os dados antes de concluir."}
+                </p>
+              </div>
+
               {erro && (
                 <div
                   role="alert"
-                  className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                  className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
                 >
-                  <FiAlertCircle
-                    className="mt-0.5 shrink-0"
-                    size={19}
-                  />
-                  <p>{erro}</p>
+                  <FiAlertCircle className="mt-0.5 shrink-0" size={18} />
+                  <span>{erro}</span>
                 </div>
               )}
-            </div>
 
-            {/* Botões de navegação */}
-            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-              <button
-                type="button"
-                onClick={
-                  etapa === 1
-                    ? () => navigate("/principal-inst")
-                    : voltarEtapa
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-              >
-                <FiArrowLeft size={17} />
-                {etapa === 1 ? "Voltar ao painel" : "Etapa anterior"}
-              </button>
+              {sucesso && (
+                <div
+                  role="status"
+                  className="mb-5 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-[#082d56]"
+                >
+                  <FiCheckCircle className="mt-0.5 shrink-0" size={18} />
+                  <span>{sucesso}</span>
+                </div>
+              )}
 
-              {etapa < 3 ? (
+              {/* ETAPA 1 */}
+              {etapa === 1 && (
+                <div className="space-y-5">
+                  <div>
+                    <label htmlFor="titulo" className={classeLabel}>
+                      Título da solicitação *
+                    </label>
+                    <input
+                      id="titulo"
+                      name="titulo"
+                      value={formulario.titulo}
+                      onChange={atualizarCampo}
+                      placeholder="Ex.: Solicitação de manutenção"
+                      maxLength={150}
+                      className={classeInput}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="setor" className={classeLabel}>
+                      Setor responsável *
+                    </label>
+                    <select
+                      id="setor"
+                      name="setor"
+                      value={formulario.setor}
+                      onChange={atualizarCampo}
+                      className={classeInput}
+                    >
+                      <option value="">Selecione um setor</option>
+                      <option value="Administrativo">Administrativo</option>
+                      <option value="Infraestrutura">Infraestrutura</option>
+                      <option value="Tecnologia">Tecnologia</option>
+                      <option value="Recursos Humanos">Recursos Humanos</option>
+                      <option value="Financeiro">Financeiro</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="prioridade" className={classeLabel}>
+                      Prioridade
+                    </label>
+                    <select
+                      id="prioridade"
+                      name="prioridade"
+                      value={formulario.prioridade}
+                      onChange={atualizarCampo}
+                      className={classeInput}
+                    >
+                      <option value="Baixa">Baixa</option>
+                      <option value="Média">Média</option>
+                      <option value="Alta">Alta</option>
+                      <option value="Urgente">Urgente</option>
+                    </select>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Selecione a prioridade de acordo com a urgência do pedido.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ETAPA 2 */}
+              {etapa === 2 && (
+                <div className="space-y-6">
+                  <div>
+                    <label htmlFor="descricao" className={classeLabel}>
+                      Descrição *
+                    </label>
+                    <textarea
+                      id="descricao"
+                      name="descricao"
+                      value={formulario.descricao}
+                      onChange={atualizarCampo}
+                      placeholder="Descreva a solicitação com o máximo de detalhes possível..."
+                      rows={6}
+                      maxLength={3000}
+                      className={`${classeInput} resize-y`}
+                    />
+                    <p className="mt-2 text-right text-xs text-gray-400">
+                      {formulario.descricao.length}/3000 caracteres
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={classeLabel}>
+                      Documentos e imagens (opcional)
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => inputArquivo.current?.click()}
+                      className="mt-2 flex w-full flex-col items-center rounded-lg border-2 border-dashed border-gray-300 px-4 py-8 text-center transition hover:border-[#082d56] hover:bg-gray-50"
+                    >
+                      <FiUploadCloud size={32} className="text-[#082d56]" />
+                      <span className="mt-3 text-sm font-semibold text-gray-700">
+                        Clique para selecionar arquivos
+                      </span>
+                      <span className="mt-1 text-xs text-gray-500">
+                        PDF, JPG ou PNG — máximo de 10 MB por arquivo
+                      </span>
+                    </button>
+
+                    <input
+                      ref={inputArquivo}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                      multiple
+                      onChange={adicionarArquivos}
+                      className="hidden"
+                    />
+
+                    {arquivos.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        {arquivos.map((arquivo, indice) => (
+                          <div
+                            key={`${arquivo.name}-${arquivo.size}-${indice}`}
+                            className="flex items-center gap-3 rounded-lg border border-gray-200 p-3"
+                          >
+                            <FiFileText
+                              size={20}
+                              className="shrink-0 text-[#082d56]"
+                            />
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-gray-700">
+                                {arquivo.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {(arquivo.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              aria-label={`Remover ${arquivo.name}`}
+                              onClick={() => removerArquivo(indice)}
+                              className="shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
+                            >
+                              <FiTrash2 size={18} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ETAPA 3 */}
+              {etapa === 3 && (
+                <div className="space-y-5">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Título
+                    </p>
+                    <p className="mt-1 break-words text-sm font-medium text-gray-800">
+                      {formulario.titulo}
+                    </p>
+                  </div>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Setor responsável
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-gray-800">
+                        {formulario.setor}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Prioridade
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-gray-800">
+                        {formulario.prioridade}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Descrição
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
+                      {formulario.descricao}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Arquivos anexados
+                    </p>
+
+                    {arquivos.length === 0 ? (
+                      <p className="mt-2 text-sm text-gray-500">
+                        Nenhum arquivo anexado.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 space-y-2">
+                        {arquivos.map((arquivo, indice) => (
+                          <li
+                            key={`${arquivo.name}-${arquivo.size}-${indice}`}
+                            className="flex items-center gap-2 text-sm text-gray-700"
+                          >
+                            <FiFileText className="shrink-0 text-[#082d56]" />
+                            <span className="break-all">{arquivo.name}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <p className="text-xs leading-5 text-gray-500">
+                    Confira todos os dados. Ao concluir, a solicitação ainda
+                    precisará ser enviada e registrada pela API do sistema.
+                  </p>
+                </div>
+              )}
+
+              {/* BOTÕES */}
+              <div className="mt-8 flex flex-col-reverse justify-between gap-3 border-t border-gray-100 pt-6 sm:flex-row">
                 <button
                   type="button"
-                  onClick={avancarEtapa}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-800"
+                  onClick={etapa === 1 ? () => navigate("/principal-inst") : voltarEtapa}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                 >
-                  Continuar
-                  <FiArrowRight size={17} />
+                  <FiArrowLeft size={17} />
+                  {etapa === 1 ? "Cancelar" : "Voltar"}
                 </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={enviando}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <FiCheckCircle size={18} />
-                  {enviando ? "Enviando..." : "Finalizar solicitação"}
-                </button>
-              )}
-            </div>
-          </form>
 
-          <p className="mt-6 text-center text-xs text-slate-400">
-            AndraRecursos · Área institucional
-          </p>
+                {etapa < 3 ? (
+                  <button
+                    type="button"
+                    onClick={avancarEtapa}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#164675]"
+                  >
+                    Próxima etapa
+                    <FiArrowRight size={17} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={enviarSolicitacao}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#164675]"
+                  >
+                    <FiCheckCircle size={17} />
+                    Concluir solicitação
+                  </button>
+                )}
+              </div>
+            </section>
+
+            <p className="pb-2 text-center text-xs text-gray-400">
+              AndraRecursos · Área da Instituição
+            </p>
+          </div>
         </main>
       </div>
     </div>

@@ -67,21 +67,6 @@ export default function IconeAdministrador({ tipo, className = "h-5 w-5" }) {
             </>
 
         ),
-
-        suporte: (
-
-            <>
-
-                <circle cx="12" cy="12" r="9" />
-
-                <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4" />
-
-                <path d="M12 17h.01" />
-
-            </>
-
-        ),
-
         busca: (
 
             <>

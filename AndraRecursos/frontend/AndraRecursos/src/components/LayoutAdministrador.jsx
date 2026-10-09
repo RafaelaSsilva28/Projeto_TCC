@@ -51,11 +51,7 @@ const menuInferior = [
     caminho: "/configuracoes",
     icone: "configuracoes",
   },
-  {
-    texto: "Suporte",
-    caminho: "/suporte",
-    icone: "suporte",
-  },
+  
 ];
 
 // ============================================
@@ -69,7 +65,6 @@ const titulosPaginas = {
   "/notificacoes": "Notificações",
   "/solicitacoes": "Solicitações",
   "/configuracoes": "Configurações",
-  "/suporte": "Suporte",
   "/perfilAdministrador": "Perfil do Administrador",
 };
 
