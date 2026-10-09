@@ -1,10 +1,4 @@
-
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import { Toaster } from "react-hot-toast";
 
@@ -17,6 +11,7 @@ import PerfilAdministrador from "./pages/PerfilAdministrador";
 import CadastrarInstADM from "./pages/CadastrarInstADM";
 import HistoricoAdmin from "./pages/HistoricoAdmin";
 import SolicitacoesAdmin from "./pages/SolicitacoesAdmin";
+import SolicitacoesInst from "./pages/SolicitacoesInst";
 
 // COMPONENTES
 import LayoutAdministrador from "./components/LayoutAdministrador";
@@ -104,9 +99,7 @@ function App() {
 
         <Route
           path="/historico"
-          element={
-            <Navigate to="/historico-adm" replace />
-          }
+          element={<Navigate to="/historico-adm" replace />}
         />
 
         {/* SOLICITAÇÕES ADMINISTRATIVAS */}
@@ -130,34 +123,18 @@ function App() {
         />
 
         {/* PRIMEIRO ACESSO INSTITUCIONAL */}
-        <Route
-          element={
-            <ProtecaoInstituicao exigirCadastro={false} />
-          }
-        >
-          <Route
-            path="/obrigatorio-inst"
-            element={<ObrigatorioInst />}
-          />
+        <Route element={<ProtecaoInstituicao exigirCadastro={false} />}>
+          <Route path="/obrigatorio-inst" element={<ObrigatorioInst />} />
         </Route>
 
         {/* ÁREA INSTITUCIONAL */}
-        <Route
-          element={
-            <ProtecaoInstituicao exigirCadastro={true} />
-          }
-        >
-          <Route
-            path="/principal-inst"
-            element={<PrincipalInst />}
-          />
+        <Route element={<ProtecaoInstituicao exigirCadastro={true} />}>
+          <Route path="/principal-inst" element={<PrincipalInst />} />
+          <Route path="/solicitacoes-inst" element={<SolicitacoesInst />} />
         </Route>
 
         {/* ROTA NÃO ENCONTRADA */}
-        <Route
-          path="*"
-          element={<Navigate to="/" replace />}
-        />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
