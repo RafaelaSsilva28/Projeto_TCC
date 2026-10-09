@@ -56,28 +56,52 @@ router.get('/documentos/tipo', autenticarToken, async (req, res) => {
 });
 
 // GET - Buscar documnto por solicitação
-router.get('/documentos/solicitacao/:id_solicitacoes', autenticarToken, async (req, res) => {
 
-    const { id_solicitacoes } = req.params;
+router.get(
+  "/documentos/solicitacao/:id_solicitacoes",
+  autenticarToken,
+  async (req, res) => {
+    const id = Number(req.params.id_solicitacoes);
+
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return res.status(400).json({
+        error: "ID da solicitação inválido.",
+      });
+    }
 
     try {
-        const comando = `
-            SELECT d.id_documento, d.nome_arquivo, d.caminho, d.tipo,
-            s.titulo AS titulo_solicitacao
-            FROM documentos d
-            LEFT JOIN solicitacoes s ON d.id_solicitacao = s.id_solicitacoes
-            WHERE d.id_solicitacao = $1
-        `;
+      const comando = `
+        SELECT
+          d.id_documento,
+          d.id_solicitacao,
+          d.nome_arquivo,
+          d.caminho,
+          d.tipo,
+          s.titulo AS titulo_solicitacao
+        FROM documentos d
+        INNER JOIN solicitacoes s
+          ON d.id_solicitacao = s.id_solicitacoes
+        WHERE d.id_solicitacao = $1
+        ORDER BY d.id_documento DESC
+      `;
 
-        const documentos = await BD.query(comando, [id_solicitacoes]);
+      const resultado = await BD.query(comando, [id]);
 
-        res.status(200).json(documentos.rows);
+      return res.status(200).json(resultado.rows);
+
+    } catch (error) {
+      console.error(
+        "Erro ao buscar documentos:",
+        error.message
+      );
+
+      return res.status(500).json({
+        error: "Erro ao buscar documentos da solicitação.",
+      });
     }
-    catch (error) {
-        console.error(' ❌ ERRO AO LISTAR DOCUMENTOS ❌ ', error.message);
-        res.status(500).json({ error: '❌ ERRO AO LISTAR DOCUMENTOS ❌' + error.message });
-    }
-});
+  }
+);
+
 
 // POST - Cadastrar novo documento
 router.post("/documentos", autenticarToken, async (req, res) => {
