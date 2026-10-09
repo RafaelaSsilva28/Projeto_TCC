@@ -1,137 +1,322 @@
+
 import { Router } from "express";
 import { BD } from "../../db.js";
-import jwt from "jsonwebtoken";
-import { autenticarToken } from "../middlewares/Autenticacao.js";
+
+import {
+    autenticarToken,
+    autenticarAdministrador,
+} from "../middlewares/Autenticacao.js";
 
 const router = Router();
 
-// 1. LISTAR NOTIFICAÇÕES (Corrigido e alinhado)
-router.get('/notificacoes', autenticarToken, async (req, res) => {
-    try {
-        const query = `
-            SELECT 
-                id_notificacao,
-                mensagem,
-                tipo_informacao,
-                id_administrador
-            FROM notificacoes
-            ORDER BY id_notificacao
-        `;
-        const resultado = await BD.query(query);
-        res.status(200).json(resultado.rows);
-    } catch (error) {
-        console.error('Erro ao listar notificacoes:', error.message);
-        res.status(500).json({ error: 'Erro ao listar notificacoes' + error.message });
+function obterIdAdministrador(req) {
+    return Number(req.usuario?.id_administrador);
+}
+
+function validarId(valor) {
+    const id = Number(valor);
+    return Number.isSafeInteger(id) && id > 0;
+}
+
+// =============================================
+// GET - LISTAR NOTIFICAÇÕES DO ADMINISTRADOR
+// =============================================
+
+router.get(
+    "/notificacoes",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        const idAdministrador = obterIdAdministrador(req);
+
+        if (!validarId(idAdministrador)) {
+            return res.status(403).json({
+                error: "Administrador não identificado.",
+            });
+        }
+
+        try {
+            const resultado = await BD.query(
+                `
+        SELECT
+          n.id_notificacao,
+          n.mensagem,
+          n.tipo_informacao,
+          n.id_administrador,
+          n.id_solicitacao,
+          n.lida,
+          n.data_notificacao,
+          s.titulo AS titulo_solicitacao,
+          s.status AS status_solicitacao,
+          s.prioridade,
+          i.nome AS nome_instituicao
+        FROM notificacoes n
+        LEFT JOIN solicitacoes s
+          ON s.id_solicitacoes = n.id_solicitacao
+        LEFT JOIN instituicoes i
+          ON i.id_instituicao = s.id_instituicao
+        WHERE n.id_administrador = $1
+        ORDER BY n.data_notificacao DESC,
+                 n.id_notificacao DESC
+        `,
+                [idAdministrador]
+            );
+
+            return res.status(200).json(resultado.rows);
+        } catch (error) {
+            console.error("Erro ao listar notificações:", error.message);
+            return res.status(500).json({
+                error: "Erro ao listar notificações.",
+            });
+        }
     }
-});
+);
 
-// 2. CRIAR NOTIFICAÇÃO (POST)
-router.post('/notificacoes', autenticarToken, async (req, res) => {
-    const { mensagem, tipo_informacao, id_administrador } = req.body;
+// =============================================
+// GET - CONTADORES
+// =============================================
 
-    // Validação básica (id_notificacao removido por ser SERIAL)
-    if (!mensagem || !tipo_informacao || !id_administrador) {
-        return res.status(400).json({ message: 'Mensagem, tipo_informacao e id_administrador são obrigatórios' });
+router.get(
+    "/notificacoes/resumo",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        const idAdministrador = obterIdAdministrador(req);
+
+        if (!validarId(idAdministrador)) {
+            return res.status(403).json({
+                error: "Administrador não identificado.",
+            });
+        }
+
+        try {
+            const resultado = await BD.query(
+                `
+        SELECT
+          COUNT(*)::INTEGER AS total,
+          COUNT(*) FILTER (WHERE lida = FALSE)::INTEGER AS nao_lidas,
+          COUNT(*) FILTER (WHERE lida = TRUE)::INTEGER AS lidas
+        FROM notificacoes
+        WHERE id_administrador = $1
+        `,
+                [idAdministrador]
+            );
+
+            return res.status(200).json(resultado.rows[0]);
+        } catch (error) {
+            console.error("Erro ao consultar resumo:", error.message);
+            return res.status(500).json({
+                error: "Erro ao consultar resumo de notificações.",
+            });
+        }
     }
+);
 
-    try {
-        const comando = `
-            INSERT INTO notificacoes (mensagem, tipo_informacao, id_administrador)
-            VALUES ($1, $2, $3)
-            RETURNING *
-        `;
-        const valores = [mensagem, tipo_informacao, id_administrador];
-        const resultado = await BD.query(comando, valores);
+// =============================================
+// POST - CRIAR NOTIFICAÇÃO
+// =============================================
+// Operação administrativa.
+// O destinatário é o administrador autenticado.
 
-        return res.status(201).json({
-            message: 'Notificacao criada com sucesso!',
-            notificacao: resultado.rows[0]
-        });
-    } catch (error) {
-        console.error('Erro ao criar notificacao:', error.message);
-        return res.status(500).json({ error: 'Erro ao criar notificacao' + error.message });
+router.post(
+    "/notificacoes",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        const idAdministrador = obterIdAdministrador(req);
+
+        const mensagem = String(req.body.mensagem ?? "").trim();
+        const tipo = String(req.body.tipo_informacao ?? "").trim();
+        const idSolicitacao = req.body.id_solicitacao == null
+            ? null
+            : Number(req.body.id_solicitacao);
+
+        if (!validarId(idAdministrador)) {
+            return res.status(403).json({
+                error: "Administrador não identificado.",
+            });
+        }
+
+        if (!mensagem || !tipo || mensagem.length > 2000) {
+            return res.status(400).json({
+                error: "Mensagem ou tipo de informação inválidos.",
+            });
+        }
+
+        if (
+            idSolicitacao !== null &&
+            !validarId(idSolicitacao)
+        ) {
+            return res.status(400).json({
+                error: "ID da solicitação inválido.",
+            });
+        }
+
+        try {
+            const resultado = await BD.query(
+                `
+        INSERT INTO notificacoes (
+          mensagem,
+          tipo_informacao,
+          id_administrador,
+          id_solicitacao,
+          lida,
+          data_notificacao
+        )
+        VALUES ($1, $2, $3, $4, FALSE, CURRENT_TIMESTAMP)
+        RETURNING *
+        `,
+                [mensagem, tipo, idAdministrador, idSolicitacao]
+            );
+
+            return res.status(201).json({
+                message: "Notificação criada com sucesso.",
+                notificacao: resultado.rows[0],
+            });
+        } catch (error) {
+            console.error("Erro ao criar notificação:", error.message);
+            return res.status(500).json({
+                error: "Erro ao criar notificação.",
+            });
+        }
     }
-});
+);
 
-// 4. ATUALIZAÇÃO PARCIAL (PATCH)
-router.patch('/notificacoes/:id_notificacao', autenticarToken, async (req, res) => {
-    const { id_notificacao } = req.params;
-    const { mensagem, tipo_informacao, id_administrador } = req.body;
+// =============================================
+// PATCH - MARCAR TODAS COMO LIDAS
+// =============================================
 
-    try {
-        const verificar = await BD.query(
-            `SELECT * FROM notificacoes WHERE id_notificacao = $1`,
-            [id_notificacao]
-        );
+router.patch(
+    "/notificacoes/marcar-todas-lidas",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        const idAdministrador = obterIdAdministrador(req);
 
-        if (verificar.rows.length === 0) {
-            return res.status(404).json({ message: 'Notificacao não encontrada' });
+        if (!validarId(idAdministrador)) {
+            return res.status(403).json({
+                error: "Administrador não identificado.",
+            });
         }
 
-        const campos = [];
-        const valores = [];
-        let contador = 1;
+        try {
+            const resultado = await BD.query(
+                `
+        UPDATE notificacoes
+        SET lida = TRUE
+        WHERE id_administrador = $1
+          AND lida = FALSE
+        `,
+                [idAdministrador]
+            );
 
-        if (mensagem) {
-            campos.push(`mensagem = $${contador}`);
-            valores.push(mensagem);
-            contador++;
+            return res.status(200).json({
+                message: "Todas as notificações foram marcadas como lidas.",
+                alteradas: resultado.rowCount,
+            });
+        } catch (error) {
+            console.error("Erro ao marcar notificações:", error.message);
+            return res.status(500).json({
+                error: "Erro ao marcar notificações como lidas.",
+            });
         }
-
-        if (tipo_informacao) {
-            campos.push(`tipo_informacao = $${contador}`);
-            valores.push(tipo_informacao);
-            contador++;
-        }
-
-        if (id_administrador) {
-            campos.push(`id_administrador = $${contador}`);
-            valores.push(id_administrador);
-            contador++;
-        }
-
-        if (campos.length === 0) {
-            return res.status(400).json({ message: "Nenhum campo enviado para atualizar" + error.message });
-        }
-
-        valores.push(id_notificacao);
-
-        const comando = `
-            UPDATE notificacoes
-            SET ${campos.join(', ')}
-            WHERE id_notificacao = $${contador}
-        `;
-
-        await BD.query(comando, valores);
-        return res.status(200).json('Notificacao atualizada parcialmente');
-    } catch (error) {
-        console.error('Erro no PATCH:', error.message);
-        return res.status(500).json({ message: "Erro interno: " + error.message });
     }
-});
+);
 
-// 5. DELETAR (FÍSICO - Corrigido para remover o registro do banco definitivamente)
-router.delete('/notificacoes/:id_notificacao', autenticarToken, async (req, res) => {
-    const { id_notificacao } = req.params;
-    try {
+// =============================================
+// PATCH - MARCAR NOTIFICAÇÃO COMO LIDA
+// =============================================
 
-        // Verificar se a Solicitação existe antes de tentar deletar
-        const verificarNotificacao = await BD.query(
-            `SELECT * FROM notificacoes WHERE id_notificacao = $1`,
-            [id_notificacao]
-        );
+router.patch(
+    "/notificacoes/:id_notificacao/lida",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        const idAdministrador = obterIdAdministrador(req);
+        const idNotificacao = Number(req.params.id_notificacao);
 
-        if (verificarNotificacao.rows.length === 0) {
-            return res.status(404).json({ message: "Notificação não encontrada!" });
+        if (!validarId(idAdministrador) || !validarId(idNotificacao)) {
+            return res.status(400).json({
+                error: "Identificação inválida.",
+            });
         }
 
-        const comando = `DELETE FROM notificacoes WHERE id_notificacao = $1`;
-        await BD.query(comando, [id_notificacao]);
-        return res.status(200).json({ message: "Notificação deletada com sucesso" });
-    } catch (error) {
-        console.error('Erro ao deletar snotificação', error.message);
-        return res.status(500).json({ message: "Erro interno ao deletar" + error.message });
+        try {
+            const resultado = await BD.query(
+                `
+        UPDATE notificacoes
+        SET lida = TRUE
+        WHERE id_notificacao = $1
+          AND id_administrador = $2
+        RETURNING *
+        `,
+                [idNotificacao, idAdministrador]
+            );
+
+            if (!resultado.rows.length) {
+                return res.status(404).json({
+                    error: "Notificação não encontrada.",
+                });
+            }
+
+            return res.status(200).json({
+                message: "Notificação marcada como lida.",
+                notificacao: resultado.rows[0],
+            });
+        } catch (error) {
+            console.error("Erro ao marcar notificação:", error.message);
+            return res.status(500).json({
+                error: "Erro ao marcar notificação como lida.",
+            });
+        }
     }
-});
+);
+
+// =============================================
+// DELETE - EXCLUIR NOTIFICAÇÃO
+// =============================================
+
+router.delete(
+    "/notificacoes/:id_notificacao",
+    autenticarToken,
+    autenticarAdministrador,
+    async (req, res) => {
+        const idAdministrador = obterIdAdministrador(req);
+        const idNotificacao = Number(req.params.id_notificacao);
+
+        if (!validarId(idAdministrador) || !validarId(idNotificacao)) {
+            return res.status(400).json({
+                error: "Identificação inválida.",
+            });
+        }
+
+        try {
+            const resultado = await BD.query(
+                `
+        DELETE FROM notificacoes
+        WHERE id_notificacao = $1
+          AND id_administrador = $2
+        RETURNING id_notificacao
+        `,
+                [idNotificacao, idAdministrador]
+            );
+
+            if (!resultado.rows.length) {
+                return res.status(404).json({
+                    error: "Notificação não encontrada.",
+                });
+            }
+
+            return res.status(200).json({
+                message: "Notificação excluída com sucesso.",
+            });
+        } catch (error) {
+            console.error("Erro ao excluir notificação:", error.message);
+            return res.status(500).json({
+                error: "Erro ao excluir notificação.",
+            });
+        }
+    }
+);
 
 export default router;
