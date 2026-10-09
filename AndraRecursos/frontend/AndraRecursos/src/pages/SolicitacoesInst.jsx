@@ -15,6 +15,7 @@ import {
 
 const LIMITE_ARQUIVO = 10 * 1024 * 1024;
 const TIPOS_ACEITOS = ["application/pdf", "image/jpeg", "image/png"];
+const [menuAberto, setMenuAberto] = useState(false);
 
 const etapas = ["Informações Básicas", "Descrição e Anexos", "Revisão"];
 
