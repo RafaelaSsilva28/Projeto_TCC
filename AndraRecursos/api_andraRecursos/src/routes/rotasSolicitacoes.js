@@ -231,7 +231,7 @@ router.post(
 
 
 router.post(
-  "/solicitacoes/intituicoes",
+  "/solicitacoes/instituicoes",
   autenticarToken,
   async (req, res) => {
     const {
