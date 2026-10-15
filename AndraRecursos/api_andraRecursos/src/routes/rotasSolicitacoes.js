@@ -229,6 +229,7 @@ router.post(
   },
 );
 
+
 router.post(
   "/solicitacoes/intituicoes",
   autenticarToken,
@@ -240,8 +241,10 @@ router.post(
       setor,
       status,
       data_pedido,
-      id_instituicao,
     } = req.body;
+
+    // Obtém a instituição autenticada pelo token
+    const id_instituicao = req.usuario?.id_instituicao;
 
     if (
       !titulo?.trim() ||
@@ -252,6 +255,13 @@ router.post(
     ) {
       return res.status(400).json({
         error: "Preencha os dados obrigatórios.",
+      });
+    }
+
+    // Confere se o token pertence a uma instituição
+    if (req.usuario?.tipo_acesso !== "instituicao") {
+      return res.status(403).json({
+        error: "Acesso exclusivo da instituição.",
       });
     }
 
@@ -286,7 +296,10 @@ router.post(
         solicitacao: resultado.rows[0],
       });
     } catch (error) {
-      console.error("Erro ao cadastrar solicitação:", error.message);
+      console.error(
+        "Erro ao cadastrar solicitação da instituição:",
+        error.message
+      );
 
       return res.status(500).json({
         error: "Erro ao cadastrar solicitação.",
