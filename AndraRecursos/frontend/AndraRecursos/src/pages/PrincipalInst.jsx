@@ -259,7 +259,7 @@ export default function PrincipalInst() {
 
               <button
                 type="button"
-                onClick={() => navigate("/solicitacoes-inst")}
+                onClick={() => navigate("/historico-inst")}
                 className="flex items-center gap-2 text-sm font-semibold text-[#1755ad] hover:underline"
               >
                 Ver solicitações
@@ -312,7 +312,7 @@ export default function PrincipalInst() {
 
               <button
                 type="button"
-                onClick={() => navigate("/solicitacoes-inst")}
+                onClick={() => navigate("/historico-inst")}
                 className="mt-2 flex items-center gap-2 text-sm font-semibold text-[#1755ad] hover:underline"
               >
                 Ver todas as solicitações <FiArrowRight />

@@ -158,7 +158,7 @@ export default function PerfilAdministrador() {
     const [carregando, setCarregando] = useState(true);
     const [salvando, setSalvando] = useState(false);
     const [salvandoFoto, setSalvandoFoto] = useState(false);
-    const [editando, setEditando] = useState(false);
+    const [tipoEdicao, setTipoEdicao] = useState(null);
     const [erro, setErro] = useState("");
 
     useEffect(() => {
@@ -200,7 +200,7 @@ export default function PerfilAdministrador() {
         }
     }
 
-    function abrirEdicao() {
+    function abrirEdicao(tipo) {
         setFormulario({
             nome: dados?.nome || "",
             email: dados?.email || "",
@@ -210,40 +210,43 @@ export default function PerfilAdministrador() {
             telefone: dados?.telefone || "",
             endereco: dados?.endereco || "",
         });
-        setEditando(true);
+        setTipoEdicao(tipo);
     }
 
     function fecharEdicao() {
         if (salvando) return;
-        setEditando(false);
+        setTipoEdicao(null);
     }
 
     async function salvarDados(evento) {
         evento.preventDefault();
-        if (salvando) return;
+        if (salvando || !tipoEdicao) return;
 
-        const nome = String(formulario.nome || "").trim();
-        const email = String(formulario.email || "").trim();
+        let payload = {};
 
-        if (!nome) {
-            toast.error("Informe o nome do administrador.");
-            return;
+        if (tipoEdicao === "pessoal") {
+            const nome = String(formulario.nome || "").trim();
+            const email = String(formulario.email || "").trim();
+
+            if (!nome) {
+                toast.error("Informe o nome do administrador.");
+                return;
+            }
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                toast.error("Informe um e-mail válido.");
+                return;
+            }
+
+            payload = { nome, email };
+        } else if (tipoEdicao === "institucional") {
+            payload = {
+                razao_social: String(formulario.razao_social || "").trim(),
+                cnpj: String(formulario.cnpj || "").trim(),
+                gabinete: String(formulario.gabinete || "").trim(),
+                telefone: String(formulario.telefone || "").trim(),
+                endereco: String(formulario.endereco || "").trim(),
+            };
         }
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            toast.error("Informe um e-mail válido.");
-            return;
-        }
-
-        // Lista permitida explícita: tipo de acesso nunca é enviado pelo formulário.
-        const payload = {
-            nome,
-            email,
-            razao_social: String(formulario.razao_social || "").trim(),
-            cnpj: String(formulario.cnpj || "").trim(),
-            gabinete: String(formulario.gabinete || "").trim(),
-            telefone: String(formulario.telefone || "").trim(),
-            endereco: String(formulario.endereco || "").trim(),
-        };
 
         setSalvando(true);
         try {
@@ -252,8 +255,6 @@ export default function PerfilAdministrador() {
                 body: JSON.stringify(payload),
             });
             const administradorRetornado = extrairAdministrador(resposta);
-
-            // Se a API responder sem o objeto atualizado, mescla o payload com o perfil atual.
             const perfilAtualizado = {
                 ...dados,
                 ...payload,
@@ -263,9 +264,13 @@ export default function PerfilAdministrador() {
             };
 
             setDados(perfilAtualizado);
-            atualizarSessao(perfilAtualizado);
-            setEditando(false);
-            toast.success("Dados pessoais e institucionais atualizados com sucesso!");
+            if (tipoEdicao === "pessoal") atualizarSessao(perfilAtualizado);
+            setTipoEdicao(null);
+            toast.success(
+                tipoEdicao === "pessoal"
+                    ? "Dados pessoais atualizados com sucesso!"
+                    : "Dados institucionais atualizados com sucesso!"
+            );
         } catch (error) {
             toast.error(error.message || "Não foi possível salvar as alterações.");
         } finally {
@@ -398,7 +403,7 @@ export default function PerfilAdministrador() {
 
                         <button
                             type="button"
-                            onClick={abrirEdicao}
+                            onClick={() => abrirEdicao("pessoal")}
                             className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-[#082d56] hover:bg-slate-50"
                         >
                             <FiEdit3 /> Editar dados
@@ -467,7 +472,7 @@ export default function PerfilAdministrador() {
                     </div>
                     <button
                         type="button"
-                        onClick={abrirEdicao}
+                        onClick={() => abrirEdicao("pessoal")}
                         className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg bg-[#082d56] px-4 py-3 text-sm font-semibold text-white hover:bg-[#164675]"
                     >
                         <FiEdit3 /> Atualizar dados pessoais
@@ -491,7 +496,7 @@ export default function PerfilAdministrador() {
                     </div>
                     <button
                         type="button"
-                        onClick={abrirEdicao}
+                        onClick={() => abrirEdicao("institucional")}
                         className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg border border-[#082d56] px-4 py-3 text-sm font-semibold text-[#082d56] hover:bg-[#eaf2fc]"
                     >
                         <FiEdit3 /> Atualizar dados institucionais
@@ -499,7 +504,7 @@ export default function PerfilAdministrador() {
                 </section>
             </div>
 
-            {editando && (
+            {tipoEdicao && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#06172b]/65 p-4 backdrop-blur-sm">
                     <section
                         role="dialog"
@@ -509,8 +514,14 @@ export default function PerfilAdministrador() {
                     >
                         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-6 py-5">
                             <div>
-                                <h3 id="titulo-edicao-perfil" className="text-lg font-bold text-[#082d56]">Atualizar perfil</h3>
-                                <p className="mt-1 text-xs text-slate-500">Altere seus dados pessoais e institucionais. O tipo de acesso não pode ser alterado.</p>
+                                <h3 id="titulo-edicao-perfil" className="text-lg font-bold text-[#082d56]">
+                                    {tipoEdicao === "pessoal" ? "Atualizar dados pessoais" : "Atualizar dados institucionais"}
+                                </h3>
+                                <p className="mt-1 text-xs text-slate-500">
+                                    {tipoEdicao === "pessoal"
+                                        ? "Altere seu nome e e-mail de acesso."
+                                        : "Preencha ou atualize as informações da instituição."}
+                                </p>
                             </div>
                             <button
                                 type="button"
@@ -524,44 +535,27 @@ export default function PerfilAdministrador() {
                         </div>
 
                         <form onSubmit={salvarDados} className="space-y-5 p-6">
-                            <h4 className="text-sm font-bold text-[#082d56]">Dados pessoais</h4>
-                            {CAMPOS_PESSOAIS.map((campo) => (
+                            {(tipoEdicao === "pessoal" ? CAMPOS_PESSOAIS : CAMPOS_INSTITUCIONAIS).map((campo) => (
                                 <div key={campo.chave}>
-                                    <label htmlFor={campo.chave} className="mb-2 block text-sm font-semibold text-slate-700">{campo.titulo}</label>
+                                    <label htmlFor={campo.chave} className="mb-2 block text-sm font-semibold text-slate-700">
+                                        {campo.titulo}
+                                    </label>
                                     <input
                                         id={campo.chave}
                                         name={campo.chave}
                                         type={campo.tipo}
-                                        required
+                                        required={tipoEdicao === "pessoal"}
                                         maxLength={campo.max}
-                                        autoComplete={campo.chave === "email" ? "email" : "name"}
+                                        autoComplete={campo.chave === "email" ? "email" : campo.chave === "nome" ? "name" : "off"}
                                         value={formulario[campo.chave] ?? ""}
-                                        onChange={(evento) => setFormulario((anterior) => ({ ...anterior, [campo.chave]: evento.target.value }))}
+                                        onChange={(evento) => setFormulario((anterior) => ({
+                                            ...anterior,
+                                            [campo.chave]: evento.target.value,
+                                        }))}
                                         className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#1759ad] focus:ring-2 focus:ring-blue-100"
                                     />
                                 </div>
                             ))}
-
-                            <h4 className="border-t border-slate-100 pt-5 text-sm font-bold text-[#082d56]">Dados institucionais</h4>
-                            <p className="-mt-3 text-xs text-slate-500">Você pode preencher os campos que ainda não possuem informação ou alterar os dados existentes.</p>
-                            {CAMPOS_INSTITUCIONAIS.map((campo) => (
-                                <div key={campo.chave}>
-                                    <label htmlFor={campo.chave} className="mb-2 block text-sm font-semibold text-slate-700">{campo.titulo}</label>
-                                    <input
-                                        id={campo.chave}
-                                        name={campo.chave}
-                                        type={campo.tipo}
-                                        maxLength={campo.max}
-                                        value={formulario[campo.chave] ?? ""}
-                                        onChange={(evento) => setFormulario((anterior) => ({ ...anterior, [campo.chave]: evento.target.value }))}
-                                        className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#1759ad] focus:ring-2 focus:ring-blue-100"
-                                    />
-                                </div>
-                            ))}
-
-                            <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
-                                <span className="font-semibold">Tipo de acesso:</span> {dados.tipo_acesso || "Administrador"}. Esse campo é somente para visualização e não será enviado na atualização.
-                            </div>
 
                             <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-5">
                                 <button
