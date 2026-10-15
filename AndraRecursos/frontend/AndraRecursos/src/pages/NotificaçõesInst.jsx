@@ -66,7 +66,7 @@ export default function NotificacoesInst() {
               Authorization: `Bearer ${token}`,
             },
           }),
-          fetch(`${enderecoServidor}/notificacoes`, {
+          fetch(`${enderecoServidor}/notificacoes/instituicao`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
