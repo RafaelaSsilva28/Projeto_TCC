@@ -242,7 +242,7 @@ export default function SolicitacoesInst() {
 
     try {
       const resposta = await fetch(
-        `${API}/solicitacoes`,
+        `${API}/solicitacoes/instituicoes`,
         {
           method: "POST",
           headers: {
