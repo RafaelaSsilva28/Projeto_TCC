@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import LayoutInstituicao from "../components/LayoutInstituicao";
-import api from "../services/api";
-
 import {
   FiBell,
   FiLock,

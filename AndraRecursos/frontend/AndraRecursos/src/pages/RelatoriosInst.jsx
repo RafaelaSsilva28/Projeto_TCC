@@ -50,25 +50,11 @@ const STATUS_LABELS = {
 // FUNÇÕES AUXILIARES
 // =============================================
 
+
 function obterToken() {
-  const valor = localStorage.getItem("@AndraRecursos:usuario");
-
-  if (!valor) return null;
-
-  try {
-    const usuario = JSON.parse(valor);
-
-    if (typeof usuario === "string") {
-      return usuario;
-    }
-
-    return (
-      usuario?.token || usuario?.accessToken || usuario?.access_token || null
-    );
-  } catch {
-    return valor;
-  }
+  return localStorage.getItem("@AndraRecursos:token");
 }
+
 
 function obterUrl(endpoint) {
   return `${enderecoServidor.replace(/\/+$/, "")}${endpoint}`;
