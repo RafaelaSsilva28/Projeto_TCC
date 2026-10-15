@@ -167,17 +167,6 @@ export default function NotificacoesInst() {
     };
   }
 
-  if (carregando && !instituicao && notificacoes.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="flex items-center gap-3 text-[#082d56] font-medium">
-          <FiRefreshCw className="animate-spin" size={22} />
-          Carregando notificações...
-        </div>
-      </div>
-    );
-  }
-
   return (
     <LayoutInstituicao nomeInstituicao={instituicao?.nome}>
       <div className="max-w-7xl mx-auto">
