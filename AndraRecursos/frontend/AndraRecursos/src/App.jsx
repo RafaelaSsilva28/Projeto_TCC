@@ -206,7 +206,7 @@ function App() {
 
           <Route path="/historico-inst" element={<HistoricoInst />} />
 
-          <Route path="/notificacoes-inst" element={<NotificacoesAdmin />} />
+          <Route path="/notificacoes-inst" element={<NotificacoesInst />} />
 
           <Route path="/relatorios-inst" element={<RelatoriosInst />} />
 
