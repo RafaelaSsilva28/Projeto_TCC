@@ -1,17 +1,125 @@
 import { Router } from "express";
 import { BD } from "../../db.js";
+import multer from "multer";
+import path from "node:path";
+import fs from "node:fs";
+import { promisify } from "node:util";
 
 import {
   autenticarToken,
   autenticarAdministrador,
 } from "../middlewares/Autenticacao.js";
 
+const unlinkAsync = promisify(fs.unlink);
 const router = Router();
+
+// ============================================
+// VALIDAÇÕES
+// ============================================
 
 function idValido(valor) {
   const numero = Number(valor);
-
   return Number.isSafeInteger(numero) && numero > 0;
+}
+
+const tiposPermitidos = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+];
+
+// ============================================
+// CONFIGURAÇÃO DO MULTER
+// ============================================
+
+const armazenamentoDocumentos = multer.diskStorage({
+  destination: (req, file, callback) => {
+    const idInstituicao = req.usuario?.id_instituicao;
+
+    if (!idValido(idInstituicao)) {
+      return callback(
+        new Error("Instituição inválida para envio de documentos.")
+      );
+    }
+
+    const pasta = path.join(
+      process.cwd(),
+      "uploads",
+      "solicitacoes",
+      String(idInstituicao)
+    );
+
+    fs.mkdir(pasta, { recursive: true }, (erro) => {
+      callback(erro, pasta);
+    });
+  },
+
+  filename: (req, file, callback) => {
+    const extensaoPorTipo = {
+      "application/pdf": ".pdf",
+      "image/jpeg": ".jpg",
+      "image/png": ".png",
+    };
+
+    const extensao = extensaoPorTipo[file.mimetype];
+
+    const nomeSeguro = `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}${extensao || ""}`;
+
+    callback(null, nomeSeguro);
+  },
+});
+
+const uploadDocumentos = multer({
+  storage: armazenamentoDocumentos,
+
+  limits: {
+    files: 10,
+    fileSize: 10 * 1024 * 1024,
+  },
+
+  fileFilter: (req, file, callback) => {
+    if (!tiposPermitidos.includes(file.mimetype)) {
+      return callback(
+        new Error("Formato não permitido. Envie PDF, JPG ou PNG.")
+      );
+    }
+
+    callback(null, true);
+  },
+});
+
+function receberDocumentos(req, res, next) {
+  uploadDocumentos.array("documentos", 10)(
+    req,
+    res,
+    (erro) => {
+      if (!erro) {
+        return next();
+      }
+
+      const mensagem =
+        erro.code === "LIMIT_FILE_SIZE"
+          ? "Cada arquivo deve ter no máximo 10 MB."
+          : erro.code === "LIMIT_FILE_COUNT"
+            ? "Você pode enviar no máximo 10 arquivos."
+            : erro.message ||
+              "Não foi possível receber os documentos.";
+
+      return res.status(400).json({
+        error: mensagem,
+      });
+    }
+  );
+}
+
+async function removerArquivosEnviados(arquivos = []) {
+  await Promise.all(
+    arquivos.map((arquivo) =>
+      unlinkAsync(arquivo.path).catch(() => {})
+    )
+  );
 }
 
 // ============================================
@@ -50,16 +158,21 @@ router.get(
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
-      console.error("Erro ao listar solicitações:", error.message);
+      console.error(
+        "Erro ao listar solicitações:",
+        error.message
+      );
 
       return res.status(500).json({
         error: "Erro ao listar solicitações.",
       });
     }
-  },
+  }
 );
 
-//GET - LISTAR TODAS AS SOLICITAÇÕES DE UMA INSTITUIÇÃO
+// ============================================
+// GET - LISTAR SOLICITAÇÕES DA INSTITUIÇÃO
+// ============================================
 
 router.get(
   "/solicitacoes/instituicoes",
@@ -78,18 +191,21 @@ router.get(
 
     try {
       const resultado = await BD.query(
-        `SELECT
-           id_solicitacoes,
-           titulo,
-           descricao,
-           prioridade,
-           setor,
-           status,
-           data_pedido
-         FROM solicitacoes
-         WHERE id_instituicao = $1
-         ORDER BY data_pedido DESC NULLS LAST,
-                  id_solicitacoes DESC`,
+        `
+          SELECT
+            id_solicitacoes,
+            titulo,
+            descricao,
+            prioridade,
+            setor,
+            status,
+            data_pedido
+          FROM solicitacoes
+          WHERE id_instituicao = $1
+          ORDER BY
+            data_pedido DESC NULLS LAST,
+            id_solicitacoes DESC
+        `,
         [id_instituicao]
       );
 
@@ -124,7 +240,7 @@ router.get(
           WHERE LOWER(prioridade) = LOWER($1)
           ORDER BY id_solicitacoes DESC
         `,
-        [req.params.prioridade],
+        [req.params.prioridade]
       );
 
       return res.status(200).json(resultado.rows);
@@ -135,7 +251,7 @@ router.get(
         error: "Erro ao filtrar por prioridade.",
       });
     }
-  },
+  }
 );
 
 // ============================================
@@ -155,7 +271,7 @@ router.get(
           WHERE LOWER(setor) = LOWER($1)
           ORDER BY id_solicitacoes DESC
         `,
-        [req.params.setor],
+        [req.params.setor]
       );
 
       return res.status(200).json(resultado.rows);
@@ -166,7 +282,7 @@ router.get(
         error: "Erro ao filtrar por setor.",
       });
     }
-  },
+  }
 );
 
 // ============================================
@@ -186,7 +302,7 @@ router.get(
           WHERE LOWER(status) = LOWER($1)
           ORDER BY id_solicitacoes DESC
         `,
-        [req.params.status],
+        [req.params.status]
       );
 
       return res.status(200).json(resultado.rows);
@@ -197,18 +313,12 @@ router.get(
         error: "Erro ao filtrar por status.",
       });
     }
-  },
+  }
 );
 
 // ============================================
-// POST - CADASTRAR SOLICITAÇÃO
+// POST - CADASTRAR SOLICITAÇÃO PELO ADMINISTRADOR
 // ============================================
-// Mantém o contrato anterior.
-//
-// Atenção: esta versão conserva a criação
-// administrativa. Para cadastro institucional,
-// deve-se obter id_instituicao do token JWT,
-// não confiar em um ID fornecido pelo cliente.
 
 router.post(
   "/solicitacoes",
@@ -260,7 +370,7 @@ router.post(
           status || "pendente",
           data_pedido || new Date(),
           id_instituicao,
-        ],
+        ]
       );
 
       return res.status(201).json({
@@ -268,19 +378,27 @@ router.post(
         solicitacao: resultado.rows[0],
       });
     } catch (error) {
-      console.error("Erro ao cadastrar solicitação:", error.message);
+      console.error(
+        "Erro ao cadastrar solicitação:",
+        error.message
+      );
 
       return res.status(500).json({
         error: "Erro ao cadastrar solicitação.",
       });
     }
-  },
+  }
 );
 
-//A rota abaixo realiza o cadastro de uma solicitação para as Instituições
+// ============================================
+// POST - CADASTRAR SOLICITAÇÃO DA INSTITUIÇÃO
+// COM DOCUMENTOS
+// ============================================
+
 router.post(
   "/solicitacoes/instituicoes",
   autenticarToken,
+  receberDocumentos,
   async (req, res) => {
     const {
       titulo,
@@ -291,30 +409,42 @@ router.post(
       data_pedido,
     } = req.body;
 
-    // Obtém a instituição autenticada pelo token
+    const arquivos = req.files || [];
     const id_instituicao = req.usuario?.id_instituicao;
 
     if (
-      !titulo?.trim() ||
-      !descricao?.trim() ||
-      !prioridade?.trim() ||
-      !setor?.trim() ||
+      req.usuario?.tipo_acesso !== "instituicao" ||
       !idValido(id_instituicao)
     ) {
-      return res.status(400).json({
-        error: "Preencha os dados obrigatórios.",
-      });
-    }
+      await removerArquivosEnviados(arquivos);
 
-    // Confere se o token pertence a uma instituição
-    if (req.usuario?.tipo_acesso !== "instituicao") {
       return res.status(403).json({
         error: "Acesso exclusivo da instituição.",
       });
     }
 
+    if (
+      !titulo?.trim() ||
+      !descricao?.trim() ||
+      !prioridade?.trim() ||
+      !setor?.trim()
+    ) {
+      await removerArquivosEnviados(arquivos);
+
+      return res.status(400).json({
+        error: "Preencha os dados obrigatórios.",
+      });
+    }
+
+    let cliente;
+
     try {
-      const resultado = await BD.query(
+      cliente = await BD.connect();
+
+      await cliente.query("BEGIN");
+
+      // Criar a solicitação
+      const resultado = await cliente.query(
         `
           INSERT INTO solicitacoes (
             titulo,
@@ -336,32 +466,76 @@ router.post(
           status || "pendente",
           data_pedido || new Date(),
           id_instituicao,
-        ],
+        ]
       );
+
+      const solicitacao = resultado.rows[0];
+      const documentosCadastrados = [];
+
+      // Registrar os documentos vinculados à solicitação
+      for (const arquivo of arquivos) {
+        const caminhoRelativo =
+          `solicitacoes/${id_instituicao}/${arquivo.filename}`;
+
+        const documento = await cliente.query(
+          `
+            INSERT INTO documentos (
+              nome_arquivo,
+              caminho,
+              tipo,
+              id_solicitacao
+            )
+            VALUES ($1, $2, $3, $4)
+            RETURNING
+              id_documento,
+              nome_arquivo,
+              caminho,
+              tipo,
+              id_solicitacao
+          `,
+          [
+            arquivo.originalname,
+            caminhoRelativo,
+            arquivo.mimetype,
+            solicitacao.id_solicitacoes,
+          ]
+        );
+
+        documentosCadastrados.push(documento.rows[0]);
+      }
+
+      await cliente.query("COMMIT");
 
       return res.status(201).json({
         message: "Solicitação cadastrada com sucesso.",
-        solicitacao: resultado.rows[0],
+        solicitacao,
+        documentos_cadastrados: documentosCadastrados.length,
+        documentos: documentosCadastrados,
       });
     } catch (error) {
+      if (cliente) {
+        await cliente.query("ROLLBACK").catch(() => {});
+      }
+
+      await removerArquivosEnviados(arquivos);
+
       console.error(
         "Erro ao cadastrar solicitação da instituição:",
         error.message
       );
 
       return res.status(500).json({
-        error: "Erro ao cadastrar solicitação.",
+        error: "Erro ao cadastrar solicitação ou documentos.",
       });
+    } finally {
+      cliente?.release();
     }
-  },
+  }
 );
 
 // ============================================
 // PATCH - ATUALIZAR STATUS E HISTÓRICO
 // ============================================
-// A transação garante que a alteração
-// do status e o registro do histórico
-// sejam concluídos juntos.
 
 router.patch(
   "/solicitacoes/:id_solicitacoes/status",
@@ -410,7 +584,7 @@ router.patch(
           WHERE id_solicitacoes = $1
           FOR UPDATE
         `,
-        [id],
+        [id]
       );
 
       if (!consulta.rows.length) {
@@ -423,7 +597,9 @@ router.patch(
 
       const anterior = consulta.rows[0];
 
-      if (String(anterior.status).toLowerCase().trim() === novoStatus) {
+      if (
+        String(anterior.status).toLowerCase().trim() === novoStatus
+      ) {
         await cliente.query("ROLLBACK");
 
         return res.status(200).json({
@@ -439,7 +615,7 @@ router.patch(
           WHERE id_solicitacoes = $2
           RETURNING *
         `,
-        [novoStatus, id],
+        [novoStatus, id]
       );
 
       await cliente.query(
@@ -458,7 +634,7 @@ router.patch(
           `Status alterado de "${anterior.status}" para "${novoStatus}".`,
           novoStatus,
           anterior.prioridade,
-        ],
+        ]
       );
 
       await cliente.query("COMMIT");
@@ -472,7 +648,10 @@ router.patch(
         await cliente.query("ROLLBACK").catch(() => {});
       }
 
-      console.error("Erro ao atualizar solicitação:", error.message);
+      console.error(
+        "Erro ao atualizar solicitação:",
+        error.message
+      );
 
       return res.status(500).json({
         error: "Erro ao atualizar solicitação.",
@@ -480,7 +659,7 @@ router.patch(
     } finally {
       cliente?.release();
     }
-  },
+  }
 );
 
 // ============================================
@@ -548,7 +727,7 @@ router.put(
           data_pedido,
           id_instituicao,
           id,
-        ],
+        ]
       );
 
       if (!resultado.rows.length) {
@@ -568,7 +747,7 @@ router.put(
         error: "Erro ao atualizar solicitação.",
       });
     }
-  },
+  }
 );
 
 // ============================================
@@ -595,7 +774,7 @@ router.delete(
           WHERE id_solicitacoes = $1
           RETURNING id_solicitacoes
         `,
-        [id],
+        [id]
       );
 
       if (!resultado.rows.length) {
@@ -615,7 +794,7 @@ router.delete(
           "Não foi possível excluir a solicitação. Verifique se existem registros vinculados.",
       });
     }
-  },
+  }
 );
 
 export default router;

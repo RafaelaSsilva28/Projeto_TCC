@@ -3,6 +3,7 @@ import "dotenv/config";
 
 import express from "express";
 import cors from "cors";
+import path from "node:path";
 
 import { testarConexao } from "./db.js";
 
@@ -16,6 +17,7 @@ import rotasRespostasADM from "./src/routes/rotasRespostasADM.js";
 import rotasDashboard from "./src/routes/rotasDashboard.js";
 import rotasHistoricoInst from "./src/routes/rotasHistoricoInst.js"; 
 import rotasConfiguracoesAdmin from "./src/routes/rotasConfiguracoesAdmin.js";
+import rotasConfiguracoesInst from "./src/routes/rotasConfiguracoesInst.js";
 import rotasPerfilAdministrador from "./src/routes/rotasPerfilAdministrador.js";
 
 import documentacao from "./config/swagger.js";
@@ -26,8 +28,16 @@ const app = express();
 // MIDDLEWARES
 // ======================================
 
+
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
+
+// Disponibilizar os documentos salvos na pasta uploads
+app.use(
+  "/uploads",
+  express.static(path.resolve("uploads"))
+);
+
 
 // ======================================
 // ROTA PRINCIPAL
@@ -107,8 +117,11 @@ app.use(rotasHistoricoInst);
 
 //configurações 
 app.use(rotasConfiguracoesAdmin);
+app.use(rotasConfiguracoesInst);
 
 app.use(rotasPerfilAdministrador);
+
+
 // ======================================
 // ROTA NÃO ENCONTRADA
 // ======================================
