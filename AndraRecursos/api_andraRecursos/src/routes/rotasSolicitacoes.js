@@ -59,6 +59,54 @@ router.get(
   },
 );
 
+//GET - LISTAR TODAS AS SOLICITAÇÕES DE UMA INSTITUIÇÃO
+
+router.get(
+  "/solicitacoes/instituicoes",
+  autenticarToken,
+  async (req, res) => {
+    const id_instituicao = req.usuario?.id_instituicao;
+
+    if (
+      req.usuario?.tipo_acesso !== "instituicao" ||
+      !idValido(id_instituicao)
+    ) {
+      return res.status(403).json({
+        message: "Acesso exclusivo da instituição.",
+      });
+    }
+
+    try {
+      const resultado = await BD.query(
+        `SELECT
+           id_solicitacoes,
+           titulo,
+           descricao,
+           prioridade,
+           setor,
+           status,
+           data_pedido
+         FROM solicitacoes
+         WHERE id_instituicao = $1
+         ORDER BY data_pedido DESC NULLS LAST,
+                  id_solicitacoes DESC`,
+        [id_instituicao]
+      );
+
+      return res.status(200).json(resultado.rows);
+    } catch (error) {
+      console.error(
+        "Erro ao listar solicitações da instituição:",
+        error.message
+      );
+
+      return res.status(500).json({
+        message: "Erro ao consultar solicitações.",
+      });
+    }
+  }
+);
+
 // ============================================
 // GET - FILTRAR POR PRIORIDADE
 // ============================================
@@ -229,7 +277,7 @@ router.post(
   },
 );
 
-
+//A rota abaixo realiza o cadastro de uma solicitação para as Instituições
 router.post(
   "/solicitacoes/instituicoes",
   autenticarToken,
