@@ -4,12 +4,10 @@ import { BD } from "../../db.js";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
 
-
 import {
   supabase,
   bucketDocumentos,
 } from "../../config/supabase.js";
-
 
 import {
   autenticarToken,
@@ -41,8 +39,8 @@ const extensoesPorTipo = {
 
 // ============================================
 // CONFIGURAÇÃO DO MULTER
-// Os arquivos ficam temporariamente na memória.
-// Não cria a pasta uploads na Vercel.
+// Arquivos mantidos temporariamente na memória.
+// Não utiliza a pasta uploads da Vercel.
 // ============================================
 
 const uploadDocumentos = multer({
@@ -96,11 +94,25 @@ async function enviarArquivoSupabase(
 ) {
   const extensao = extensoesPorTipo[arquivo.mimetype];
 
+  if (!extensao) {
+    throw new Error(
+      `Tipo de arquivo não permitido: ${arquivo.mimetype}`
+    );
+  }
+
   const nomeArquivo = `${randomUUID()}${extensao}`;
 
-  const caminho = `solicitacoes/${idInstituicao}/${nomeArquivo}`;
+  const caminho =
+    `solicitacoes/${idInstituicao}/${nomeArquivo}`;
 
-  const { error } = await supabase.storage
+  console.log("Iniciando upload para o Supabase:", {
+    bucket: bucketDocumentos,
+    caminho,
+    tipo: arquivo.mimetype,
+    tamanhoBytes: arquivo.size,
+  });
+
+  const { data, error } = await supabase.storage
     .from(bucketDocumentos)
     .upload(caminho, arquivo.buffer, {
       contentType: arquivo.mimetype,
@@ -108,17 +120,28 @@ async function enviarArquivoSupabase(
     });
 
   if (error) {
-    console.error(
-      "Erro ao enviar arquivo para o Supabase:",
-      error.message
-    );
+    console.error("Falha no upload para o Supabase:", {
+      message: error.message,
+      name: error.name,
+      status: error.status,
+      statusCode: error.statusCode,
+      bucket: bucketDocumentos,
+      caminho,
+    });
 
+    // O erro original fica registrado nos logs da Vercel.
+    // A resposta enviada ao cliente não expõe detalhes internos.
     throw new Error(
-      "Não foi possível armazenar um dos documentos."
+      `Falha no Supabase Storage: ${error.message}`
     );
   }
 
-  return caminho;
+  console.log("Upload concluído no Supabase:", {
+    bucket: bucketDocumentos,
+    caminho: data?.path || caminho,
+  });
+
+  return data?.path || caminho;
 }
 
 async function removerArquivosSupabase(caminhos = []) {
@@ -129,10 +152,14 @@ async function removerArquivosSupabase(caminhos = []) {
     .remove(caminhos);
 
   if (error) {
-    console.error(
-      "Erro ao remover arquivos do Supabase:",
-      error.message
-    );
+    console.error("Erro ao remover arquivos do Supabase:", {
+      message: error.message,
+      name: error.name,
+      status: error.status,
+      statusCode: error.statusCode,
+      bucket: bucketDocumentos,
+      quantidade: caminhos.length,
+    });
   }
 }
 
@@ -170,10 +197,7 @@ router.get(
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
-      console.error(
-        "Erro ao listar solicitações:",
-        error.message
-      );
+      console.error("Erro ao listar solicitações:", error.message);
 
       return res.status(500).json({
         error: "Erro ao listar solicitações.",
@@ -257,7 +281,10 @@ router.get(
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
-      console.error(error.message);
+      console.error(
+        "Erro ao filtrar por prioridade:",
+        error.message
+      );
 
       return res.status(500).json({
         error: "Erro ao filtrar por prioridade.",
@@ -288,7 +315,10 @@ router.get(
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
-      console.error(error.message);
+      console.error(
+        "Erro ao filtrar por setor:",
+        error.message
+      );
 
       return res.status(500).json({
         error: "Erro ao filtrar por setor.",
@@ -319,7 +349,10 @@ router.get(
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
-      console.error(error.message);
+      console.error(
+        "Erro ao filtrar por status:",
+        error.message
+      );
 
       return res.status(500).json({
         error: "Erro ao filtrar por status.",
@@ -449,13 +482,17 @@ router.post(
     const caminhosEnviados = [];
 
     try {
-      // Abre a conexão com o Neon.
+      // 1. Conecta ao banco Neon.
+      console.log("Conectando ao banco para cadastrar solicitação.");
+
       cliente = await BD.connect();
 
       await cliente.query("BEGIN");
       transacaoIniciada = true;
 
-      // 1. Cadastra a solicitação no Neon.
+      // 2. Cadastra a solicitação no Neon.
+      console.log("Inserindo solicitação no banco.");
+
       const resultado = await cliente.query(
         `
           INSERT INTO solicitacoes (
@@ -484,17 +521,22 @@ router.post(
       const solicitacao = resultado.rows[0];
       const documentosCadastrados = [];
 
-      // 2. Envia cada arquivo ao Supabase e registra
-      // seus metadados no Neon.
+      // 3. Envia documentos e salva seus metadados.
       for (const arquivo of arquivos) {
+        console.log("Processando documento:", {
+          nome: arquivo.originalname,
+          tipo: arquivo.mimetype,
+          tamanhoBytes: arquivo.size,
+        });
+
         const caminho = await enviarArquivoSupabase(
           arquivo,
           idInstituicao
         );
 
-        // Guarda o caminho imediatamente para permitir
-        // a remoção caso a transação falhe.
         caminhosEnviados.push(caminho);
+
+        console.log("Registrando metadados do documento no Neon.");
 
         const documento = await cliente.query(
           `
@@ -523,9 +565,14 @@ router.post(
         documentosCadastrados.push(documento.rows[0]);
       }
 
-      // 3. Confirma a transação no Neon.
+      // 4. Confirma as alterações no banco.
       await cliente.query("COMMIT");
       transacaoIniciada = false;
+
+      console.log("Solicitação cadastrada com sucesso:", {
+        idSolicitacao: solicitacao.id_solicitacoes,
+        quantidadeDocumentos: documentosCadastrados.length,
+      });
 
       return res.status(201).json({
         message: "Solicitação cadastrada com sucesso.",
@@ -535,16 +582,30 @@ router.post(
       });
     } catch (error) {
       if (cliente && transacaoIniciada) {
-        await cliente.query("ROLLBACK").catch(() => {});
+        await cliente.query("ROLLBACK").catch((erroRollback) => {
+          console.error(
+            "Erro ao desfazer transação no Neon:",
+            erroRollback.message
+          );
+        });
       }
 
-      // Remove os arquivos que foram enviados ao Storage
-      // caso o cadastro da solicitação falhe.
+      // Remove do Storage os arquivos enviados caso o banco falhe.
       await removerArquivosSupabase(caminhosEnviados);
 
+      // Log detalhado para diagnóstico na Vercel.
       console.error(
         "Erro ao cadastrar solicitação da instituição:",
-        error.message
+        {
+          message: error.message,
+          name: error.name,
+          code: error.code,
+          detail: error.detail,
+          hint: error.hint,
+          status: error.status,
+          statusCode: error.statusCode,
+          stack: error.stack,
+        }
       );
 
       return res.status(500).json({
@@ -764,7 +825,10 @@ router.put(
         solicitacao: resultado.rows[0],
       });
     } catch (error) {
-      console.error(error.message);
+      console.error(
+        "Erro ao atualizar solicitação:",
+        error.message
+      );
 
       return res.status(500).json({
         error: "Erro ao atualizar solicitação.",
@@ -810,7 +874,10 @@ router.delete(
         message: "Solicitação excluída com sucesso.",
       });
     } catch (error) {
-      console.error(error.message);
+      console.error(
+        "Erro ao excluir solicitação:",
+        error.message
+      );
 
       return res.status(500).json({
         error:
