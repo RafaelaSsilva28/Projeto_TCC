@@ -1,16 +1,21 @@
+
 import { Router } from "express";
 import { BD } from "../../db.js";
 import multer from "multer";
-import path from "node:path";
-import fs from "node:fs";
-import { promisify } from "node:util";
+import { randomUUID } from "node:crypto";
+
+
+import {
+  supabase,
+  bucketDocumentos,
+} from "../../config/supabase.js";
+
 
 import {
   autenticarToken,
   autenticarAdministrador,
 } from "../middlewares/Autenticacao.js";
 
-const unlinkAsync = promisify(fs.unlink);
 const router = Router();
 
 // ============================================
@@ -28,51 +33,20 @@ const tiposPermitidos = [
   "image/png",
 ];
 
+const extensoesPorTipo = {
+  "application/pdf": ".pdf",
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+};
+
 // ============================================
 // CONFIGURAÇÃO DO MULTER
+// Os arquivos ficam temporariamente na memória.
+// Não cria a pasta uploads na Vercel.
 // ============================================
 
-const armazenamentoDocumentos = multer.diskStorage({
-  destination: (req, file, callback) => {
-    const idInstituicao = req.usuario?.id_instituicao;
-
-    if (!idValido(idInstituicao)) {
-      return callback(
-        new Error("Instituição inválida para envio de documentos.")
-      );
-    }
-
-    const pasta = path.join(
-      process.cwd(),
-      "uploads",
-      "solicitacoes",
-      String(idInstituicao)
-    );
-
-    fs.mkdir(pasta, { recursive: true }, (erro) => {
-      callback(erro, pasta);
-    });
-  },
-
-  filename: (req, file, callback) => {
-    const extensaoPorTipo = {
-      "application/pdf": ".pdf",
-      "image/jpeg": ".jpg",
-      "image/png": ".png",
-    };
-
-    const extensao = extensaoPorTipo[file.mimetype];
-
-    const nomeSeguro = `${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}${extensao || ""}`;
-
-    callback(null, nomeSeguro);
-  },
-});
-
 const uploadDocumentos = multer({
-  storage: armazenamentoDocumentos,
+  storage: multer.memoryStorage(),
 
   limits: {
     files: 10,
@@ -95,9 +69,7 @@ function receberDocumentos(req, res, next) {
     req,
     res,
     (erro) => {
-      if (!erro) {
-        return next();
-      }
+      if (!erro) return next();
 
       const mensagem =
         erro.code === "LIMIT_FILE_SIZE"
@@ -114,12 +86,54 @@ function receberDocumentos(req, res, next) {
   );
 }
 
-async function removerArquivosEnviados(arquivos = []) {
-  await Promise.all(
-    arquivos.map((arquivo) =>
-      unlinkAsync(arquivo.path).catch(() => {})
-    )
-  );
+// ============================================
+// SUPABASE STORAGE
+// ============================================
+
+async function enviarArquivoSupabase(
+  arquivo,
+  idInstituicao
+) {
+  const extensao = extensoesPorTipo[arquivo.mimetype];
+
+  const nomeArquivo = `${randomUUID()}${extensao}`;
+
+  const caminho = `solicitacoes/${idInstituicao}/${nomeArquivo}`;
+
+  const { error } = await supabase.storage
+    .from(bucketDocumentos)
+    .upload(caminho, arquivo.buffer, {
+      contentType: arquivo.mimetype,
+      upsert: false,
+    });
+
+  if (error) {
+    console.error(
+      "Erro ao enviar arquivo para o Supabase:",
+      error.message
+    );
+
+    throw new Error(
+      "Não foi possível armazenar um dos documentos."
+    );
+  }
+
+  return caminho;
+}
+
+async function removerArquivosSupabase(caminhos = []) {
+  if (!caminhos.length) return;
+
+  const { error } = await supabase.storage
+    .from(bucketDocumentos)
+    .remove(caminhos);
+
+  if (error) {
+    console.error(
+      "Erro ao remover arquivos do Supabase:",
+      error.message
+    );
+  }
 }
 
 // ============================================
@@ -132,7 +146,7 @@ router.get(
   autenticarAdministrador,
   async (req, res) => {
     try {
-      const comando = `
+      const resultado = await BD.query(`
         SELECT
           s.id_solicitacoes,
           s.titulo,
@@ -152,9 +166,7 @@ router.get(
         ORDER BY
           s.data_pedido DESC NULLS LAST,
           s.id_solicitacoes DESC
-      `;
-
-      const resultado = await BD.query(comando);
+      `);
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
@@ -178,11 +190,11 @@ router.get(
   "/solicitacoes/instituicoes",
   autenticarToken,
   async (req, res) => {
-    const id_instituicao = req.usuario?.id_instituicao;
+    const idInstituicao = req.usuario?.id_instituicao;
 
     if (
       req.usuario?.tipo_acesso !== "instituicao" ||
-      !idValido(id_instituicao)
+      !idValido(idInstituicao)
     ) {
       return res.status(403).json({
         message: "Acesso exclusivo da instituição.",
@@ -206,7 +218,7 @@ router.get(
             data_pedido DESC NULLS LAST,
             id_solicitacoes DESC
         `,
-        [id_instituicao]
+        [idInstituicao]
       );
 
       return res.status(200).json(resultado.rows);
@@ -392,7 +404,7 @@ router.post(
 
 // ============================================
 // POST - CADASTRAR SOLICITAÇÃO DA INSTITUIÇÃO
-// COM DOCUMENTOS
+// COM DOCUMENTOS NO SUPABASE STORAGE
 // ============================================
 
 router.post(
@@ -410,14 +422,12 @@ router.post(
     } = req.body;
 
     const arquivos = req.files || [];
-    const id_instituicao = req.usuario?.id_instituicao;
+    const idInstituicao = req.usuario?.id_instituicao;
 
     if (
       req.usuario?.tipo_acesso !== "instituicao" ||
-      !idValido(id_instituicao)
+      !idValido(idInstituicao)
     ) {
-      await removerArquivosEnviados(arquivos);
-
       return res.status(403).json({
         error: "Acesso exclusivo da instituição.",
       });
@@ -429,21 +439,23 @@ router.post(
       !prioridade?.trim() ||
       !setor?.trim()
     ) {
-      await removerArquivosEnviados(arquivos);
-
       return res.status(400).json({
         error: "Preencha os dados obrigatórios.",
       });
     }
 
     let cliente;
+    let transacaoIniciada = false;
+    const caminhosEnviados = [];
 
     try {
+      // Abre a conexão com o Neon.
       cliente = await BD.connect();
 
       await cliente.query("BEGIN");
+      transacaoIniciada = true;
 
-      // Criar a solicitação
+      // 1. Cadastra a solicitação no Neon.
       const resultado = await cliente.query(
         `
           INSERT INTO solicitacoes (
@@ -465,17 +477,24 @@ router.post(
           setor.trim(),
           status || "pendente",
           data_pedido || new Date(),
-          id_instituicao,
+          idInstituicao,
         ]
       );
 
       const solicitacao = resultado.rows[0];
       const documentosCadastrados = [];
 
-      // Registrar os documentos vinculados à solicitação
+      // 2. Envia cada arquivo ao Supabase e registra
+      // seus metadados no Neon.
       for (const arquivo of arquivos) {
-        const caminhoRelativo =
-          `solicitacoes/${id_instituicao}/${arquivo.filename}`;
+        const caminho = await enviarArquivoSupabase(
+          arquivo,
+          idInstituicao
+        );
+
+        // Guarda o caminho imediatamente para permitir
+        // a remoção caso a transação falhe.
+        caminhosEnviados.push(caminho);
 
         const documento = await cliente.query(
           `
@@ -495,7 +514,7 @@ router.post(
           `,
           [
             arquivo.originalname,
-            caminhoRelativo,
+            caminho,
             arquivo.mimetype,
             solicitacao.id_solicitacoes,
           ]
@@ -504,7 +523,9 @@ router.post(
         documentosCadastrados.push(documento.rows[0]);
       }
 
+      // 3. Confirma a transação no Neon.
       await cliente.query("COMMIT");
+      transacaoIniciada = false;
 
       return res.status(201).json({
         message: "Solicitação cadastrada com sucesso.",
@@ -513,11 +534,13 @@ router.post(
         documentos: documentosCadastrados,
       });
     } catch (error) {
-      if (cliente) {
+      if (cliente && transacaoIniciada) {
         await cliente.query("ROLLBACK").catch(() => {});
       }
 
-      await removerArquivosEnviados(arquivos);
+      // Remove os arquivos que foram enviados ao Storage
+      // caso o cadastro da solicitação falhe.
+      await removerArquivosSupabase(caminhosEnviados);
 
       console.error(
         "Erro ao cadastrar solicitação da instituição:",

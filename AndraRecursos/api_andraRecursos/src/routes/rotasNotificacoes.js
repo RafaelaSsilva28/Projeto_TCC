@@ -76,7 +76,54 @@ router.get(
 // GET - LISTAR NOTIFICAÇÕES DE INSTITUIÇÕES
 // =============================================
 
+router.get(
+    "/notificacoes/instituicao",
+    autenticarToken,
+    async (req, res) => {
+        const idInstituicao = Number(req.usuario?.id_instituicao);
 
+        if (!validarId(idInstituicao)) {
+            return res.status(403).json({
+                error: "Instituição não identificada."
+            });
+        }
+
+        try {
+            const resultado = await BD.query(
+                `
+                SELECT
+                    n.id_notificacao,
+                    n.mensagem,
+                    n.tipo_informacao,
+                    n.id_solicitacao,
+                    n.lida,
+                    n.data_notificacao,
+                    s.titulo AS titulo_solicitacao,
+                    s.status AS status_solicitacao
+                FROM notificacoes n
+                INNER JOIN solicitacoes s
+                    ON s.id_solicitacoes = n.id_solicitacao
+                WHERE s.id_instituicao = $1
+                ORDER BY
+                    n.data_notificacao DESC,
+                    n.id_notificacao DESC
+                `,
+                [idInstituicao]
+            );
+
+            return res.status(200).json(resultado.rows);
+        } catch (error) {
+            console.error(
+                "Erro ao listar notificações da instituição:",
+                error.message
+            );
+
+            return res.status(500).json({
+                error: "Erro ao listar notificações da instituição."
+            });
+        }
+    }
+);
 
 // =============================================
 // GET - CONTADORES
