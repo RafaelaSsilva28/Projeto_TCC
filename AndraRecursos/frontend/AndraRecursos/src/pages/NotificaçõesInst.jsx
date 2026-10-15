@@ -131,7 +131,7 @@ export default function NotificacoesInst() {
       setCarregando(true);
       setErro("");
 
-      const resposta = await fetch(`${enderecoServidor}/notificacoes`, {
+      const resposta = await fetch(`${enderecoServidor}/notificacoes/instituicao`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

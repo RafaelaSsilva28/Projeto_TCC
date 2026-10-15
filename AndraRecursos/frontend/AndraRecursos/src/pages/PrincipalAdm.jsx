@@ -1,6 +1,7 @@
-
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 import {
   FiDownload,
@@ -41,11 +42,7 @@ function statusVisual(valor) {
     };
   }
 
-  if (
-    ["recusada", "recusado", "rejeitada", "rejeitado"].includes(
-      status
-    )
-  ) {
+  if (["recusada", "recusado", "rejeitada", "rejeitado"].includes(status)) {
     return {
       texto: "Recusada",
       classe: "bg-red-100 text-red-700",
@@ -104,36 +101,29 @@ function obterData(valor) {
   const texto = String(valor);
 
   const brasileira = texto.match(
-    /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/
+    /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/,
   );
 
   if (brasileira) {
-    const [, dia, mes, ano, hora = "0", minuto = "0"] =
-      brasileira;
+    const [, dia, mes, ano, hora = "0", minuto = "0"] = brasileira;
 
     const data = new Date(
       Number(ano),
       Number(mes) - 1,
       Number(dia),
       Number(hora),
-      Number(minuto)
+      Number(minuto),
     );
 
     return Number.isNaN(data.getTime()) ? null : data;
   }
 
-  const somenteData = texto.match(
-    /^(\d{4})-(\d{2})-(\d{2})$/
-  );
+  const somenteData = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
 
   if (somenteData) {
     const [, ano, mes, dia] = somenteData;
 
-    return new Date(
-      Number(ano),
-      Number(mes) - 1,
-      Number(dia)
-    );
+    return new Date(Number(ano), Number(mes) - 1, Number(dia));
   }
 
   const data = new Date(valor);
@@ -164,10 +154,7 @@ function formatarData(valor) {
 
 function normalizarSolicitacao(item) {
   return {
-    id:
-      item.id_solicitacoes ??
-      item.id_solicitacao ??
-      item.id,
+    id: item.id_solicitacoes ?? item.id_solicitacao ?? item.id,
     titulo: item.titulo ?? "Sem título",
     instituicao:
       item.nome_instituicao ??
@@ -206,11 +193,9 @@ export default function PrincipalAdm() {
   // FILTROS
   const [filtroStatus, setFiltroStatus] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
-  const [filtroInstituicao, setFiltroInstituicao] =
-    useState("");
+  const [filtroInstituicao, setFiltroInstituicao] = useState("");
   const [filtroData, setFiltroData] = useState("");
-  const [filtroPrioridade, setFiltroPrioridade] =
-    useState("");
+  const [filtroPrioridade, setFiltroPrioridade] = useState("");
 
   // CONFIRMAÇÃO DE AÇÕES
   const [confirmacao, setConfirmacao] = useState(null);
@@ -228,47 +213,37 @@ export default function PrincipalAdm() {
       setErro("");
 
       try {
-        const token = localStorage.getItem(
-          "@AndraRecursos:token"
-        );
+        const token = localStorage.getItem("@AndraRecursos:token");
 
         if (!token) {
-          throw new Error(
-            "Sessão expirada. Faça login novamente."
-          );
+          throw new Error("Sessão expirada. Faça login novamente.");
         }
 
-        const resposta = await fetch(
-          `${API}/solicitacoes`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            signal: controlador.signal,
-          }
-        );
+        const resposta = await fetch(`${API}/solicitacoes`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controlador.signal,
+        });
 
-        const resultado = await resposta
-          .json()
-          .catch(() => null);
+        const resultado = await resposta.json().catch(() => null);
 
         if (!resposta.ok) {
           throw new Error(
             resultado?.error ||
-            resultado?.message ||
-            `Erro ${resposta.status} ao carregar solicitações.`
+              resultado?.message ||
+              `Erro ${resposta.status} ao carregar solicitações.`,
           );
         }
 
         const lista = Array.isArray(resultado)
           ? resultado
-          : resultado?.solicitacoes ??
-            resultado?.dados;
+          : (resultado?.solicitacoes ?? resultado?.dados);
 
         if (!Array.isArray(lista)) {
           throw new Error(
-            "A API não retornou uma lista válida de solicitações."
+            "A API não retornou uma lista válida de solicitações.",
           );
         }
 
@@ -276,10 +251,7 @@ export default function PrincipalAdm() {
           setSolicitacoes(lista.map(normalizarSolicitacao));
         }
       } catch (error) {
-        if (
-          error.name !== "AbortError" &&
-          !controlador.signal.aborted
-        ) {
+        if (error.name !== "AbortError" && !controlador.signal.aborted) {
           setErro(error.message);
         }
       } finally {
@@ -300,15 +272,15 @@ export default function PrincipalAdm() {
 
   const indicadores = useMemo(() => {
     const aprovadas = solicitacoes.filter(
-      (item) => statusVisual(item.status).grupo === "aprovada"
+      (item) => statusVisual(item.status).grupo === "aprovada",
     ).length;
 
     const pendentes = solicitacoes.filter(
-      (item) => statusVisual(item.status).grupo === "pendente"
+      (item) => statusVisual(item.status).grupo === "pendente",
     ).length;
 
     const recusadas = solicitacoes.filter(
-      (item) => statusVisual(item.status).grupo === "recusada"
+      (item) => statusVisual(item.status).grupo === "recusada",
     ).length;
 
     return {
@@ -351,15 +323,15 @@ export default function PrincipalAdm() {
   // ==========================================
 
   const tiposDisponiveis = useMemo(() => {
-    return [...new Set(
-      solicitacoes.map((item) => item.titulo).filter(Boolean)
-    )].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return [
+      ...new Set(solicitacoes.map((item) => item.titulo).filter(Boolean)),
+    ].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [solicitacoes]);
 
   const instituicoesDisponiveis = useMemo(() => {
-    return [...new Set(
-      solicitacoes.map((item) => item.instituicao).filter(Boolean)
-    )].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return [
+      ...new Set(solicitacoes.map((item) => item.instituicao).filter(Boolean)),
+    ].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [solicitacoes]);
 
   // ==========================================
@@ -372,10 +344,7 @@ export default function PrincipalAdm() {
     hoje.setHours(0, 0, 0, 0);
 
     const resultado = solicitacoes.filter((item) => {
-      if (
-        filtroStatus &&
-        statusVisual(item.status).grupo !== filtroStatus
-      ) {
+      if (filtroStatus && statusVisual(item.status).grupo !== filtroStatus) {
         return false;
       }
 
@@ -383,17 +352,13 @@ export default function PrincipalAdm() {
         return false;
       }
 
-      if (
-        filtroInstituicao &&
-        item.instituicao !== filtroInstituicao
-      ) {
+      if (filtroInstituicao && item.instituicao !== filtroInstituicao) {
         return false;
       }
 
       if (
         filtroPrioridade &&
-        normalizarTexto(item.prioridade) !==
-          filtroPrioridade
+        normalizarTexto(item.prioridade) !== filtroPrioridade
       ) {
         return false;
       }
@@ -467,374 +432,236 @@ export default function PrincipalAdm() {
 
   const totalPaginas = Math.max(
     1,
-    Math.ceil(solicitacoesFiltradas.length / POR_PAGINA)
+    Math.ceil(solicitacoesFiltradas.length / POR_PAGINA),
   );
 
   const paginaAtual = Math.min(pagina, totalPaginas);
 
   const solicitacoesPagina = solicitacoesFiltradas.slice(
     (paginaAtual - 1) * POR_PAGINA,
-    paginaAtual * POR_PAGINA
+    paginaAtual * POR_PAGINA,
   );
 
   // ==========================================
   // EXPORTAR RELATÓRIO
   // ==========================================
 
-  function exportarRelatorio() {
-    if (solicitacoesFiltradas.length === 0) {
-      toast.error("Não há solicitações para exportar.");
-      return;
-    }
+  
+function exportarRelatorio() {
+  if (solicitacoesFiltradas.length === 0) {
+    toast.error("Não há solicitações para exportar.");
+    return;
+  }
 
-    // Protege os dados ao inseri-los no HTML do relatório.
-    const escaparHTML = (valor) =>
-      String(valor ?? "Não informado")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+  try {
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const azul = [8, 45, 86];
 
     const contarStatus = (grupo) =>
       solicitacoesFiltradas.filter(
         (item) => statusVisual(item.status).grupo === grupo
       ).length;
 
-    const resumo = [
-      { titulo: "Total de solicitações", valor: solicitacoesFiltradas.length },
-      { titulo: "Aprovadas", valor: contarStatus("aprovada") },
-      { titulo: "Pendentes", valor: contarStatus("pendente") },
-      { titulo: "Em andamento", valor: contarStatus("em andamento") },
-      { titulo: "Recusadas", valor: contarStatus("recusada") },
-    ];
-
     const dataEmissao = new Intl.DateTimeFormat("pt-BR", {
-      dateStyle: "long",
+      dateStyle: "short",
       timeStyle: "short",
       timeZone: "America/Sao_Paulo",
     }).format(new Date());
 
-    const filtrosAplicados = [
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(...azul);
+    doc.text("AndraRecursos", 14, 16);
+
+    doc.setFontSize(14);
+    doc.text("Relatório de Solicitações", 14, 25);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(90, 100, 115);
+    doc.text(`Data de emissão: ${dataEmissao}`, 14, 32);
+    doc.text(
+      `Total de registros: ${solicitacoesFiltradas.length}`,
+      14,
+      38
+    );
+
+    // Resumo dos status
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...azul);
+    doc.text("Resumo geral", 14, 48);
+
+    autoTable(doc, {
+      startY: 52,
+      head: [[
+        "Total",
+        "Aprovadas",
+        "Pendentes",
+        "Em andamento",
+        "Recusadas",
+      ]],
+      body: [[
+        solicitacoesFiltradas.length,
+        contarStatus("aprovada"),
+        contarStatus("pendente"),
+        contarStatus("em andamento"),
+        contarStatus("recusada"),
+      ]],
+      theme: "grid",
+      headStyles: {
+        fillColor: azul,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        halign: "center",
+      },
+    });
+
+    // Filtros aplicados
+    const filtros = [
       filtroStatus && `Status: ${statusVisual(filtroStatus).texto}`,
       filtroTipo && `Tipo: ${filtroTipo}`,
       filtroInstituicao && `Instituição: ${filtroInstituicao}`,
       filtroPrioridade &&
-        `Prioridade: ${filtroPrioridade.charAt(0).toUpperCase()}${filtroPrioridade.slice(1)}`,
-      filtroData && `Período/ordenação: ${
-        {
-          recentes: "Mais recentes",
-          antigas: "Mais antigas",
-          hoje: "Hoje",
-          "7dias": "Últimos 7 dias",
-          "30dias": "Últimos 30 dias",
-        }[filtroData] || filtroData
-      }`,
+        `Prioridade: ${filtroPrioridade}`,
+      filtroData &&
+        `Período/ordenação: ${
+          {
+            recentes: "Mais recentes",
+            antigas: "Mais antigas",
+            hoje: "Hoje",
+            "7dias": "Últimos 7 dias",
+            "30dias": "Últimos 30 dias",
+          }[filtroData] || filtroData
+        }`,
     ].filter(Boolean);
 
-    const linhasTabela = solicitacoesFiltradas
-      .map((item) => {
-        const situacao = statusVisual(item.status);
-        const prioridade = item.prioridade
-          ? `${item.prioridade.charAt(0).toUpperCase()}${item.prioridade.slice(1)}`
-          : "Não informada";
+    let inicioTabela = doc.lastAutoTable.finalY + 10;
 
-        const classeStatus = {
-          aprovada: "status-aprovada",
-          recusada: "status-recusada",
-          pendente: "status-pendente",
-          "em andamento": "status-andamento",
-        }[situacao.grupo] || "status-outro";
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...azul);
+    doc.text("Filtros utilizados", 14, inicioTabela);
 
-        const classePrioridade = {
-          alta: "prioridade-alta",
-          urgente: "prioridade-alta",
-          media: "prioridade-media",
-          baixa: "prioridade-baixa",
-        }[normalizarTexto(item.prioridade)] || "prioridade-outra";
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(70, 80, 95);
 
-        return `
-          <tr>
-            <td class="id">#${escaparHTML(item.id)}</td>
-            <td>${escaparHTML(item.instituicao)}</td>
-            <td>${escaparHTML(item.titulo)}</td>
-            <td class="descricao">${escaparHTML(item.descricao || "Sem descrição")}</td>
-            <td>${escaparHTML(item.setor || "Não informado")}</td>
-            <td><span class="etiqueta ${classePrioridade}">${escaparHTML(prioridade)}</span></td>
-            <td><span class="etiqueta ${classeStatus}">${escaparHTML(situacao.texto)}</span></td>
-            <td class="data">${escaparHTML(formatarData(item.data))}</td>
-          </tr>
-        `;
-      })
-      .join("");
+    const textoFiltros = filtros.length
+      ? filtros.join(" | ")
+      : "Nenhum filtro específico aplicado.";
 
-    const conteudo = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Relatório de Solicitações - AndraRecursos</title>
-  <style>
-    :root { color-scheme: light; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 32px;
-      color: #243247;
-      background: #f3f6fa;
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .pagina {
-      max-width: 1500px;
-      margin: 0 auto;
-      padding: 34px;
-      background: #fff;
-      border: 1px solid #e1e7ef;
-      border-radius: 14px;
-      box-shadow: 0 8px 28px rgba(8, 45, 86, .08);
-    }
-    .topo {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 24px;
-      padding-bottom: 24px;
-      border-bottom: 3px solid #082d56;
-    }
-    .marca {
-      margin: 0 0 7px;
-      color: #1759ad;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1.8px;
-      text-transform: uppercase;
-    }
-    h1 {
-      margin: 0;
-      color: #082d56;
-      font-size: 29px;
-      line-height: 1.2;
-    }
-    .subtitulo { margin: 9px 0 0; color: #68778a; font-size: 14px; }
-    .emissao {
-      min-width: 190px;
-      padding: 13px 15px;
-      border-radius: 9px;
-      background: #f3f6fa;
-      color: #506176;
-      font-size: 12px;
-    }
-    .emissao strong { display: block; margin-bottom: 4px; color: #082d56; }
-    h2 {
-      margin: 28px 0 13px;
-      color: #082d56;
-      font-size: 17px;
-    }
-    .resumo {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(130px, 1fr));
-      gap: 12px;
-    }
-    .cartao {
-      padding: 17px;
-      border: 1px solid #e1e7ef;
-      border-top: 4px solid #1759ad;
-      border-radius: 9px;
-      background: #fff;
-    }
-    .cartao:nth-child(2) { border-top-color: #15803d; }
-    .cartao:nth-child(3) { border-top-color: #ca8a04; }
-    .cartao:nth-child(4) { border-top-color: #2563eb; }
-    .cartao:nth-child(5) { border-top-color: #dc2626; }
-    .cartao .rotulo { display: block; color: #68778a; font-size: 12px; }
-    .cartao .numero { display: block; margin-top: 5px; color: #082d56; font-size: 27px; font-weight: 700; }
-    .filtros {
-      padding: 14px 16px;
-      border: 1px solid #dbe5f1;
-      border-radius: 8px;
-      background: #f7faff;
-      color: #526176;
-    }
-    .filtros strong { color: #082d56; }
-    .tabela-wrapper { width: 100%; overflow-x: auto; }
-    table { width: 100%; margin-top: 12px; border-collapse: collapse; }
-    thead { display: table-header-group; }
-    th {
-      padding: 13px 11px;
-      background: #082d56;
-      color: #fff;
-      font-size: 10px;
-      letter-spacing: .45px;
-      text-align: left;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-    td {
-      padding: 12px 11px;
-      border-bottom: 1px solid #e7edf4;
-      vertical-align: top;
-      overflow-wrap: anywhere;
-    }
-    tbody tr:nth-child(even) { background: #f7f9fc; }
-    tbody tr { page-break-inside: avoid; }
-    .id { color: #082d56; font-weight: 700; white-space: nowrap; }
-    .descricao { min-width: 220px; max-width: 360px; white-space: pre-wrap; }
-    .data { white-space: nowrap; }
-    .etiqueta {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-    .status-aprovada, .prioridade-baixa { color: #166534; background: #dcfce7; }
-    .status-recusada, .prioridade-alta { color: #991b1b; background: #fee2e2; }
-    .status-pendente { color: #854d0e; background: #fef3c7; }
-    .status-andamento, .prioridade-media { color: #1d4ed8; background: #dbeafe; }
-    .status-outro, .prioridade-outra { color: #475569; background: #e2e8f0; }
-    .rodape {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      margin-top: 25px;
-      padding-top: 15px;
-      border-top: 1px solid #e1e7ef;
-      color: #7b8797;
-      font-size: 11px;
-    }
-    .acoes { display: flex; justify-content: flex-end; margin-bottom: 18px; }
-    .botao-imprimir {
-      padding: 10px 16px;
-      border: 0;
-      border-radius: 7px;
-      background: #082d56;
-      color: white;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    @media (max-width: 900px) {
-      body { padding: 12px; }
-      .pagina { padding: 18px; }
-      .topo { flex-direction: column; }
-      .resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media print {
-      @page { size: landscape; margin: 12mm; }
-      body { padding: 0; background: #fff; font-size: 10px; }
-      .pagina { max-width: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
-      .acoes { display: none; }
-      .topo { padding-bottom: 15px; }
-      h1 { font-size: 23px; }
-      h2 { margin-top: 18px; }
-      .resumo { grid-template-columns: repeat(5, 1fr); gap: 7px; }
-      .cartao { padding: 10px; }
-      .cartao .numero { font-size: 20px; }
-      table { font-size: 9px; }
-      th, td { padding: 7px 6px; }
-      .descricao { min-width: 150px; }
-      .filtros, .cartao, tr { break-inside: avoid; }
-      thead { display: table-header-group; }
-    }
-  </style>
-</head>
-<body>
-  <main class="pagina">
-    <div class="acoes">
-      <button class="botao-imprimir" onclick="window.print()">Imprimir / Salvar como PDF</button>
-    </div>
+    const linhasFiltros = doc.splitTextToSize(
+      textoFiltros,
+      265
+    );
 
-    <header class="topo">
-      <div>
-        <p class="marca">AndraRecursos · Gestão de solicitações</p>
-        <h1>Relatório de Solicitações</h1>
-        <p class="subtitulo">Visão organizada das solicitações registradas no sistema.</p>
-      </div>
-      <div class="emissao">
-        <strong>Data de emissão</strong>
-        ${escaparHTML(dataEmissao)}
-        <br><br>
-        <strong>Registros neste relatório</strong>
-        ${solicitacoesFiltradas.length}
-      </div>
-    </header>
+    doc.text(linhasFiltros, 14, inicioTabela + 6);
 
-    <section>
-      <h2>Resumo geral</h2>
-      <div class="resumo">
-        ${resumo.map((item) => `
-          <div class="cartao">
-            <span class="rotulo">${escaparHTML(item.titulo)}</span>
-            <span class="numero">${item.valor}</span>
-          </div>
-        `).join("")}
-      </div>
-    </section>
+    inicioTabela += 10 + linhasFiltros.length * 4;
 
-    <section>
-      <h2>Filtros utilizados</h2>
-      <div class="filtros">
-        ${filtrosAplicados.length
-          ? `<strong>Este relatório considera:</strong> ${filtrosAplicados.map(escaparHTML).join(" · ")}`
-          : "<strong>Nenhum filtro específico aplicado.</strong> Todas as solicitações disponíveis estão incluídas."}
-      </div>
-    </section>
+    // Tabela com todas as solicitações filtradas
+    autoTable(doc, {
+      startY: inicioTabela,
+      head: [[
+        "ID",
+        "Instituição",
+        "Tipo",
+        "Descrição",
+        "Setor",
+        "Prioridade",
+        "Status",
+        "Data",
+      ]],
+      body: solicitacoesFiltradas.map((item) => [
+        `#${item.id ?? "—"}`,
+        item.instituicao || "Não informada",
+        item.titulo || "Sem título",
+        item.descricao || "Sem descrição",
+        item.setor || "Não informado",
+        item.prioridade
+          ? item.prioridade.charAt(0).toUpperCase() +
+            item.prioridade.slice(1)
+          : "Não informada",
+        statusVisual(item.status).texto,
+        formatarData(item.data),
+      ]),
+      theme: "striped",
+      headStyles: {
+        fillColor: azul,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [245, 248, 252],
+      },
+      styles: {
+        font: "helvetica",
+        fontSize: 7,
+        cellPadding: 2.5,
+        overflow: "linebreak",
+        valign: "middle",
+      },
+      columnStyles: {
+        0: { cellWidth: 13 },
+        1: { cellWidth: 34 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 65 },
+        4: { cellWidth: 28 },
+        5: { cellWidth: 22 },
+        6: { cellWidth: 25 },
+        7: { cellWidth: 22 },
+      },
+      margin: {
+        top: 15,
+        right: 10,
+        bottom: 18,
+        left: 10,
+      },
+      showHead: "everyPage",
+      didDrawPage: () => {
+        const paginaAtual = doc.internal.getNumberOfPages();
+        const altura = doc.internal.pageSize.getHeight();
+        const largura = doc.internal.pageSize.getWidth();
 
-    <section>
-      <h2>Solicitações filtradas</h2>
-      <div class="tabela-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Instituição</th>
-              <th>Tipo de solicitação</th>
-              <th>Descrição</th>
-              <th>Setor</th>
-              <th>Prioridade</th>
-              <th>Status</th>
-              <th>Data do pedido</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${linhasTabela}
-          </tbody>
-        </table>
-      </div>
-    </section>
+        doc.setFontSize(8);
+        doc.setTextColor(120, 130, 145);
+        doc.text(
+          "AndraRecursos - Relatório de Solicitações",
+          10,
+          altura - 8
+        );
+        doc.text(
+          `Página ${paginaAtual}`,
+          largura - 10,
+          altura - 8,
+          { align: "right" }
+        );
+      },
+    });
 
-    <footer class="rodape">
-      <span>AndraRecursos · Relatório gerado automaticamente pelo sistema.</span>
-      <span>Total de registros: ${solicitacoesFiltradas.length}</span>
-    </footer>
-  </main>
-</body>
-</html>`;
+    // Gera e baixa o arquivo PDF
+    const dataArquivo = new Date()
+      .toLocaleDateString("pt-BR")
+      .replace(/\//g, "-");
 
-    // Abre o relatório já formatado para impressão ou salvamento em PDF.
-    // O usuário poderá escolher "Salvar como PDF" na janela de impressão.
-    const janelaRelatorio = window.open("", "_blank");
+    doc.save(`Relatorio_AndraRecursos_${dataArquivo}.pdf`);
 
-    if (!janelaRelatorio) {
-      toast.error(
-        "O navegador bloqueou a janela do relatório. Permita pop-ups para este site e tente novamente."
-      );
-      return;
-    }
-
-    janelaRelatorio.onload = () => {
-      janelaRelatorio.focus();
-      janelaRelatorio.print();
-    };
-
-    janelaRelatorio.document.open();
-    janelaRelatorio.document.write(conteudo);
-    janelaRelatorio.document.close();
-
-    toast.success("Relatório preparado. Escolha 'Salvar como PDF' na janela de impressão.");
+    toast.success("Relatório PDF exportado com sucesso!");
+  } catch (error) {
+    console.error("Erro ao exportar relatório PDF:", error);
+    toast.error("Não foi possível gerar o relatório PDF.");
   }
+}
 
   // ==========================================
   // APROVAR E RECUSAR
@@ -857,37 +684,30 @@ export default function PrincipalAdm() {
     setProcessando(true);
 
     try {
-      const token = localStorage.getItem(
-        "@AndraRecursos:token"
-      );
+      const token = localStorage.getItem("@AndraRecursos:token");
 
       if (!token) {
         throw new Error("Sessão expirada. Faça login novamente.");
       }
 
-      const resposta = await fetch(
-        `${API}/solicitacoes/${id}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            status,
-          }),
-        }
-      );
+      const resposta = await fetch(`${API}/solicitacoes/${id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status,
+        }),
+      });
 
-      const resultado = await resposta
-        .json()
-        .catch(() => null);
+      const resultado = await resposta.json().catch(() => null);
 
       if (!resposta.ok) {
         throw new Error(
           resultado?.error ||
-          resultado?.message ||
-          `Erro ${resposta.status} ao atualizar status.`
+            resultado?.message ||
+            `Erro ${resposta.status} ao atualizar status.`,
         );
       }
 
@@ -895,10 +715,8 @@ export default function PrincipalAdm() {
       // cartões e filtros.
       setSolicitacoes((anteriores) =>
         anteriores.map((item) =>
-          String(item.id) === String(id)
-            ? { ...item, status }
-            : item
-        )
+          String(item.id) === String(id) ? { ...item, status } : item,
+        ),
       );
 
       setConfirmacao(null);
@@ -906,16 +724,13 @@ export default function PrincipalAdm() {
       toast.success(
         status === "aprovada"
           ? "Solicitação aprovada com sucesso!"
-          : "Solicitação recusada com sucesso!"
+          : "Solicitação recusada com sucesso!",
       );
 
       // Reconcilia os dados com a API.
       setAtualizar((valor) => valor + 1);
-
     } catch (error) {
-      toast.error(
-        error.message || "Erro ao atualizar solicitação."
-      );
+      toast.error(error.message || "Erro ao atualizar solicitação.");
     } finally {
       setProcessando(false);
     }
@@ -931,8 +746,7 @@ export default function PrincipalAdm() {
   const classeCabecalhoTabela =
     "px-5 py-4 text-left text-xs font-semibold tracking-wide text-gray-500";
 
-  const classeCelula =
-    "px-5 py-4 text-sm text-gray-600";
+  const classeCelula = "px-5 py-4 text-sm text-gray-600";
 
   // ==========================================
   // INTERFACE
@@ -940,10 +754,8 @@ export default function PrincipalAdm() {
 
   return (
     <div className="space-y-7">
-
       {/* CABEÇALHO */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
         <div>
           <h1 className="text-2xl font-bold text-[#082d56] sm:text-3xl">
             Visão Geral
@@ -958,16 +770,13 @@ export default function PrincipalAdm() {
           type="button"
           onClick={exportarRelatorio}
           disabled={
-            carregando ||
-            Boolean(erro) ||
-            solicitacoesFiltradas.length === 0
+            carregando || Boolean(erro) || solicitacoesFiltradas.length === 0
           }
           className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#164675] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           <FiDownload size={17} />
           Exportar Relatório
         </button>
-
       </div>
 
       {/* ERRO */}
@@ -995,9 +804,7 @@ export default function PrincipalAdm() {
               {metrica.titulo}
             </span>
 
-            <span
-              className={`mt-3 block text-3xl font-bold ${metrica.texto}`}
-            >
+            <span className={`mt-3 block text-3xl font-bold ${metrica.texto}`}>
               {carregando ? "—" : metrica.valor}
             </span>
           </div>
@@ -1014,14 +821,11 @@ export default function PrincipalAdm() {
         </span>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-
           {/* STATUS */}
           <select
             aria-label="Filtrar por status"
             value={filtroStatus}
-            onChange={(e) =>
-              alterarFiltro(setFiltroStatus, e.target.value)
-            }
+            onChange={(e) => alterarFiltro(setFiltroStatus, e.target.value)}
             className={classeSelect}
           >
             <option value="">STATUS</option>
@@ -1035,9 +839,7 @@ export default function PrincipalAdm() {
           <select
             aria-label="Filtrar por tipo"
             value={filtroTipo}
-            onChange={(e) =>
-              alterarFiltro(setFiltroTipo, e.target.value)
-            }
+            onChange={(e) => alterarFiltro(setFiltroTipo, e.target.value)}
             className={classeSelect}
           >
             <option value="">TIPOS</option>
@@ -1054,20 +856,14 @@ export default function PrincipalAdm() {
             aria-label="Filtrar por instituição"
             value={filtroInstituicao}
             onChange={(e) =>
-              alterarFiltro(
-                setFiltroInstituicao,
-                e.target.value
-              )
+              alterarFiltro(setFiltroInstituicao, e.target.value)
             }
             className={classeSelect}
           >
             <option value="">INSTITUIÇÃO</option>
 
             {instituicoesDisponiveis.map((instituicao) => (
-              <option
-                key={instituicao}
-                value={instituicao}
-              >
+              <option key={instituicao} value={instituicao}>
                 {instituicao}
               </option>
             ))}
@@ -1077,9 +873,7 @@ export default function PrincipalAdm() {
           <select
             aria-label="Filtrar por data"
             value={filtroData}
-            onChange={(e) =>
-              alterarFiltro(setFiltroData, e.target.value)
-            }
+            onChange={(e) => alterarFiltro(setFiltroData, e.target.value)}
             className={classeSelect}
           >
             <option value="">DATA</option>
@@ -1094,12 +888,7 @@ export default function PrincipalAdm() {
           <select
             aria-label="Filtrar por prioridade"
             value={filtroPrioridade}
-            onChange={(e) =>
-              alterarFiltro(
-                setFiltroPrioridade,
-                e.target.value
-              )
-            }
+            onChange={(e) => alterarFiltro(setFiltroPrioridade, e.target.value)}
             className={classeSelect}
           >
             <option value="">PRIORIDADE</option>
@@ -1117,34 +906,26 @@ export default function PrincipalAdm() {
           >
             Limpar
           </button>
-
         </div>
       </section>
 
       {/* TABELA DE SOLICITAÇÕES */}
       <section className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-5">
-
           <h2 className="text-lg font-semibold text-[#082d56]">
             Solicitações Recentes
           </h2>
 
           <button
             type="button"
-            onClick={() =>
-              setAtualizar((valor) => valor + 1)
-            }
+            onClick={() => setAtualizar((valor) => valor + 1)}
             disabled={carregando}
             title="Atualizar solicitações"
             className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-[#082d56] transition hover:bg-gray-50 disabled:opacity-50"
           >
-            <FiRefreshCw
-              className={carregando ? "animate-spin" : ""}
-            />
+            <FiRefreshCw className={carregando ? "animate-spin" : ""} />
             Atualizar
           </button>
-
         </div>
 
         <div
@@ -1154,7 +935,6 @@ export default function PrincipalAdm() {
           aria-label="Tabela de solicitações recentes"
         >
           <table className="w-full min-w-[960px] border-collapse">
-
             <thead className="bg-gray-50">
               <tr>
                 {[
@@ -1178,7 +958,6 @@ export default function PrincipalAdm() {
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-
               {carregando ? (
                 <tr>
                   <td
@@ -1203,27 +982,17 @@ export default function PrincipalAdm() {
                   const situacao = statusVisual(item.status);
 
                   return (
-                    <tr
-                      key={item.id}
-                      className="transition hover:bg-gray-50"
-                    >
-
+                    <tr key={item.id} className="transition hover:bg-gray-50">
                       {/* ID */}
                       <td className={classeCelula}>
-                        <strong className="text-[#082d56]">
-                          {item.id}
-                        </strong>
+                        <strong className="text-[#082d56]">{item.id}</strong>
                       </td>
 
                       {/* INSTITUIÇÃO */}
-                      <td className={classeCelula}>
-                        {item.instituicao}
-                      </td>
+                      <td className={classeCelula}>{item.instituicao}</td>
 
                       {/* TIPO */}
-                      <td className={classeCelula}>
-                        {item.titulo}
-                      </td>
+                      <td className={classeCelula}>{item.titulo}</td>
 
                       {/* PRIORIDADE */}
                       <td className={classeCelula}>
@@ -1244,25 +1013,19 @@ export default function PrincipalAdm() {
                       </td>
 
                       {/* DATA */}
-                      <td
-                        className={`${classeCelula} whitespace-nowrap`}
-                      >
+                      <td className={`${classeCelula} whitespace-nowrap`}>
                         {formatarData(item.data)}
                       </td>
 
                       {/* AÇÕES */}
                       <td className={classeCelula}>
                         <div className="flex items-center gap-2">
-
                           <button
                             type="button"
                             disabled={
-                              processando ||
-                              situacao.grupo === "aprovada"
+                              processando || situacao.grupo === "aprovada"
                             }
-                            onClick={() =>
-                              abrirConfirmacao(item, "aprovada")
-                            }
+                            onClick={() => abrirConfirmacao(item, "aprovada")}
                             className="min-h-10 rounded-md bg-green-100 px-3 py-2 text-xs font-bold text-green-700 transition hover:bg-green-200 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             APROVAR
@@ -1271,25 +1034,19 @@ export default function PrincipalAdm() {
                           <button
                             type="button"
                             disabled={
-                              processando ||
-                              situacao.grupo === "recusada"
+                              processando || situacao.grupo === "recusada"
                             }
-                            onClick={() =>
-                              abrirConfirmacao(item, "recusada")
-                            }
+                            onClick={() => abrirConfirmacao(item, "recusada")}
                             className="min-h-10 rounded-md bg-red-100 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             RECUSAR
                           </button>
-
                         </div>
                       </td>
-
                     </tr>
                   );
                 })
               )}
-
             </tbody>
           </table>
         </div>
@@ -1297,28 +1054,18 @@ export default function PrincipalAdm() {
         {/* PAGINAÇÃO */}
         {!carregando && !erro && solicitacoesFiltradas.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-gray-200 px-5 py-5">
-
             <p className="text-xs text-gray-500">
-              Exibindo{" "}
-              {(paginaAtual - 1) * POR_PAGINA + 1} a{" "}
-              {Math.min(
-                paginaAtual * POR_PAGINA,
-                solicitacoesFiltradas.length
-              )}{" "}
+              Exibindo {(paginaAtual - 1) * POR_PAGINA + 1} a{" "}
+              {Math.min(paginaAtual * POR_PAGINA, solicitacoesFiltradas.length)}{" "}
               de {solicitacoesFiltradas.length} solicitações
             </p>
 
             <div className="flex items-center gap-2">
-
               <button
                 type="button"
                 aria-label="Página anterior"
                 disabled={paginaAtual === 1}
-                onClick={() =>
-                  setPagina((valor) =>
-                    Math.max(1, valor - 1)
-                  )
-                }
+                onClick={() => setPagina((valor) => Math.max(1, valor - 1))}
                 className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <FiChevronLeft size={18} />
@@ -1333,25 +1080,20 @@ export default function PrincipalAdm() {
                 aria-label="Próxima página"
                 disabled={paginaAtual === totalPaginas}
                 onClick={() =>
-                  setPagina((valor) =>
-                    Math.min(totalPaginas, valor + 1)
-                  )
+                  setPagina((valor) => Math.min(totalPaginas, valor + 1))
                 }
                 className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <FiChevronRight size={18} />
               </button>
-
             </div>
           </div>
         )}
-
       </section>
 
       {/* CONFIRMAÇÃO PERSONALIZADA */}
       {confirmacao && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#07182b]/65 p-4 backdrop-blur-sm">
-
           <section
             role="alertdialog"
             aria-modal="true"
@@ -1359,9 +1101,7 @@ export default function PrincipalAdm() {
             aria-describedby="descricao-confirmacao"
             className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
           >
-
             <div className="px-6 pb-5 pt-7 text-center">
-
               <div
                 className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${
                   confirmacao.status === "aprovada"
@@ -1407,11 +1147,9 @@ export default function PrincipalAdm() {
                   {confirmacao.instituicao}
                 </p>
               </div>
-
             </div>
 
             <div className="flex gap-3 border-t border-gray-100 bg-gray-50 p-5">
-
               <button
                 type="button"
                 disabled={processando}
@@ -1448,13 +1186,10 @@ export default function PrincipalAdm() {
                   </>
                 )}
               </button>
-
             </div>
-
           </section>
         </div>
       )}
-
     </div>
   );
 }
