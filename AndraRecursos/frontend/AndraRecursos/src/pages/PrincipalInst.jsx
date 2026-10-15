@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -21,23 +20,13 @@ import LayoutInstituicao from "../components/LayoutInstituicao";
 
 const API = String(enderecoServidor).replace(/\/$/, "");
 
-function CartaoIndicador({
-  titulo,
-  valor,
-  Icone,
-  cor,
-  fundo,
-}) {
+function CartaoIndicador({ titulo, valor, Icone, cor, fundo }) {
   return (
     <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div>
-        <p className="text-sm text-slate-500">
-          {titulo}
-        </p>
+        <p className="text-sm text-slate-500">{titulo}</p>
 
-        <p className="mt-3 text-2xl font-bold text-[#082d56]">
-          {valor}
-        </p>
+        <p className="mt-3 text-2xl font-bold text-[#082d56]">{valor}</p>
       </div>
 
       <span className={`rounded-xl p-3 ${fundo} ${cor}`}>
@@ -50,15 +39,10 @@ function CartaoIndicador({
 function DadoInstituicao({ Icone, titulo, valor }) {
   return (
     <div className="flex items-start gap-3">
-      <Icone
-        size={19}
-        className="mt-0.5 shrink-0 text-[#1755ad]"
-      />
+      <Icone size={19} className="mt-0.5 shrink-0 text-[#1755ad]" />
 
       <div className="min-w-0">
-        <p className="text-xs text-slate-500">
-          {titulo}
-        </p>
+        <p className="text-xs text-slate-500">{titulo}</p>
 
         <p className="mt-1 break-words text-sm font-semibold text-[#082d56]">
           {valor || "Não informado"}
@@ -74,13 +58,38 @@ export default function PrincipalInst() {
   const [instituicao, setInstituicao] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
+  const [solicitacoes, setSolicitacoes] = useState([]);
+
+  //Buscando solicitacoes
+  async function buscarSolicitacoes() {
+    const token = localStorage.getItem("@AndraRecursos:token");
+
+    try {
+      const resposta = await fetch(`${API}/solicitacoes/instituicoes`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(
+          dados?.message || dados?.error || "Erro ao buscar solicitações.",
+        );
+      }
+
+      setSolicitacoes(Array.isArray(dados) ? dados : []);
+    } catch (error) {
+      console.error("Erro ao buscar solicitações:", error);
+      setErro(error.message);
+    }
+  }
 
   useEffect(() => {
     let ativo = true;
 
-    const token = localStorage.getItem(
-      "@AndraRecursos:token"
-    );
+    const token = localStorage.getItem("@AndraRecursos:token");
 
     if (!token) {
       navigate("/", { replace: true });
@@ -92,14 +101,11 @@ export default function PrincipalInst() {
       setErro("");
 
       try {
-        const resposta = await fetch(
-          `${API}/instituicoes/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const resposta = await fetch(`${API}/instituicoes/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         const dados = await resposta.json().catch(() => null);
 
@@ -107,7 +113,7 @@ export default function PrincipalInst() {
           throw new Error(
             dados?.message ||
               dados?.error ||
-              `Erro ${resposta.status} ao buscar instituição.`
+              `Erro ${resposta.status} ao buscar instituição.`,
           );
         }
 
@@ -125,6 +131,7 @@ export default function PrincipalInst() {
       }
     }
 
+    buscarSolicitacoes();
     buscarInstituicao();
 
     return () => {
@@ -142,20 +149,14 @@ export default function PrincipalInst() {
   }
 
   const endereco = instituicao?.logradouro
-    ? [
-        instituicao.logradouro,
-        instituicao.numero,
-        instituicao.bairro,
-      ]
+    ? [instituicao.logradouro, instituicao.numero, instituicao.bairro]
         .filter(Boolean)
         .join(", ")
     : "Não informado";
 
   return (
     <LayoutInstituicao nomeInstituicao={instituicao?.nome}>
-
       <div className="mx-auto max-w-7xl space-y-6">
-
         {/* ERRO */}
         {erro && (
           <div
@@ -170,7 +171,6 @@ export default function PrincipalInst() {
         {/* BOAS-VINDAS */}
         <section className="overflow-hidden rounded-2xl bg-[#082d56] p-6 text-white shadow-sm sm:p-8">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-
             <div>
               <p className="mb-2 text-sm text-blue-200">
                 Bem-vindo(a) ao AndraRecursos
@@ -181,8 +181,8 @@ export default function PrincipalInst() {
               </h1>
 
               <p className="mt-3 max-w-xl text-sm leading-relaxed text-blue-100">
-                Acompanhe suas solicitações, consulte o
-                histórico e gerencie as informações da instituição.
+                Acompanhe suas solicitações, consulte o histórico e gerencie as
+                informações da instituição.
               </p>
             </div>
 
@@ -196,7 +196,7 @@ export default function PrincipalInst() {
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <CartaoIndicador
             titulo="Solicitações"
-            valor="—"
+            valor={solicitacoes.length}
             Icone={FiClipboard}
             cor="text-[#1755ad]"
             fundo="bg-blue-50"
@@ -204,7 +204,11 @@ export default function PrincipalInst() {
 
           <CartaoIndicador
             titulo="Pendentes"
-            valor="—"
+            valor={
+              solicitacoes.filter(
+                (s) => s.status?.trim().toLowerCase() === "pendente",
+              ).length
+            }
             Icone={FiClock}
             cor="text-amber-600"
             fundo="bg-amber-50"
@@ -212,7 +216,11 @@ export default function PrincipalInst() {
 
           <CartaoIndicador
             titulo="Aprovadas"
-            valor="—"
+            valor={
+              solicitacoes.filter(
+                (s) => s.status?.trim().toLowerCase() === "aprovada",
+              ).length
+            }
             Icone={FiCheckCircle}
             cor="text-green-600"
             fundo="bg-green-50"
@@ -229,17 +237,15 @@ export default function PrincipalInst() {
 
         {/* OBSERVAÇÃO DOS INDICADORES */}
         <p className="text-xs text-slate-500">
-          Os indicadores de solicitações serão preenchidos
-          quando a consulta institucional de solicitações
-          estiver integrada à API.
+          Os indicadores de solicitações serão preenchidos quando a consulta
+          institucional de solicitações estiver integrada à API.
         </p>
 
         {/* SEÇÕES INFERIORES */}
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-
-          {/* SOLICITAÇÕES RECENTES */}
+          
+        {/* SOLICITAÇÕES RECENTES */}
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
-
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
               <div>
                 <h2 className="text-lg font-bold text-[#082d56]">
@@ -260,9 +266,59 @@ export default function PrincipalInst() {
                 <FiArrowRight />
               </button>
             </div>
+            ```jsx
+            <div className="space-y-3 p-5">
+              {solicitacoes.length === 0 ? (
+                <div className="py-8 text-center">
+                  <FiClipboard
+                    size={27}
+                    className="mx-auto mb-3 text-slate-400"
+                  />
 
-            <div className="flex min-h-64 flex-col items-center justify-center px-5 py-10 text-center">
+                  <p className="font-semibold text-[#082d56]">
+                    Nenhuma solicitação cadastrada
+                  </p>
 
+                  <p className="mt-2 text-sm text-slate-500">
+                    Suas solicitações aparecerão aqui quando forem cadastradas.
+                  </p>
+                </div>
+              ) : (
+                solicitacoes.slice(0, 3).map((solicitacao) => (
+                  <div
+                    key={solicitacao.id_solicitacoes}
+                    className="rounded-lg border border-slate-200 p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <h3 className="font-semibold text-[#082d56]">
+                        {solicitacao.titulo}
+                      </h3>
+
+                      <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                        {solicitacao.status || "Pendente"}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-sm text-slate-500">
+                      Setor: {solicitacao.setor || "Não informado"}
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Prioridade: {solicitacao.prioridade || "Não informada"}
+                    </p>
+                  </div>
+                ))
+              )}
+
+              <button
+                type="button"
+                onClick={() => navigate("/solicitacoes-inst")}
+                className="mt-2 flex items-center gap-2 text-sm font-semibold text-[#1755ad] hover:underline"
+              >
+                Ver todas as solicitações <FiArrowRight />
+              </button>
+            </div>
+            {/* <div className="flex min-h-64 flex-col items-center justify-center px-5 py-10 text-center">
               <span className="mb-4 rounded-full bg-slate-100 p-4 text-slate-400">
                 <FiClipboard size={27} />
               </span>
@@ -272,8 +328,8 @@ export default function PrincipalInst() {
               </h3>
 
               <p className="mt-2 max-w-sm text-sm text-slate-500">
-                Consulte a página de Solicitações para
-                visualizar os pedidos disponíveis.
+                Consulte a página de Solicitações para visualizar os pedidos
+                disponíveis.
               </p>
 
               <button
@@ -283,7 +339,7 @@ export default function PrincipalInst() {
               >
                 Ir para solicitações
               </button>
-            </div>
+            </div> */}
           </div>
 
           {/* DADOS INSTITUCIONAIS */}

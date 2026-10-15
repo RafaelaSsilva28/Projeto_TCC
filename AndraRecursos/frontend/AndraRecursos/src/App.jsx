@@ -23,6 +23,7 @@ import SolicitacoesAdmin from "./pages/SolicitacoesAdmin";
 import SolicitacoesInst from "./pages/SolicitacoesInst";
 
 import NotificacoesAdmin from "./pages/NotificacoesAdmin";
+import NotificacoesInst from "./pages/NotificaçõesInst";
 
 import RelatoriosInst from "./pages/RelatoriosInst";
 
