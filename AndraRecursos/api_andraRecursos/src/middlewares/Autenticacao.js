@@ -1,13 +1,10 @@
-
 import jwt from "jsonwebtoken";
 import { BD } from "../../db.js";
 
 export function autenticarToken(req, res, next) {
   const cabecalho = req.headers.authorization;
 
-  const token = cabecalho?.startsWith("Bearer ")
-    ? cabecalho.slice(7)
-    : null;
+  const token = cabecalho?.startsWith("Bearer ") ? cabecalho.slice(7) : null;
 
   if (!token) {
     return res.status(401).json({
@@ -20,14 +17,13 @@ export function autenticarToken(req, res, next) {
       throw new Error("JWT_SECRET não configurada");
     }
 
-    const usuario = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    const usuario = jwt.verify(token, process.env.JWT_SECRET);
 
     req.usuario = usuario;
-    next();
 
+    console.log("Usuário autenticado:", usuario);
+    
+    next();
   } catch (error) {
     if (
       error.name === "TokenExpiredError" ||
@@ -73,7 +69,7 @@ export async function autenticarInstituicao(req, res, next) {
       `SELECT id_instituicao, cadastro_completo
        FROM instituicoes
        WHERE id_instituicao = $1`,
-      [req.usuario.id_instituicao]
+      [req.usuario.id_instituicao],
     );
 
     if (resultado.rows.length === 0) {
@@ -84,7 +80,6 @@ export async function autenticarInstituicao(req, res, next) {
 
     req.instituicao = resultado.rows[0];
     next();
-
   } catch (error) {
     console.error(error.message);
 
