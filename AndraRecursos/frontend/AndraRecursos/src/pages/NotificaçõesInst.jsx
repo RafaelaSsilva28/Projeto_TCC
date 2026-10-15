@@ -12,6 +12,31 @@ import { enderecoServidor } from "../utils";
 
 import LayoutInstituicao from "../components/LayoutInstituicao";
 
+function obterToken() {
+  const tokenSalvo = localStorage.getItem("@AndraRecursos:token");
+
+  if (tokenSalvo && tokenSalvo !== "null" && tokenSalvo !== "undefined") {
+    return tokenSalvo;
+  }
+
+  const usuarioSalvo = localStorage.getItem("@AndraRecursos:usuario");
+
+  if (!usuarioSalvo) return null;
+
+  try {
+    const usuario = JSON.parse(usuarioSalvo);
+
+    if (typeof usuario === "string") {
+      return usuario;
+    }
+
+    return (
+      usuario?.token || usuario?.accessToken || usuario?.access_token || null
+    );
+  } catch {
+    return usuarioSalvo;
+  }
+}
 export default function NotificacoesInst() {
   const navigate = useNavigate();
 
@@ -23,7 +48,7 @@ export default function NotificacoesInst() {
   useEffect(() => {
     let ativo = true;
 
-    const token = localStorage.getItem("@AndraRecursos:token");
+    const token = obterToken();
 
     if (!token) {
       navigate("/", { replace: true });
@@ -96,8 +121,7 @@ export default function NotificacoesInst() {
   }, [navigate]);
 
   async function atualizarNotificacoes() {
-    const token = localStorage.getItem("@AndraRecursos:token");
-
+    const token = obterToken();
     if (!token) {
       navigate("/", { replace: true });
       return;
