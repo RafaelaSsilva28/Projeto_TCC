@@ -36,9 +36,9 @@ export default function NotificacoesInst() {
         setErro("");
 
         const [respostaInstituicao, respostaNotificacoes] = await Promise.all([
-          fetch(`${enderecoServidor} /instituicoes/me`, {
+          fetch(`${enderecoServidor}/instituicoes/me`, {
             headers: {
-              Authorization: `Bearer ${token} `,
+              Authorization: `Bearer ${token}`,
             },
           }),
           fetch(`${enderecoServidor}/notificacoes`, {

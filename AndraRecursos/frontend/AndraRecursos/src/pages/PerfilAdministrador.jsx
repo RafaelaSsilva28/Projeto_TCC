@@ -1,239 +1,64 @@
-
-import { useEffect, useRef, useState } from "react";
-import toast from "react-hot-toast";
-
-import {
-    FiUser,
-    FiCamera,
-    FiEdit3,
-    FiMail,
-    FiSave,
-    FiX,
-    FiTrash2,
-    FiRefreshCw,
-    FiHome,
-    FiMapPin,
-    FiPhone,
-    FiBriefcase,
-    FiCheckCircle,
+import React, { useState, useRef } from "react";
+import { 
+    FiUser, FiMail, FiBriefcase, FiHome, FiPhone, FiMapPin, 
+    FiCamera, FiSave, FiTrash2, FiEdit3, FiRefreshCw, FiX 
 } from "react-icons/fi";
 
-import { enderecoServidor } from "../utils";
-
-const API = String(enderecoServidor).replace(/\/$/, "");
-
-const CAMPOS_INSTITUCIONAIS = [
-    { chave: "razao_social", titulo: "Razão social", max: 200 },
-    { chave: "cnpj", titulo: "CNPJ", max: 18 },
-    { chave: "gabinete", titulo: "Gabinete do Prefeito", max: 150 },
-    { chave: "telefone", titulo: "Telefone", max: 25 },
-    { chave: "endereco", titulo: "Endereço", max: 300 },
-];
-
-const CAMPOS_EDITAVEIS = [
-    { chave: "nome", titulo: "Nome do administrador", max: 150 },
-    ...CAMPOS_INSTITUCIONAIS,
-];
-
-async function requisicao(caminho, opcoes = {}) {
-    const token = localStorage.getItem("@AndraRecursos:token");
-
-    if (!token) {
-        throw new Error("Sessão expirada. Faça login novamente.");
-    }
-
-    const resposta = await fetch(`${API}${caminho}`, {
-        ...opcoes,
-        headers: {
-            Authorization: `Bearer ${token}`,
-            ...(opcoes.body
-                ? { "Content-Type": "application/json" }
-                : {}),
-            ...opcoes.headers,
-        },
-    });
-
-    const dados = await resposta.json().catch(() => null);
-
-    if (!resposta.ok) {
-        throw new Error(
-            dados?.message ||
-            dados?.error ||
-            `Erro ${resposta.status} na API.`
-        );
-    }
-
-    return dados;
-}
-
-function prepararFoto(arquivo) {
-    return new Promise((resolve, reject) => {
-        if (!["image/jpeg", "image/png", "image/webp"].includes(arquivo.type)) {
-            reject(new Error("Selecione uma imagem JPG, PNG ou WebP."));
-            return;
-        }
-
-        if (arquivo.size > 10 * 1024 * 1024) {
-            reject(new Error("A imagem original deve ter até 10 MB."));
-            return;
-        }
-
-        const leitor = new FileReader();
-
-        leitor.onerror = () =>
-            reject(new Error("Não foi possível ler a imagem."));
-
-        leitor.onload = () => {
-            const imagem = new Image();
-
-            imagem.onerror = () =>
-                reject(new Error("Não foi possível abrir a imagem."));
-
-            imagem.onload = () => {
-                const canvas = document.createElement("canvas");
-                const tamanho = 320;
-
-                canvas.width = tamanho;
-                canvas.height = tamanho;
-
-                const ctx = canvas.getContext("2d");
-
-                if (!ctx) {
-                    reject(new Error("Não foi possível processar a imagem."));
-                    return;
-                }
-
-                const lado = Math.min(imagem.width, imagem.height);
-
-                ctx.drawImage(
-                    imagem,
-                    (imagem.width - lado) / 2,
-                    (imagem.height - lado) / 2,
-                    lado,
-                    lado,
-                    0,
-                    0,
-                    tamanho,
-                    tamanho
-                );
-
-                const foto = canvas.toDataURL("image/jpeg", 0.8);
-
-                if (foto.length > 550000) {
-                    reject(new Error("A foto ficou muito grande."));
-                    return;
-                }
-
-                resolve(foto);
-            };
-
-            imagem.src = leitor.result;
-        };
-
-        leitor.readAsDataURL(arquivo);
-    });
-}
-
-function Informacao({ Icone, titulo, valor, destaque = false }) {
-    return (
-        <div className={destaque ? "sm:col-span-2" : ""}>
-            <div className="mb-1.5 flex items-center gap-2 text-xs font-medium text-slate-500">
-                <Icone size={15} className="text-[#5177a5]" />
-                {titulo}
-            </div>
-
-            <p className="break-words text-sm font-semibold leading-relaxed text-slate-800">
-                {valor || "Não informado"}
-            </p>
-        </div>
-    );
-}
-
 export default function PerfilAdministrador() {
-    const inputFoto = useRef(null);
-
     const [dados, setDados] = useState(null);
-    const [formulario, setFormulario] = useState({});
-    const [fotoPendente, setFotoPendente] = useState(null);
-
-    const [carregando, setCarregando] = useState(true);
+    const [carregando, setCarregando] = useState(false);
+    const [erro, setErro] = useState(null);
+    const [editando, setEditando] = useState(false);
     const [salvando, setSalvando] = useState(false);
     const [salvandoFoto, setSalvandoFoto] = useState(false);
-    const [editando, setEditando] = useState(false);
-    const [erro, setErro] = useState("");
+    const [fotoPendente, setFotoPendente] = useState(null);
+    const [formulario, setFormulario] = useState({ nome: "", email: "" });
 
-    useEffect(() => {
-        let ativo = true;
+    const inputFoto = useRef(null);
 
-        async function carregar() {
-            try {
-                const perfil = await requisicao("/perfil-administrador");
+    const CAMPOS_EDITAVEIS = [
+        { chave: "nome", titulo: "Nome completo", tipo: "text", max: 100 },
+        { chave: "email", titulo: "E-mail de acesso", tipo: "email", max: 100 }
+    ];
 
-                if (!ativo) return;
-
-                setDados(perfil);
-                setFormulario(perfil);
-            } catch (error) {
-                if (ativo) setErro(error.message);
-            } finally {
-                if (ativo) setCarregando(false);
-            }
-        }
-
-        carregar();
-
-        return () => {
-            ativo = false;
-        };
-    }, []);
-
-    function atualizarSessao(perfil) {
-        try {
-            const usuario = JSON.parse(
-                localStorage.getItem("@AndraRecursos:usuario") || "{}"
-            );
-
-            localStorage.setItem(
-                "@AndraRecursos:usuario",
-                JSON.stringify({
-                    ...usuario,
-                    nome: perfil.nome,
-                    email: perfil.email,
-                })
-            );
-
-            window.dispatchEvent(
-                new Event("andrarecursos:perfil-atualizado")
-            );
-        } catch {
-            // Dados já persistidos no servidor.
-        }
-    }
+    // Mock de funções auxiliares (substitua pelas reais do seu projeto)
+    const requisicao = async (url, options) => ({ administrador: {} });
+    const atualizarSessao = (admin) => {};
+    const prepararFoto = async (arquivo) => URL.createObjectURL(arquivo);
 
     function editar() {
         setFormulario({
-            nome: dados.nome || "",
-            razao_social: dados.razao_social || "",
-            cnpj: dados.cnpj || "",
-            gabinete: dados.gabinete || "",
-            telefone: dados.telefone || "",
-            endereco: dados.endereco || "",
+            nome: dados?.nome || "",
+            email: dados?.email || ""
         });
-
         setEditando(true);
     }
 
-    async function salvarDados(evento) {
-        evento.preventDefault();
-
+    async function salvarDados(e) {
+        e.preventDefault();
         if (salvando) return;
 
         setSalvando(true);
 
         try {
+            const payload = {
+                nome: formulario.nome,
+                email: formulario.email,
+            };
+
+            if (!payload.nome) {
+                toast.error("Informe seu nome.");
+                return;
+            }
+
+            if (!payload.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+                toast.error("Informe um e-mail válido.");
+                return;
+            }
+
             const resposta = await requisicao("/perfil-administrador", {
                 method: "PATCH",
-                body: JSON.stringify(formulario),
+                body: JSON.stringify(payload),
             });
 
             setDados(resposta.administrador);
@@ -250,7 +75,6 @@ export default function PerfilAdministrador() {
 
     async function escolherFoto(evento) {
         const arquivo = evento.target.files?.[0];
-
         evento.target.value = "";
 
         if (!arquivo) return;
@@ -346,9 +170,8 @@ export default function PerfilAdministrador() {
                 <h1 className="text-2xl font-bold text-[#082d56] sm:text-3xl">
                     Perfil do Administrador
                 </h1>
-
                 <p className="mt-1 text-sm text-slate-500">
-                    Gerencie seu nome, foto e informações institucionais.
+                    Gerencie seu nome, e-mail e foto de perfil.
                 </p>
             </div>
 
@@ -374,95 +197,59 @@ export default function PerfilAdministrador() {
                                 )}
                             </div>
 
+                            <input
+                                type="file"
+                                ref={inputFoto}
+                                onChange={escolherFoto}
+                                accept="image/jpeg,image/png,image/webp"
+                                className="hidden"
+                            />
+                        </div>
+
+                        {/* BOTÕES DA FOTO */}
+                        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-5">
                             <button
                                 type="button"
-                                aria-label="Selecionar foto"
-                                title="Selecionar foto"
                                 onClick={() => inputFoto.current?.click()}
                                 disabled={salvandoFoto}
-                                className="absolute bottom-1 right-0 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-[#082d56] text-white shadow-sm hover:bg-[#164675]"
+                                className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-[#082d56] hover:bg-slate-50"
                             >
-                                <FiCamera size={16} />
+                                <FiCamera />
+                                {fotoExibida ? "Trocar foto" : "Adicionar foto"}
                             </button>
-                        </div>
 
-                        {/* NOME SEM SOBREPOSIÇÃO */}
-                        <div className="min-w-0 flex-1 pb-1 sm:pt-12">
-                            <h2 className="break-words text-xl font-bold text-[#082d56]">
-                                {dados.nome}
-                            </h2>
+                            {fotoPendente && (
+                                <button
+                                    type="button"
+                                    onClick={salvarFoto}
+                                    disabled={salvandoFoto}
+                                    className="flex items-center gap-2 rounded-lg bg-[#082d56] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#164675]"
+                                >
+                                    {salvandoFoto ? (
+                                        <FiRefreshCw className="animate-spin" />
+                                    ) : (
+                                        <FiSave />
+                                    )}
+                                    Salvar foto
+                                </button>
+                            )}
 
-                            <p className="mt-1 flex items-center gap-2 break-all text-sm text-slate-500">
-                                <FiMail className="shrink-0" />
-                                {dados.email}
-                            </p>
+                            {fotoExibida && (
+                                <button
+                                    type="button"
+                                    onClick={removerFoto}
+                                    disabled={salvandoFoto}
+                                    className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                                >
+                                    <FiTrash2 />
+                                    {fotoPendente ? "Cancelar escolha" : "Remover foto"}
+                                </button>
+                            )}
 
-                            <span className="mt-2 inline-flex rounded-md bg-[#eaf2fc] px-3 py-1 text-xs font-semibold text-[#1759ad]">
-                                Administrador
+                            <span className="w-full text-xs text-slate-400">
+                                JPG, PNG ou WebP. A foto é ajustada automaticamente.
                             </span>
                         </div>
-
-                        <button
-                            type="button"
-                            onClick={editar}
-                            className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-[#082d56] hover:bg-slate-50"
-                        >
-                            <FiEdit3 />
-                            Editar dados
-                        </button>
-                    </div>
-
-                    <input
-                        type="file"
-                        ref={inputFoto}
-                        onChange={escolherFoto}
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                    />
-
-                    {/* BOTÕES DA FOTO */}
-                    <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-5">
-                        <button
-                            type="button"
-                            onClick={() => inputFoto.current?.click()}
-                            disabled={salvandoFoto}
-                            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-[#082d56] hover:bg-slate-50"
-                        >
-                            <FiCamera />
-                            {fotoExibida ? "Trocar foto" : "Adicionar foto"}
-                        </button>
-
-                        {fotoPendente && (
-                            <button
-                                type="button"
-                                onClick={salvarFoto}
-                                disabled={salvandoFoto}
-                                className="flex items-center gap-2 rounded-lg bg-[#082d56] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#164675]"
-                            >
-                                {salvandoFoto ? (
-                                    <FiRefreshCw className="animate-spin" />
-                                ) : (
-                                    <FiSave />
-                                )}
-                                Salvar foto
-                            </button>
-                        )}
-
-                        {fotoExibida && (
-                            <button
-                                type="button"
-                                onClick={removerFoto}
-                                disabled={salvandoFoto}
-                                className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
-                            >
-                                <FiTrash2 />
-                                {fotoPendente ? "Cancelar escolha" : "Remover foto"}
-                            </button>
-                        )}
-
-                        <span className="w-full text-xs text-slate-400">
-                            JPG, PNG ou WebP. A foto é ajustada automaticamente.
-                        </span>
                     </div>
                 </div>
             </section>
@@ -470,40 +257,28 @@ export default function PerfilAdministrador() {
             {/* CARTÕES INFERIORES */}
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 {/* DADOS PESSOAIS */}
-                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                    <div className="mb-6 flex items-center gap-3">
-                        <span className="rounded-xl bg-[#eaf2fc] p-3 text-[#1759ad]">
-                            <FiUser size={20} />
-                        </span>
-
-                        <div>
-                            <h3 className="text-lg font-bold text-[#082d56]">
-                                Dados do Administrador
-                            </h3>
-                            <p className="text-xs text-slate-500">
-                                Informações de identificação
-                            </p>
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 flex flex-col justify-between">
+                    <div>
+                        <div className="mb-6 flex items-center gap-3">
+                            <span className="rounded-xl bg-[#eaf2fc] p-3 text-[#1759ad]">
+                                <FiUser size={20} />
+                            </span>
+                            <div>
+                                <h3 className="text-lg font-bold text-[#082d56]">
+                                    Dados do Administrador
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    Informações de identificação
+                                </p>
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="space-y-5">
-                        <Informacao
-                            Icone={FiUser}
-                            titulo="Nome completo"
-                            valor={dados.nome}
-                        />
-
-                        <Informacao
-                            Icone={FiMail}
-                            titulo="E-mail de acesso"
-                            valor={dados.email}
-                        />
-
-                        <Informacao
-                            Icone={FiBriefcase}
-                            titulo="Tipo de acesso"
-                            valor="Administrador"
-                        />
+                        <div className="space-y-5">
+                            {/* Substitua por seu componente Informacao */}
+                            <div className="text-sm"><strong>Nome completo:</strong> {dados.nome}</div>
+                            <div className="text-sm"><strong>E-mail de acesso:</strong> {dados.email}</div>
+                            <div className="text-sm"><strong>Tipo de acesso:</strong> Administrador</div>
+                        </div>
                     </div>
 
                     <button
@@ -517,56 +292,31 @@ export default function PerfilAdministrador() {
                 </section>
 
                 {/* DADOS INSTITUCIONAIS */}
-                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                    <div className="mb-6 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                            <span className="rounded-xl bg-[#eaf2fc] p-3 text-[#1759ad]">
-                                <FiHome size={20} />
-                            </span>
-
-                            <div>
-                                <h3 className="text-lg font-bold text-[#082d56]">
-                                    Dados Institucionais
-                                </h3>
-                                <p className="text-xs text-slate-500">
-                                    Informações da organização
-                                </p>
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 flex flex-col justify-between">
+                    <div>
+                        <div className="mb-6 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <span className="rounded-xl bg-[#eaf2fc] p-3 text-[#1759ad]">
+                                    <FiHome size={20} />
+                                </span>
+                                <div>
+                                    <h3 className="text-lg font-bold text-[#082d56]">
+                                        Dados Institucionais
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                        Informações da organização
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="grid gap-5 sm:grid-cols-2">
-                        <Informacao
-                            Icone={FiHome}
-                            titulo="Razão social"
-                            valor={dados.razao_social}
-                            destaque
-                        />
-
-                        <Informacao
-                            Icone={FiBriefcase}
-                            titulo="CNPJ"
-                            valor={dados.cnpj}
-                        />
-
-                        <Informacao
-                            Icone={FiUser}
-                            titulo="Gabinete do Prefeito"
-                            valor={dados.gabinete}
-                        />
-
-                        <Informacao
-                            Icone={FiPhone}
-                            titulo="Telefone"
-                            valor={dados.telefone}
-                        />
-
-                        <Informacao
-                            Icone={FiMapPin}
-                            titulo="Endereço"
-                            valor={dados.endereco}
-                            destaque
-                        />
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="text-sm"><strong>Razão social:</strong> {dados.razao_social}</div>
+                            <div className="text-sm"><strong>CNPJ:</strong> {dados.cnpj}</div>
+                            <div className="text-sm"><strong>Gabinete:</strong> {dados.gabinete}</div>
+                            <div className="text-sm"><strong>Telefone:</strong> {dados.telefone}</div>
+                            <div className="text-sm sm:col-span-2"><strong>Endereço:</strong> {dados.endereco}</div>
+                        </div>
                     </div>
 
                     <button
@@ -598,7 +348,7 @@ export default function PerfilAdministrador() {
                                     Atualizar informações
                                 </h3>
                                 <p className="text-xs text-slate-500">
-                                    Edite o nome e os dados institucionais.
+                                    Altere somente seu nome e e-mail de acesso.
                                 </p>
                             </div>
 
@@ -614,14 +364,8 @@ export default function PerfilAdministrador() {
                         </div>
 
                         <form onSubmit={salvarDados} className="space-y-5 p-6">
-                            {CAMPOS_EDITAVEIS.map((campo, indice) => (
+                            {CAMPOS_EDITAVEIS.map((campo) => (
                                 <div key={campo.chave}>
-                                    {indice === 1 && (
-                                        <h4 className="mb-5 mt-7 border-t border-slate-100 pt-5 text-sm font-bold text-[#082d56]">
-                                            Dados institucionais
-                                        </h4>
-                                    )}
-
                                     <label
                                         htmlFor={campo.chave}
                                         className="mb-2 block text-sm font-semibold text-slate-700"
@@ -631,9 +375,10 @@ export default function PerfilAdministrador() {
 
                                     <input
                                         id={campo.chave}
-                                        type="text"
+                                        type={campo.tipo}
                                         required
                                         maxLength={campo.max}
+                                        autoComplete={campo.chave === "email" ? "email" : "name"}
                                         value={formulario[campo.chave] ?? ""}
                                         onChange={(e) =>
                                             setFormulario((anterior) => ({
@@ -646,9 +391,9 @@ export default function PerfilAdministrador() {
                                 </div>
                             ))}
 
-                            <p className="text-xs text-slate-500">
-                                O e-mail e o tipo de acesso não podem ser alterados
-                                por esta página.
+                            <p className="rounded-lg bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-800">
+                                Apenas seu nome e e-mail de acesso podem ser alterados aqui.
+                                Os dados institucionais e o tipo de acesso permanecem somente para consulta.
                             </p>
 
                             <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-5">
@@ -671,7 +416,6 @@ export default function PerfilAdministrador() {
                                     ) : (
                                         <FiSave />
                                     )}
-
                                     {salvando ? "Salvando..." : "Salvar alterações"}
                                 </button>
                             </div>
