@@ -1,4 +1,3 @@
-
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -13,7 +12,6 @@ import {
   FiTrash2,
   FiAlertCircle,
   FiRefreshCw,
-  FiX,
 } from "react-icons/fi";
 
 import LayoutInstituicao from "../components/LayoutInstituicao";
@@ -33,6 +31,15 @@ const FORMULARIO_INICIAL = {
   prioridade: "Média",
   descricao: "",
 };
+
+const MAX_ARQUIVOS = 10;
+const MAX_TAMANHO_ARQUIVO = 10 * 1024 * 1024;
+
+const TIPOS_PERMITIDOS = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+];
 
 const estiloInput =
   "h-12 w-full rounded-lg border border-[#d4dce7] bg-white px-4 text-sm text-[#082d56] outline-none transition focus:border-[#1759ad] focus:ring-2 focus:ring-blue-100";
@@ -105,6 +112,7 @@ export default function SolicitacoesInst() {
       setErro(
         "Informe um título com pelo menos 3 caracteres, o setor e a prioridade."
       );
+
       return false;
     }
 
@@ -112,6 +120,7 @@ export default function SolicitacoesInst() {
       setErro(
         "A descrição deve conter pelo menos 10 caracteres."
       );
+
       return false;
     }
 
@@ -157,24 +166,22 @@ export default function SolicitacoesInst() {
       evento.target.files || []
     );
 
+    // Permite selecionar o mesmo arquivo novamente
     evento.target.value = "";
 
-    const tiposPermitidos = [
-      "application/pdf",
-      "image/jpeg",
-      "image/png",
-    ];
+    if (selecionados.length === 0) return;
 
     const arquivoInvalido = selecionados.find(
       (arquivo) =>
-        !tiposPermitidos.includes(arquivo.type) ||
-        arquivo.size > 10 * 1024 * 1024
+        !TIPOS_PERMITIDOS.includes(arquivo.type) ||
+        arquivo.size > MAX_TAMANHO_ARQUIVO
     );
 
     if (arquivoInvalido) {
       toast.error(
-        "Envie apenas PDF, JPG ou PNG de até 10 MB."
+        "Envie apenas PDF, JPG ou PNG de até 10 MB por arquivo."
       );
+
       return;
     }
 
@@ -184,12 +191,23 @@ export default function SolicitacoesInst() {
           !anteriores.some(
             (existente) =>
               existente.name === arquivo.name &&
-              existente.size === arquivo.size
+              existente.size === arquivo.size &&
+              existente.lastModified === arquivo.lastModified
           )
       );
 
+      if (anteriores.length + novos.length > MAX_ARQUIVOS) {
+        toast.error(
+          `Você pode selecionar no máximo ${MAX_ARQUIVOS} arquivos.`
+        );
+
+        return anteriores;
+      }
+
       return [...anteriores, ...novos];
     });
+
+    setErro("");
   }
 
   function removerArquivo(indice) {
@@ -213,26 +231,18 @@ export default function SolicitacoesInst() {
   }
 
   // ============================================
-  // CADASTRO NA API
+  // CADASTRO NA API COM DOCUMENTOS
   // ============================================
 
   async function enviarSolicitacao() {
     if (!formularioCompleto || enviando) return;
-
-    // Ainda não há integração real para upload.
-    if (arquivos.length > 0) {
-      setModalEnviar(false);
-      toast.error(
-        "O envio de anexos ainda não está disponível. Remova os arquivos para concluir."
-      );
-      return;
-    }
 
     const token = localStorage.getItem(
       "@AndraRecursos:token"
     );
 
     if (!token) {
+      setModalEnviar(false);
       toast.error("Faça login novamente.");
       return;
     }
@@ -241,20 +251,45 @@ export default function SolicitacoesInst() {
     setErro("");
 
     try {
+      // FormData permite enviar os campos e os arquivos juntos.
+      const corpo = new FormData();
+
+      corpo.append(
+        "titulo",
+        formulario.titulo.trim()
+      );
+
+      corpo.append(
+        "setor",
+        formulario.setor
+      );
+
+      corpo.append(
+        "prioridade",
+        formulario.prioridade
+      );
+
+      corpo.append(
+        "descricao",
+        formulario.descricao.trim()
+      );
+
+      corpo.append("status", "pendente");
+
+      // O nome "documentos" precisa corresponder ao
+      // upload.array("documentos", 10) do backend.
+      arquivos.forEach((arquivo) => {
+        corpo.append("documentos", arquivo);
+      });
+
       const resposta = await fetch(
         `${API}/solicitacoes/instituicoes`,
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            titulo: formulario.titulo.trim(),
-            setor: formulario.setor,
-            prioridade: formulario.prioridade,
-            descricao: formulario.descricao.trim(),
-          }),
+          body: corpo,
         }
       );
 
@@ -265,22 +300,25 @@ export default function SolicitacoesInst() {
       if (!resposta.ok) {
         throw new Error(
           dados.message ||
-          dados.mensagem ||
-          dados.error ||
-          dados.erro ||
-          `Erro ${resposta.status} ao cadastrar solicitação.`
+            dados.mensagem ||
+            dados.error ||
+            dados.erro ||
+            `Erro ${resposta.status} ao cadastrar solicitação.`
         );
       }
 
       setModalEnviar(false);
 
       toast.success(
-        "Solicitação cadastrada com sucesso!"
+        arquivos.length > 0
+          ? `Solicitação cadastrada com ${arquivos.length} arquivo(s)!`
+          : "Solicitação cadastrada com sucesso!"
       );
 
       setFormulario(FORMULARIO_INICIAL);
       setArquivos([]);
       setEtapa(1);
+      setErro("");
 
       navigate("/principal-inst");
     } catch (error) {
@@ -393,7 +431,7 @@ export default function SolicitacoesInst() {
         {/* CARTÃO PRINCIPAL */}
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
 
-          {/* INDICADOR COMPACTO */}
+          {/* INDICADOR DE ETAPAS */}
           <div className="px-5 pb-6 pt-6 sm:px-8">
             <IndicadorEtapas />
           </div>
@@ -416,6 +454,7 @@ export default function SolicitacoesInst() {
                   size={18}
                   className="mt-0.5 shrink-0"
                 />
+
                 {erro}
               </div>
             )}
@@ -468,24 +507,31 @@ export default function SolicitacoesInst() {
                       <option value="">
                         Selecione o setor
                       </option>
+
                       <option value="Administrativo">
                         Administrativo
                       </option>
+
                       <option value="Infraestrutura">
                         Infraestrutura
                       </option>
+
                       <option value="Tecnologia">
                         Tecnologia
                       </option>
+
                       <option value="Recursos Humanos">
                         Recursos Humanos
                       </option>
+
                       <option value="Financeiro">
                         Financeiro
                       </option>
+
                       <option value="Alimentício">
                         Alimentício
                       </option>
+
                       <option value="Outro">
                         Outro
                       </option>
@@ -551,6 +597,7 @@ export default function SolicitacoesInst() {
                   </p>
                 </div>
 
+                {/* SELEÇÃO DE DOCUMENTOS */}
                 <div>
                   <label className={estiloLabel}>
                     Documentos e imagens (opcional)
@@ -559,7 +606,8 @@ export default function SolicitacoesInst() {
                   <button
                     type="button"
                     onClick={() => inputArquivo.current?.click()}
-                    className="flex w-full items-center justify-center gap-3 rounded-lg border-2 border-dashed border-slate-300 bg-[#fafbfc] px-5 py-6 text-left transition hover:border-[#1759ad] hover:bg-blue-50"
+                    disabled={enviando}
+                    className="flex w-full items-center justify-center gap-3 rounded-lg border-2 border-dashed border-slate-300 bg-[#fafbfc] px-5 py-6 text-left transition hover:border-[#1759ad] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <FiUploadCloud
                       size={27}
@@ -581,19 +629,21 @@ export default function SolicitacoesInst() {
                     ref={inputArquivo}
                     type="file"
                     multiple
-                    accept=".pdf,.jpg,.jpeg,.png"
+                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                     onChange={adicionarArquivos}
+                    disabled={enviando}
                     className="hidden"
                   />
 
+                  {/* LISTA DOS ARQUIVOS SELECIONADOS */}
                   {arquivos.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {arquivos.map((arquivo, indice) => (
                         <div
-                          key={`${arquivo.name}-${indice}`}
+                          key={`${arquivo.name}-${arquivo.size}-${arquivo.lastModified}`}
                           className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3"
                         >
-                          <FiFileText className="text-[#1759ad]" />
+                          <FiFileText className="shrink-0 text-[#1759ad]" />
 
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-[#082d56]">
@@ -608,8 +658,9 @@ export default function SolicitacoesInst() {
                           <button
                             type="button"
                             onClick={() => removerArquivo(indice)}
+                            disabled={enviando}
                             aria-label={`Remover ${arquivo.name}`}
-                            className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                            className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-50"
                           >
                             <FiTrash2 size={17} />
                           </button>
@@ -618,9 +669,9 @@ export default function SolicitacoesInst() {
                     </div>
                   )}
 
-                  <p className="mt-2 text-xs text-amber-700">
-                    O upload ainda não está integrado à API.
-                    Para concluir o pedido, não deixe arquivos selecionados.
+                  <p className="mt-2 text-xs text-slate-500">
+                    {arquivos.length} de {MAX_ARQUIVOS} arquivo(s) selecionado(s).
+                    Os documentos serão enviados junto com a solicitação.
                   </p>
                 </div>
 
@@ -661,7 +712,9 @@ export default function SolicitacoesInst() {
                     titulo="Documentos selecionados"
                     valor={
                       arquivos.length
-                        ? `${arquivos.length} arquivo(s) — upload indisponível`
+                        ? arquivos
+                            .map((arquivo) => arquivo.name)
+                            .join("\n")
                         : "Nenhum documento selecionado"
                     }
                     grande
@@ -676,7 +729,9 @@ export default function SolicitacoesInst() {
 
                   <p className="text-sm text-[#082d56]">
                     Confira os dados antes de concluir.
-                    Você pode voltar para corrigir qualquer informação.
+                    Os documentos selecionados serão enviados
+                    junto com a solicitação. Você pode voltar
+                    para corrigir qualquer informação.
                   </p>
                 </div>
 
@@ -686,7 +741,7 @@ export default function SolicitacoesInst() {
           </div>
         </section>
 
-        {/* BOTÕES FORA DO CARTÃO */}
+        {/* BOTÕES DE NAVEGAÇÃO */}
         <div className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
 
           <button
@@ -744,7 +799,10 @@ export default function SolicitacoesInst() {
 
       </div>
 
-      {/* MODAL CANCELAR */}
+      {/* ============================================
+          MODAL CANCELAR
+      ============================================ */}
+
       {modalCancelar && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#07182b]/65 p-4 backdrop-blur-sm">
           <div
@@ -790,7 +848,10 @@ export default function SolicitacoesInst() {
         </div>
       )}
 
-      {/* MODAL CONFIRMAR ENVIO */}
+      {/* ============================================
+          MODAL CONFIRMAR ENVIO
+      ============================================ */}
+
       {modalEnviar && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#07182b]/65 p-4 backdrop-blur-sm">
           <div
@@ -817,6 +878,12 @@ export default function SolicitacoesInst() {
             <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm font-semibold text-[#082d56]">
               {formulario.titulo}
             </p>
+
+            {arquivos.length > 0 && (
+              <p className="mt-2 text-xs text-slate-500">
+                {arquivos.length} documento(s) serão enviados.
+              </p>
+            )}
 
             <div className="mt-6 flex gap-3">
               <button

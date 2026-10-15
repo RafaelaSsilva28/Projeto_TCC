@@ -31,6 +31,7 @@ import HistoricoInst from "./pages/HistoricoInst";
 
 // NOVA PÁGINA DE CONFIGURAÇÕES
 import ConfiguracoesAdmin from "./pages/ConfiguracoesAdmin";
+// import ConfiguracoesInst from "./pages/ConfiguracoesInst";
 
 // ============================================
 // COMPONENTES
@@ -208,6 +209,8 @@ function App() {
           <Route path="/notificacoes-inst" element={<NotificacoesAdmin />} />
 
           <Route path="/relatorios-inst" element={<RelatoriosInst />} />
+
+          {/* <Route path="/configuracoes-inst" element={<ConfiguracoesInst />} /> */}
         </Route>
 
         {/* ====================================

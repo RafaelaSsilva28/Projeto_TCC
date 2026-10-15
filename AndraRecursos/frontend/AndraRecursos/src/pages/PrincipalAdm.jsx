@@ -487,54 +487,353 @@ export default function PrincipalAdm() {
       return;
     }
 
-    const linhas = [
-      [
-        "ID",
-        "Instituição",
-        "Tipo",
-        "Descrição",
-        "Setor",
-        "Prioridade",
-        "Status",
-        "Data",
-      ],
-      ...solicitacoesFiltradas.map((item) => [
-        item.id,
-        item.instituicao,
-        item.titulo,
-        item.descricao,
-        item.setor,
-        item.prioridade,
-        statusVisual(item.status).texto,
-        formatarData(item.data),
-      ]),
+    // Protege os dados ao inseri-los no HTML do relatório.
+    const escaparHTML = (valor) =>
+      String(valor ?? "Não informado")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    const contarStatus = (grupo) =>
+      solicitacoesFiltradas.filter(
+        (item) => statusVisual(item.status).grupo === grupo
+      ).length;
+
+    const resumo = [
+      { titulo: "Total de solicitações", valor: solicitacoesFiltradas.length },
+      { titulo: "Aprovadas", valor: contarStatus("aprovada") },
+      { titulo: "Pendentes", valor: contarStatus("pendente") },
+      { titulo: "Em andamento", valor: contarStatus("em andamento") },
+      { titulo: "Recusadas", valor: contarStatus("recusada") },
     ];
 
-    const conteudo = linhas
-      .map((linha) => linha.map(escaparCSV).join(";"))
-      .join("\r\n");
+    const dataEmissao = new Intl.DateTimeFormat("pt-BR", {
+      dateStyle: "long",
+      timeStyle: "short",
+      timeZone: "America/Sao_Paulo",
+    }).format(new Date());
 
-    const arquivo = new Blob(
-      ["\uFEFF", conteudo],
-      {
-        type: "text/csv;charset=utf-8;",
-      }
-    );
+    const filtrosAplicados = [
+      filtroStatus && `Status: ${statusVisual(filtroStatus).texto}`,
+      filtroTipo && `Tipo: ${filtroTipo}`,
+      filtroInstituicao && `Instituição: ${filtroInstituicao}`,
+      filtroPrioridade &&
+        `Prioridade: ${filtroPrioridade.charAt(0).toUpperCase()}${filtroPrioridade.slice(1)}`,
+      filtroData && `Período/ordenação: ${
+        {
+          recentes: "Mais recentes",
+          antigas: "Mais antigas",
+          hoje: "Hoje",
+          "7dias": "Últimos 7 dias",
+          "30dias": "Últimos 30 dias",
+        }[filtroData] || filtroData
+      }`,
+    ].filter(Boolean);
 
-    const url = URL.createObjectURL(arquivo);
+    const linhasTabela = solicitacoesFiltradas
+      .map((item) => {
+        const situacao = statusVisual(item.status);
+        const prioridade = item.prioridade
+          ? `${item.prioridade.charAt(0).toUpperCase()}${item.prioridade.slice(1)}`
+          : "Não informada";
 
-    const link = document.createElement("a");
+        const classeStatus = {
+          aprovada: "status-aprovada",
+          recusada: "status-recusada",
+          pendente: "status-pendente",
+          "em andamento": "status-andamento",
+        }[situacao.grupo] || "status-outro";
 
-    link.href = url;
-    link.download = "relatorio-dashboard-andrarecursos.csv";
+        const classePrioridade = {
+          alta: "prioridade-alta",
+          urgente: "prioridade-alta",
+          media: "prioridade-media",
+          baixa: "prioridade-baixa",
+        }[normalizarTexto(item.prioridade)] || "prioridade-outra";
 
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+        return `
+          <tr>
+            <td class="id">#${escaparHTML(item.id)}</td>
+            <td>${escaparHTML(item.instituicao)}</td>
+            <td>${escaparHTML(item.titulo)}</td>
+            <td class="descricao">${escaparHTML(item.descricao || "Sem descrição")}</td>
+            <td>${escaparHTML(item.setor || "Não informado")}</td>
+            <td><span class="etiqueta ${classePrioridade}">${escaparHTML(prioridade)}</span></td>
+            <td><span class="etiqueta ${classeStatus}">${escaparHTML(situacao.texto)}</span></td>
+            <td class="data">${escaparHTML(formatarData(item.data))}</td>
+          </tr>
+        `;
+      })
+      .join("");
 
-    URL.revokeObjectURL(url);
+    const conteudo = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório de Solicitações - AndraRecursos</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px;
+      color: #243247;
+      background: #f3f6fa;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .pagina {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 34px;
+      background: #fff;
+      border: 1px solid #e1e7ef;
+      border-radius: 14px;
+      box-shadow: 0 8px 28px rgba(8, 45, 86, .08);
+    }
+    .topo {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      padding-bottom: 24px;
+      border-bottom: 3px solid #082d56;
+    }
+    .marca {
+      margin: 0 0 7px;
+      color: #1759ad;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      color: #082d56;
+      font-size: 29px;
+      line-height: 1.2;
+    }
+    .subtitulo { margin: 9px 0 0; color: #68778a; font-size: 14px; }
+    .emissao {
+      min-width: 190px;
+      padding: 13px 15px;
+      border-radius: 9px;
+      background: #f3f6fa;
+      color: #506176;
+      font-size: 12px;
+    }
+    .emissao strong { display: block; margin-bottom: 4px; color: #082d56; }
+    h2 {
+      margin: 28px 0 13px;
+      color: #082d56;
+      font-size: 17px;
+    }
+    .resumo {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr));
+      gap: 12px;
+    }
+    .cartao {
+      padding: 17px;
+      border: 1px solid #e1e7ef;
+      border-top: 4px solid #1759ad;
+      border-radius: 9px;
+      background: #fff;
+    }
+    .cartao:nth-child(2) { border-top-color: #15803d; }
+    .cartao:nth-child(3) { border-top-color: #ca8a04; }
+    .cartao:nth-child(4) { border-top-color: #2563eb; }
+    .cartao:nth-child(5) { border-top-color: #dc2626; }
+    .cartao .rotulo { display: block; color: #68778a; font-size: 12px; }
+    .cartao .numero { display: block; margin-top: 5px; color: #082d56; font-size: 27px; font-weight: 700; }
+    .filtros {
+      padding: 14px 16px;
+      border: 1px solid #dbe5f1;
+      border-radius: 8px;
+      background: #f7faff;
+      color: #526176;
+    }
+    .filtros strong { color: #082d56; }
+    .tabela-wrapper { width: 100%; overflow-x: auto; }
+    table { width: 100%; margin-top: 12px; border-collapse: collapse; }
+    thead { display: table-header-group; }
+    th {
+      padding: 13px 11px;
+      background: #082d56;
+      color: #fff;
+      font-size: 10px;
+      letter-spacing: .45px;
+      text-align: left;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    td {
+      padding: 12px 11px;
+      border-bottom: 1px solid #e7edf4;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+    tbody tr:nth-child(even) { background: #f7f9fc; }
+    tbody tr { page-break-inside: avoid; }
+    .id { color: #082d56; font-weight: 700; white-space: nowrap; }
+    .descricao { min-width: 220px; max-width: 360px; white-space: pre-wrap; }
+    .data { white-space: nowrap; }
+    .etiqueta {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .status-aprovada, .prioridade-baixa { color: #166534; background: #dcfce7; }
+    .status-recusada, .prioridade-alta { color: #991b1b; background: #fee2e2; }
+    .status-pendente { color: #854d0e; background: #fef3c7; }
+    .status-andamento, .prioridade-media { color: #1d4ed8; background: #dbeafe; }
+    .status-outro, .prioridade-outra { color: #475569; background: #e2e8f0; }
+    .rodape {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 25px;
+      padding-top: 15px;
+      border-top: 1px solid #e1e7ef;
+      color: #7b8797;
+      font-size: 11px;
+    }
+    .acoes { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+    .botao-imprimir {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 7px;
+      background: #082d56;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    @media (max-width: 900px) {
+      body { padding: 12px; }
+      .pagina { padding: 18px; }
+      .topo { flex-direction: column; }
+      .resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media print {
+      @page { size: landscape; margin: 12mm; }
+      body { padding: 0; background: #fff; font-size: 10px; }
+      .pagina { max-width: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+      .acoes { display: none; }
+      .topo { padding-bottom: 15px; }
+      h1 { font-size: 23px; }
+      h2 { margin-top: 18px; }
+      .resumo { grid-template-columns: repeat(5, 1fr); gap: 7px; }
+      .cartao { padding: 10px; }
+      .cartao .numero { font-size: 20px; }
+      table { font-size: 9px; }
+      th, td { padding: 7px 6px; }
+      .descricao { min-width: 150px; }
+      .filtros, .cartao, tr { break-inside: avoid; }
+      thead { display: table-header-group; }
+    }
+  </style>
+</head>
+<body>
+  <main class="pagina">
+    <div class="acoes">
+      <button class="botao-imprimir" onclick="window.print()">Imprimir / Salvar como PDF</button>
+    </div>
 
-    toast.success("Relatório exportado com sucesso!");
+    <header class="topo">
+      <div>
+        <p class="marca">AndraRecursos · Gestão de solicitações</p>
+        <h1>Relatório de Solicitações</h1>
+        <p class="subtitulo">Visão organizada das solicitações registradas no sistema.</p>
+      </div>
+      <div class="emissao">
+        <strong>Data de emissão</strong>
+        ${escaparHTML(dataEmissao)}
+        <br><br>
+        <strong>Registros neste relatório</strong>
+        ${solicitacoesFiltradas.length}
+      </div>
+    </header>
+
+    <section>
+      <h2>Resumo geral</h2>
+      <div class="resumo">
+        ${resumo.map((item) => `
+          <div class="cartao">
+            <span class="rotulo">${escaparHTML(item.titulo)}</span>
+            <span class="numero">${item.valor}</span>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+
+    <section>
+      <h2>Filtros utilizados</h2>
+      <div class="filtros">
+        ${filtrosAplicados.length
+          ? `<strong>Este relatório considera:</strong> ${filtrosAplicados.map(escaparHTML).join(" · ")}`
+          : "<strong>Nenhum filtro específico aplicado.</strong> Todas as solicitações disponíveis estão incluídas."}
+      </div>
+    </section>
+
+    <section>
+      <h2>Solicitações filtradas</h2>
+      <div class="tabela-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Instituição</th>
+              <th>Tipo de solicitação</th>
+              <th>Descrição</th>
+              <th>Setor</th>
+              <th>Prioridade</th>
+              <th>Status</th>
+              <th>Data do pedido</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhasTabela}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="rodape">
+      <span>AndraRecursos · Relatório gerado automaticamente pelo sistema.</span>
+      <span>Total de registros: ${solicitacoesFiltradas.length}</span>
+    </footer>
+  </main>
+</body>
+</html>`;
+
+    // Abre o relatório já formatado para impressão ou salvamento em PDF.
+    // O usuário poderá escolher "Salvar como PDF" na janela de impressão.
+    const janelaRelatorio = window.open("", "_blank");
+
+    if (!janelaRelatorio) {
+      toast.error(
+        "O navegador bloqueou a janela do relatório. Permita pop-ups para este site e tente novamente."
+      );
+      return;
+    }
+
+    janelaRelatorio.onload = () => {
+      janelaRelatorio.focus();
+      janelaRelatorio.print();
+    };
+
+    janelaRelatorio.document.open();
+    janelaRelatorio.document.write(conteudo);
+    janelaRelatorio.document.close();
+
+    toast.success("Relatório preparado. Escolha 'Salvar como PDF' na janela de impressão.");
   }
 
   // ==========================================

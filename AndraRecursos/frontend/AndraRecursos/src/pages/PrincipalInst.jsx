@@ -52,6 +52,30 @@ function DadoInstituicao({ Icone, titulo, valor }) {
   );
 }
 
+//Muda a cor quando estiver pendente ou recusada
+function obterClasseStatus(status) {
+  const statusNormalizado = status
+    ?.trim()
+    .toLowerCase();
+
+  switch (statusNormalizado) {
+    case "recusada":
+    case "recusado":
+      return "bg-red-100 text-red-700";
+
+    case "aprovada":
+    case "aprovado":
+      return "bg-green-100 text-green-700";
+
+    case "pendente":
+      return "bg-blue-100 text-blue-700";
+
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
+}
+
+
 export default function PrincipalInst() {
   const navigate = useNavigate();
 
@@ -256,7 +280,6 @@ export default function PrincipalInst() {
                   Acompanhe os pedidos da sua instituição.
                 </p>
               </div>
-
               <button
                 type="button"
                 onClick={() => navigate("/historico-inst")}
@@ -266,7 +289,6 @@ export default function PrincipalInst() {
                 <FiArrowRight />
               </button>
             </div>
-            ```jsx
             <div className="space-y-3 p-5">
               {solicitacoes.length === 0 ? (
                 <div className="py-8 text-center">
@@ -294,7 +316,8 @@ export default function PrincipalInst() {
                         {solicitacao.titulo}
                       </h3>
 
-                      <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                      <span className={`rounded-full px-4 py-2 text-sm font-medium ${obterClasseStatus(
+                        solicitacao.status)}`}>
                         {solicitacao.status || "Pendente"}
                       </span>
                     </div>
