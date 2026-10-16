@@ -4,6 +4,7 @@ import { BD } from "../../db.js";
 
 import {
     autenticarToken,
+    autenticarAdministrador,
     autenticarInstituicao,
     exigirCadastroCompleto,
 } from "../middlewares/Autenticacao.js";
@@ -21,6 +22,7 @@ function idValido(valor) {
 
 // ============================================
 // MIDDLEWARE DAS ROTAS INSTITUCIONAIS
+// Escrita exclusiva das instituições.
 // ============================================
 
 const acessoInstitucional = [
@@ -30,7 +32,23 @@ const acessoInstitucional = [
 ];
 
 // ============================================
+// AUTORIZAR CONSULTA PARA ADMINISTRADOR
+// OU INSTITUIÇÃO
+// ============================================
+
+function permitirAdministradorOuInstituicao(req, res, next) {
+    if (
+        req.usuario?.tipo_acesso_normalizado === "administrador"
+    ) {
+        return autenticarAdministrador(req, res, next);
+    }
+
+    return autenticarInstituicao(req, res, next);
+}
+
+// ============================================
 // GET - LISTAR RESPOSTAS DA INSTITUIÇÃO
+// Mantém o acesso exclusivo da instituição.
 // ============================================
 
 router.get(
@@ -42,18 +60,18 @@ router.get(
         try {
             const resultado = await BD.query(
                 `
-          SELECT
-            ri.id_resposta,
-            ri.mensagem,
-            ri.data_resposta,
-            ri.id_solicitacao,
-            ri.id_instituicao
-          FROM respostas_instituicao ri
-          WHERE ri.id_instituicao = $1
-          ORDER BY
-            ri.data_resposta ASC NULLS LAST,
-            ri.id_resposta ASC
-        `,
+                    SELECT
+                        ri.id_resposta,
+                        ri.mensagem,
+                        ri.data_resposta,
+                        ri.id_solicitacao,
+                        ri.id_instituicao
+                    FROM respostas_instituicao ri
+                    WHERE ri.id_instituicao = $1
+                    ORDER BY
+                        ri.data_resposta ASC NULLS LAST,
+                        ri.id_resposta ASC
+                `,
                 [idInstituicao]
             );
 
@@ -73,14 +91,21 @@ router.get(
 
 // ============================================
 // GET - LISTAR RESPOSTAS DE UMA SOLICITAÇÃO
+//
+// Administrador:
+// Consulta as respostas da solicitação.
+//
+// Instituição:
+// Consulta somente as respostas de sua própria
+// instituição e de suas próprias solicitações.
 // ============================================
 
 router.get(
     "/respostas-instituicao/solicitacao/:id_solicitacao",
-    ...acessoInstitucional,
+    autenticarToken,
+    permitirAdministradorOuInstituicao,
     async (req, res) => {
         const idSolicitacao = Number(req.params.id_solicitacao);
-        const idInstituicao = req.instituicao.id_instituicao;
 
         if (!idValido(idSolicitacao)) {
             return res.status(400).json({
@@ -88,27 +113,86 @@ router.get(
             });
         }
 
+        const ehAdministrador =
+            req.usuario?.tipo_acesso_normalizado === "administrador";
+
+        const idInstituicao = ehAdministrador
+            ? null
+            : Number(req.instituicao?.id_instituicao);
+
         try {
-            const resultado = await BD.query(
+            // Verifica se a solicitação existe.
+            // Para instituições, também verifica a propriedade.
+            const consultaSolicitacao = ehAdministrador
+                ? `
+                    SELECT id_solicitacoes
+                    FROM solicitacoes
+                    WHERE id_solicitacoes = $1
+                    LIMIT 1
                 `
-          SELECT
-            ri.id_resposta,
-            ri.mensagem,
-            ri.data_resposta,
-            ri.id_solicitacao,
-            ri.id_instituicao
-          FROM respostas_instituicao ri
-          INNER JOIN solicitacoes s
-            ON s.id_solicitacoes = ri.id_solicitacao
-          WHERE ri.id_solicitacao = $1
-            AND ri.id_instituicao = $2
-            AND s.id_instituicao = $2
-          ORDER BY
-            ri.data_resposta ASC NULLS LAST,
-            ri.id_resposta ASC
-        `,
-                [idSolicitacao, idInstituicao]
+                : `
+                    SELECT id_solicitacoes
+                    FROM solicitacoes
+                    WHERE id_solicitacoes = $1
+                      AND id_instituicao = $2
+                    LIMIT 1
+                `;
+
+            const parametrosSolicitacao = ehAdministrador
+                ? [idSolicitacao]
+                : [idSolicitacao, idInstituicao];
+
+            const solicitacao = await BD.query(
+                consultaSolicitacao,
+                parametrosSolicitacao
             );
+
+            if (solicitacao.rows.length === 0) {
+                return res.status(404).json({
+                    error: "Solicitação não encontrada.",
+                });
+            }
+
+            let resultado;
+
+            if (ehAdministrador) {
+                // Administrador: todas as respostas da solicitação.
+                resultado = await BD.query(
+                    `
+                        SELECT
+                            ri.id_resposta,
+                            ri.mensagem,
+                            ri.data_resposta,
+                            ri.id_solicitacao,
+                            ri.id_instituicao
+                        FROM respostas_instituicao ri
+                        WHERE ri.id_solicitacao = $1
+                        ORDER BY
+                            ri.data_resposta ASC NULLS LAST,
+                            ri.id_resposta ASC
+                    `,
+                    [idSolicitacao]
+                );
+            } else {
+                // Instituição: somente suas próprias respostas.
+                resultado = await BD.query(
+                    `
+                        SELECT
+                            ri.id_resposta,
+                            ri.mensagem,
+                            ri.data_resposta,
+                            ri.id_solicitacao,
+                            ri.id_instituicao
+                        FROM respostas_instituicao ri
+                        WHERE ri.id_solicitacao = $1
+                          AND ri.id_instituicao = $2
+                        ORDER BY
+                            ri.data_resposta ASC NULLS LAST,
+                            ri.id_resposta ASC
+                    `,
+                    [idSolicitacao, idInstituicao]
+                );
+            }
 
             return res.status(200).json(resultado.rows);
         } catch (error) {
@@ -152,11 +236,12 @@ router.post(
             // Confirma que a solicitação pertence à instituição autenticada.
             const solicitacao = await BD.query(
                 `
-          SELECT id_solicitacoes
-          FROM solicitacoes
-          WHERE id_solicitacoes = $1
-            AND id_instituicao = $2
-        `,
+                    SELECT id_solicitacoes
+                    FROM solicitacoes
+                    WHERE id_solicitacoes = $1
+                      AND id_instituicao = $2
+                    LIMIT 1
+                `,
                 [idSolicitacao, idInstituicao]
             );
 
@@ -168,20 +253,20 @@ router.post(
 
             const resultado = await BD.query(
                 `
-          INSERT INTO respostas_instituicao (
-            mensagem,
-            data_resposta,
-            id_solicitacao,
-            id_instituicao
-          )
-          VALUES ($1, CURRENT_TIMESTAMP, $2, $3)
-          RETURNING
-            id_resposta,
-            mensagem,
-            data_resposta,
-            id_solicitacao,
-            id_instituicao
-        `,
+                    INSERT INTO respostas_instituicao (
+                        mensagem,
+                        data_resposta,
+                        id_solicitacao,
+                        id_instituicao
+                    )
+                    VALUES ($1, CURRENT_TIMESTAMP, $2, $3)
+                    RETURNING
+                        id_resposta,
+                        mensagem,
+                        data_resposta,
+                        id_solicitacao,
+                        id_instituicao
+                `,
                 [mensagem, idSolicitacao, idInstituicao]
             );
 
@@ -229,17 +314,17 @@ router.put(
         try {
             const resultado = await BD.query(
                 `
-          UPDATE respostas_instituicao
-          SET mensagem = $1
-          WHERE id_resposta = $2
-            AND id_instituicao = $3
-          RETURNING
-            id_resposta,
-            mensagem,
-            data_resposta,
-            id_solicitacao,
-            id_instituicao
-        `,
+                    UPDATE respostas_instituicao
+                    SET mensagem = $1
+                    WHERE id_resposta = $2
+                      AND id_instituicao = $3
+                    RETURNING
+                        id_resposta,
+                        mensagem,
+                        data_resposta,
+                        id_solicitacao,
+                        id_instituicao
+                `,
                 [mensagem, idResposta, idInstituicao]
             );
 
@@ -286,11 +371,11 @@ router.delete(
         try {
             const resultado = await BD.query(
                 `
-          DELETE FROM respostas_instituicao
-          WHERE id_resposta = $1
-            AND id_instituicao = $2
-          RETURNING id_resposta
-        `,
+                    DELETE FROM respostas_instituicao
+                    WHERE id_resposta = $1
+                      AND id_instituicao = $2
+                    RETURNING id_resposta
+                `,
                 [idResposta, idInstituicao]
             );
 

@@ -26,45 +26,77 @@ function idValido(valor) {
 // Instituição: acesso somente às próprias solicitações.
 // ============================================
 
+
 function autenticarAdministradorOuInstituicao(req, res, next) {
-  // O token administrativo já é utilizado pelo POST existente,
-  // que identifica o administrador por id_administrador.
-  if (idValido(req.usuario?.id_administrador)) {
+  const tipoAcesso = req.usuario?.tipo_acesso;
+
+  if (tipoAcesso === "administrador") {
     return autenticarAdministrador(req, res, next);
   }
 
-  return autenticarInstituicao(req, res, (erro) => {
-    if (erro) {
-      return next(erro);
-    }
+  if (tipoAcesso === "instituicao") {
+    return autenticarInstituicao(req, res, (erro) => {
+      if (erro) {
+        return next(erro);
+      }
 
-    return exigirCadastroCompleto(req, res, next);
+      return exigirCadastroCompleto(req, res, next);
+    });
+  }
+
+  return res.status(403).json({
+    error: "Usuário sem permissão para consultar as respostas.",
   });
 }
+
 
 // ============================================
 // GET - LISTAR TODAS AS RESPOSTAS
 // Exclusivo do administrador.
 // ============================================
 
+
 router.get(
   "/respostas-adm",
   autenticarToken,
-  autenticarAdministrador,
+  autenticarAdministradorOuInstituicao,
   async (req, res) => {
     try {
-      const resultado = await BD.query(`
-        SELECT
-          id_resposta,
-          mensagem,
-          data_resposta,
-          id_solicitacao,
-          id_administrador
-        FROM respostas_adm
-        ORDER BY
-          data_resposta ASC NULLS LAST,
-          id_resposta ASC
-      `);
+      let resultado;
+
+      if (idValido(req.instituicao?.id_instituicao)) {
+        resultado = await BD.query(
+          `
+            SELECT
+              ra.id_resposta,
+              ra.mensagem,
+              ra.data_resposta,
+              ra.id_solicitacao,
+              ra.id_administrador
+            FROM respostas_adm ra
+            INNER JOIN solicitacoes s
+              ON s.id_solicitacoes = ra.id_solicitacao
+            WHERE s.id_instituicao = $1
+            ORDER BY
+              ra.data_resposta ASC NULLS LAST,
+              ra.id_resposta ASC
+          `,
+          [req.instituicao.id_instituicao]
+        );
+      } else {
+        resultado = await BD.query(`
+          SELECT
+            id_resposta,
+            mensagem,
+            data_resposta,
+            id_solicitacao,
+            id_administrador
+          FROM respostas_adm
+          ORDER BY
+            data_resposta ASC NULLS LAST,
+            id_resposta ASC
+        `);
+      }
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
@@ -79,6 +111,7 @@ router.get(
     }
   }
 );
+
 
 // ============================================
 // GET - RESPOSTAS DE UMA SOLICITAÇÃO
