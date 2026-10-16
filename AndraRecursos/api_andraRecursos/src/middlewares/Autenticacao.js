@@ -1,40 +1,101 @@
+
 import jwt from "jsonwebtoken";
 import { BD } from "../../db.js";
+
+// ============================================
+// NORMALIZAÇÃO DO TIPO DE ACESSO
+// ============================================
+
+function obterTipoAcesso(usuario) {
+  const tipo = String(usuario?.tipo_acesso || "")
+    .trim()
+    .toLowerCase();
+
+  if (tipo === "administrador") {
+    return "administrador";
+  }
+
+  if (
+    tipo === "instituicao" ||
+    tipo === "instituição" ||
+    tipo === "usuário institucional" ||
+    tipo === "usuario institucional"
+  ) {
+    return "instituicao";
+  }
+
+  return null;
+}
+
+// ============================================
+// AUTENTICAÇÃO PELO TOKEN JWT
+// ============================================
 
 export function autenticarToken(req, res, next) {
   const cabecalho = req.headers.authorization;
 
-  const token = cabecalho?.startsWith("Bearer ") ? cabecalho.slice(7) : null;
+  const token = cabecalho?.startsWith("Bearer ")
+    ? cabecalho.slice(7).trim()
+    : null;
 
   if (!token) {
     return res.status(401).json({
-      message: "Token não fornecido!",
+      message: "Token não fornecido.",
+    });
+  }
+
+  if (!process.env.JWT_SECRET) {
+    console.error("JWT_SECRET não está configurada.");
+
+    return res.status(500).json({
+      message: "Erro na configuração da autenticação.",
     });
   }
 
   try {
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET não configurada");
-    }
+    const usuario = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
 
-    const usuario = jwt.verify(token, process.env.JWT_SECRET);
-
-    req.usuario = usuario;
-
-    console.log("Usuário autenticado:", usuario);
-    
-    next();
-  } catch (error) {
     if (
-      error.name === "TokenExpiredError" ||
-      error.name === "JsonWebTokenError"
+      !usuario ||
+      typeof usuario !== "object" ||
+      Array.isArray(usuario)
     ) {
       return res.status(401).json({
-        message: "Token inválido ou expirado!",
+        message: "Token inválido.",
       });
     }
 
-    console.error("Erro de autenticação:", error.message);
+    req.usuario = usuario;
+    req.usuario.tipo_acesso_normalizado =
+      obterTipoAcesso(usuario);
+
+    console.log("Usuário autenticado:", {
+      id: usuario.id,
+      id_instituicao: usuario.id_instituicao,
+      tipo_acesso: usuario.tipo_acesso,
+      tipo_acesso_normalizado:
+        req.usuario.tipo_acesso_normalizado,
+    });
+
+    return next();
+  } catch (error) {
+    if (
+      error.name === "TokenExpiredError" ||
+      error.name === "JsonWebTokenError" ||
+      error.name === "NotBeforeError"
+    ) {
+      return res.status(401).json({
+        message: "Token inválido ou expirado.",
+      });
+    }
+
+    console.error(
+      "Erro de autenticação:",
+      error.message
+    );
 
     return res.status(500).json({
       message: "Erro na configuração da autenticação.",
@@ -42,22 +103,35 @@ export function autenticarToken(req, res, next) {
   }
 }
 
+// ============================================
 // AUTORIZAÇÃO ADMINISTRATIVA
+// ============================================
+
 export function autenticarAdministrador(req, res, next) {
-  if (req.usuario?.tipo_acesso !== "administrador") {
+  if (
+    req.usuario?.tipo_acesso_normalizado !== "administrador"
+  ) {
     return res.status(403).json({
       message: "Acesso exclusivo do administrador.",
     });
   }
 
-  next();
+  return next();
 }
 
+// ============================================
 // AUTORIZAÇÃO INSTITUCIONAL
+// ============================================
+
 export async function autenticarInstituicao(req, res, next) {
+  const idInstituicao = Number(
+    req.usuario?.id_instituicao
+  );
+
   if (
-    req.usuario?.tipo_acesso !== "instituicao" ||
-    !Number.isInteger(req.usuario.id_instituicao)
+    req.usuario?.tipo_acesso_normalizado !== "instituicao" ||
+    !Number.isSafeInteger(idInstituicao) ||
+    idInstituicao <= 0
   ) {
     return res.status(403).json({
       message: "Acesso exclusivo de instituições.",
@@ -66,10 +140,14 @@ export async function autenticarInstituicao(req, res, next) {
 
   try {
     const resultado = await BD.query(
-      `SELECT id_instituicao, cadastro_completo
-       FROM instituicoes
-       WHERE id_instituicao = $1`,
-      [req.usuario.id_instituicao],
+      `
+        SELECT
+          id_instituicao,
+          cadastro_completo
+        FROM instituicoes
+        WHERE id_instituicao = $1
+      `,
+      [idInstituicao]
     );
 
     if (resultado.rows.length === 0) {
@@ -79,9 +157,13 @@ export async function autenticarInstituicao(req, res, next) {
     }
 
     req.instituicao = resultado.rows[0];
-    next();
+
+    return next();
   } catch (error) {
-    console.error(error.message);
+    console.error(
+      "Erro ao verificar instituição:",
+      error.message
+    );
 
     return res.status(500).json({
       message: "Erro ao verificar instituição.",
@@ -89,7 +171,10 @@ export async function autenticarInstituicao(req, res, next) {
   }
 }
 
-// BLOQUEIA RECURSOS ANTES DO PRIMEIRO CADASTRO
+// ============================================
+// EXIGIR CADASTRO INSTITUCIONAL COMPLETO
+// ============================================
+
 export function exigirCadastroCompleto(req, res, next) {
   if (req.instituicao?.cadastro_completo !== true) {
     return res.status(403).json({
@@ -98,5 +183,5 @@ export function exigirCadastroCompleto(req, res, next) {
     });
   }
 
-  next();
+  return next();
 }
