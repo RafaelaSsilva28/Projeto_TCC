@@ -17,12 +17,12 @@ const router = Router();
 
 function idValido(valor) {
     const numero = Number(valor);
+
     return Number.isSafeInteger(numero) && numero > 0;
 }
 
 // ============================================
 // MIDDLEWARE DAS ROTAS INSTITUCIONAIS
-// Escrita exclusiva das instituições.
 // ============================================
 
 const acessoInstitucional = [
@@ -32,8 +32,8 @@ const acessoInstitucional = [
 ];
 
 // ============================================
-// AUTORIZAR CONSULTA PARA ADMINISTRADOR
-// OU INSTITUIÇÃO
+// AUTORIZAÇÃO PARA CONSULTAR RESPOSTAS
+// ADMINISTRADOR OU INSTITUIÇÃO
 // ============================================
 
 function permitirAdministradorOuInstituicao(req, res, next) {
@@ -48,7 +48,7 @@ function permitirAdministradorOuInstituicao(req, res, next) {
 
 // ============================================
 // GET - LISTAR RESPOSTAS DA INSTITUIÇÃO
-// Mantém o acesso exclusivo da instituição.
+// Exclusivo da instituição autenticada.
 // ============================================
 
 router.get(
@@ -92,12 +92,8 @@ router.get(
 // ============================================
 // GET - LISTAR RESPOSTAS DE UMA SOLICITAÇÃO
 //
-// Administrador:
-// Consulta as respostas da solicitação.
-//
-// Instituição:
-// Consulta somente as respostas de sua própria
-// instituição e de suas próprias solicitações.
+// Administrador: consulta as respostas da solicitação.
+// Instituição: consulta somente as próprias respostas.
 // ============================================
 
 router.get(
@@ -121,8 +117,8 @@ router.get(
             : Number(req.instituicao?.id_instituicao);
 
         try {
-            // Verifica se a solicitação existe.
-            // Para instituições, também verifica a propriedade.
+            // Verifica a existência da solicitação.
+            // Instituições só podem consultar solicitações próprias.
             const consultaSolicitacao = ehAdministrador
                 ? `
                     SELECT id_solicitacoes
@@ -156,7 +152,7 @@ router.get(
             let resultado;
 
             if (ehAdministrador) {
-                // Administrador: todas as respostas da solicitação.
+                // Administrador visualiza as respostas da solicitação.
                 resultado = await BD.query(
                     `
                         SELECT
@@ -174,7 +170,7 @@ router.get(
                     [idSolicitacao]
                 );
             } else {
-                // Instituição: somente suas próprias respostas.
+                // Instituição visualiza apenas suas próprias respostas.
                 resultado = await BD.query(
                     `
                         SELECT
@@ -233,7 +229,6 @@ router.post(
         }
 
         try {
-            // Confirma que a solicitação pertence à instituição autenticada.
             const solicitacao = await BD.query(
                 `
                     SELECT id_solicitacoes
