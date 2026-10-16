@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 import { BD } from "../../db.js";
 

@@ -118,8 +118,8 @@ app.use(rotasDashboard);
 app.use(rotasHistoricoInst);
 
 // Configurações
-app.use(rotasConfiguracoesInst);
 app.use(rotasConfiguracoesAdmin);
+app.use(rotasConfiguracoesInst);
 
 // Perfil do administrador
 app.use(rotasPerfilAdministrador);

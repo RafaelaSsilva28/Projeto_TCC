@@ -109,10 +109,17 @@ export function autenticarToken(req, res, next) {
 // AUTORIZAÇÃO ADMINISTRATIVA
 // ============================================
 
+
 export function autenticarAdministrador(req, res, next) {
-  if (
-    req.usuario?.tipo_acesso_normalizado !== "administrador"
-  ) {
+  const tipoAcesso = req.usuario?.tipo_acesso_normalizado;
+
+  if (tipoAcesso !== "administrador") {
+    console.warn("Acesso administrativo recusado:", {
+      tipo_acesso: req.usuario?.tipo_acesso,
+      tipo_acesso_normalizado: tipoAcesso,
+      id_administrador: req.usuario?.id_administrador,
+    });
+
     return res.status(403).json({
       message: "Acesso exclusivo do administrador.",
     });
@@ -120,6 +127,7 @@ export function autenticarAdministrador(req, res, next) {
 
   return next();
 }
+
 
 // ============================================
 // AUTORIZAÇÃO INSTITUCIONAL
