@@ -307,7 +307,7 @@ export default function PrincipalInst() {
 
             <button
               type="button"
-              onClick={() => navigate("/historico-inst")}
+              onClick={() => navigate("/instituicao/solicitacoes")}
               className="flex items-center gap-2 text-sm font-semibold text-[#1755ad] hover:underline"
             >
               Ver solicitações

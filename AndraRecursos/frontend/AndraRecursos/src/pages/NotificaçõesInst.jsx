@@ -502,16 +502,18 @@ export default function NotificacoesInst() {
   // VER SOLICITAÇÃO
   // ==========================================
 
-  function verSolicitacao(idSolicitacao) {
-    if (!idSolicitacao) {
-      toast.error("Esta notificação não possui uma solicitação vinculada.");
-      return;
-    }
-
-    // Rota provisória: ajustaremos quando criarmos a página de detalhes.
-    navigate(`/instituicao/solicitacoes/${idSolicitacao}`);
+ function verSolicitacao(idSolicitacao) {
+  if (
+    idSolicitacao === null ||
+    idSolicitacao === undefined ||
+    String(idSolicitacao).trim() === ""
+  ) {
+    toast.error("Esta notificação não possui uma solicitação vinculada.");
+    return;
   }
 
+  navigate(`/instituicao/solicitacoes/${encodeURIComponent(idSolicitacao)}`);
+}
   // ==========================================
   // EXPORTAR PDF
   // ==========================================
