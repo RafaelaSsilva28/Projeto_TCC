@@ -45,7 +45,9 @@ export default function ConfiguracoesInst() {
     try {
       resposta = await fetch(`${API_URL}${caminho}`, opcoes);
     } catch (erro) {
-      throw new Error("Não foi possível conectar ao servidor. Verifique sua conexão.");
+      throw new Error(
+        "Não foi possível conectar ao servidor. Verifique sua conexão.",
+      );
     }
 
     const texto = await resposta.text();
@@ -61,7 +63,9 @@ export default function ConfiguracoesInst() {
 
     if (!resposta.ok) {
       throw new Error(
-        resultado.message || resultado.mensagem || `Erro na solicitação (${resposta.status}).`
+        resultado.message ||
+          resultado.mensagem ||
+          `Erro na solicitação (${resposta.status}).`,
       );
     }
 
@@ -119,8 +123,7 @@ export default function ConfiguracoesInst() {
 
       setMensagem({
         tipo: "erro",
-        texto:
-          error.message || "Não foi possível carregar as configurações.",
+        texto: error.message || "Não foi possível carregar as configurações.",
       });
     } finally {
       setCarregando(false);
@@ -168,8 +171,7 @@ export default function ConfiguracoesInst() {
 
       setMensagem({
         tipo: "erro",
-        texto:
-          error.message || "Não foi possível salvar suas preferências.",
+        texto: error.message || "Não foi possível salvar suas preferências.",
       });
     } finally {
       setSalvando(false);
@@ -230,7 +232,7 @@ export default function ConfiguracoesInst() {
         {
           senhaAtual: senhas.senhaAtual,
           novaSenha: senhas.novaSenha,
-        }
+        },
       );
 
       setSenhas({
@@ -247,7 +249,10 @@ export default function ConfiguracoesInst() {
 
       setMensagem({
         tipo: "sucesso",
-        texto: resposta.message || resposta.mensagem || "Senha alterada com sucesso!",
+        texto:
+          resposta.message ||
+          resposta.mensagem ||
+          "Senha alterada com sucesso!",
       });
     } catch (error) {
       console.error("Erro ao alterar senha:", error);
@@ -326,16 +331,16 @@ export default function ConfiguracoesInst() {
         <button
           type="button"
           role="switch"
-          aria-checked={configuracoes[campo]}
+          aria-checked={Boolean(configuracoes[campo])}
           aria-label={titulo}
           onClick={() => alterarPreferencia(campo, !configuracoes[campo])}
-          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
             configuracoes[campo] ? "bg-[#1755ad]" : "bg-slate-300"
           }`}
         >
           <span
-            className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-              configuracoes[campo] ? "translate-x-6" : "translate-x-1"
+            className={`pointer-events-none absolute left-1 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white shadow-sm transition-transform ${
+              configuracoes[campo] ? "translate-x-5" : "translate-x-0"
             }`}
           />
         </button>

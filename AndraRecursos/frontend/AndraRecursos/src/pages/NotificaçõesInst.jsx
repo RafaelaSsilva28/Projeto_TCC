@@ -26,7 +26,6 @@ import {
 } from "react-icons/fi";
 
 import { enderecoServidor } from "../utils";
-import LayoutInstituicao from "../components/LayoutInstituicao";
 
 const API = String(enderecoServidor).replace(/\/$/, "");
 const POR_PAGINA = 5;
@@ -300,11 +299,60 @@ export default function NotificacoesInst() {
 
     if (!resposta.ok) {
       throw new Error(
-        dados?.error || dados?.message || "Não foi possível concluir a operação."
+        dados?.error ||
+          dados?.message ||
+          "Não foi possível concluir a operação."
       );
     }
 
     return dados;
+  }
+
+  // ==========================================
+  // CONFIRMAÇÃO UTILIZANDO TOAST
+  // ==========================================
+
+  function confirmarAcao(mensagem, executar, textoBotao = "Confirmar") {
+    toast(
+      (t) => (
+        <div className="w-full max-w-sm">
+          <p className="text-sm font-semibold text-gray-800">
+            {mensagem}
+          </p>
+
+          <div className="mt-3 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => toast.dismiss(t.id)}
+              className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-100"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                toast.dismiss(t.id);
+                executar();
+              }}
+              className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700"
+            >
+              {textoBotao}
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        duration: Infinity,
+        position: "top-center",
+        style: {
+          padding: "16px",
+          borderRadius: "14px",
+          maxWidth: "440px",
+          width: "calc(100vw - 32px)",
+        },
+      }
+    );
   }
 
   // ==========================================
@@ -343,32 +391,38 @@ export default function NotificacoesInst() {
   // ==========================================
 
   async function marcarTodasComoLidas() {
-    if (processando || totais.naoLidas === 0) return;
-
-    const confirmar = window.confirm(
-      `Deseja marcar todas as ${totais.naoLidas} notificações não lidas como lidas?`
-    );
-
-    if (!confirmar) return;
-
-    setProcessando(true);
-
-    try {
-      await requisicaoAutenticada(
-        `${API}/notificacoes/instituicao/marcar-todas-lidas`,
-        "PATCH"
-      );
-
-      setNotificacoes((lista) =>
-        lista.map((item) => ({ ...item, lida: true }))
-      );
-
-      toast.success("Todas as notificações foram marcadas como lidas.");
-    } catch (error) {
-      toast.error(error.message || "Erro ao marcar as notificações.");
-    } finally {
-      setProcessando(false);
+    if (
+      processando ||
+      idProcessando !== null ||
+      totais.naoLidas === 0
+    ) {
+      return;
     }
+
+    confirmarAcao(
+      `Deseja marcar todas as ${totais.naoLidas} notificações não lidas como lidas?`,
+      async () => {
+        setProcessando(true);
+
+        try {
+          await requisicaoAutenticada(
+            `${API}/notificacoes/instituicao/marcar-todas-lidas`,
+            "PATCH"
+          );
+
+          setNotificacoes((lista) =>
+            lista.map((item) => ({ ...item, lida: true }))
+          );
+
+          toast.success("Todas as notificações foram marcadas como lidas.");
+        } catch (error) {
+          toast.error(error.message || "Erro ao marcar as notificações.");
+        } finally {
+          setProcessando(false);
+        }
+      },
+      "Marcar como lidas"
+    );
   }
 
   // ==========================================
@@ -378,32 +432,32 @@ export default function NotificacoesInst() {
   async function excluirNotificacao(id) {
     if (processando || idProcessando !== null) return;
 
-    const confirmar = window.confirm(
-      "Deseja excluir esta notificação? Ela deixará de aparecer para sua instituição."
+    confirmarAcao(
+      "Deseja excluir esta notificação? Ela deixará de aparecer para sua instituição.",
+      async () => {
+        setIdProcessando(id);
+
+        try {
+          await requisicaoAutenticada(
+            `${API}/notificacoes/instituicao/${id}`,
+            "DELETE"
+          );
+
+          setNotificacoes((lista) =>
+            lista.filter(
+              (item) => Number(item.id_notificacao) !== Number(id)
+            )
+          );
+
+          toast.success("Notificação excluída.");
+        } catch (error) {
+          toast.error(error.message || "Erro ao excluir notificação.");
+        } finally {
+          setIdProcessando(null);
+        }
+      },
+      "Excluir"
     );
-
-    if (!confirmar) return;
-
-    setIdProcessando(id);
-
-    try {
-      await requisicaoAutenticada(
-        `${API}/notificacoes/instituicao/${id}`,
-        "DELETE"
-      );
-
-      setNotificacoes((lista) =>
-        lista.filter(
-          (item) => Number(item.id_notificacao) !== Number(id)
-        )
-      );
-
-      toast.success("Notificação excluída.");
-    } catch (error) {
-      toast.error(error.message || "Erro ao excluir notificação.");
-    } finally {
-      setIdProcessando(null);
-    }
   }
 
   // ==========================================
@@ -411,31 +465,37 @@ export default function NotificacoesInst() {
   // ==========================================
 
   async function excluirTodasNotificacoes() {
-    if (processando || notificacoes.length === 0) return;
-
-    const confirmar = window.confirm(
-      `Deseja excluir todas as ${notificacoes.length} notificações da sua instituição? Essa ação não poderá ser desfeita pela tela.`
-    );
-
-    if (!confirmar) return;
-
-    setProcessando(true);
-
-    try {
-      await requisicaoAutenticada(
-        `${API}/notificacoes/instituicao/todas`,
-        "DELETE"
-      );
-
-      setNotificacoes([]);
-      setPagina(1);
-
-      toast.success("Todas as notificações foram excluídas.");
-    } catch (error) {
-      toast.error(error.message || "Erro ao excluir notificações.");
-    } finally {
-      setProcessando(false);
+    if (
+      processando ||
+      idProcessando !== null ||
+      notificacoes.length === 0
+    ) {
+      return;
     }
+
+    confirmarAcao(
+      `Deseja excluir todas as ${notificacoes.length} notificações da sua instituição?`,
+      async () => {
+        setProcessando(true);
+
+        try {
+          await requisicaoAutenticada(
+            `${API}/notificacoes/instituicao/todas`,
+            "DELETE"
+          );
+
+          setNotificacoes([]);
+          setPagina(1);
+
+          toast.success("Todas as notificações foram excluídas.");
+        } catch (error) {
+          toast.error(error.message || "Erro ao excluir notificações.");
+        } finally {
+          setProcessando(false);
+        }
+      },
+      "Excluir todas"
+    );
   }
 
   // ==========================================
@@ -618,7 +678,7 @@ export default function NotificacoesInst() {
   }
 
   return (
-    <LayoutInstituicao nomeInstituicao={instituicao?.nome}>
+    <div className="w-full min-w-0">
       <div className="mx-auto min-w-0 max-w-7xl space-y-6 pb-8">
 
         {/* CABEÇALHO */}
@@ -717,8 +777,6 @@ export default function NotificacoesInst() {
 
         {/* PAINEL DE NOTIFICAÇÕES */}
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-
-          {/* TÍTULO E AÇÕES EM MASSA */}
           <div className="border-b border-gray-100 p-5 sm:p-6">
             <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
               <div>
@@ -736,6 +794,7 @@ export default function NotificacoesInst() {
                   onClick={marcarTodasComoLidas}
                   disabled={
                     processando ||
+                    idProcessando !== null ||
                     carregando ||
                     totais.naoLidas === 0 ||
                     !!erro
@@ -752,6 +811,7 @@ export default function NotificacoesInst() {
                   onClick={excluirTodasNotificacoes}
                   disabled={
                     processando ||
+                    idProcessando !== null ||
                     carregando ||
                     notificacoes.length === 0 ||
                     !!erro
@@ -767,7 +827,6 @@ export default function NotificacoesInst() {
           </div>
 
           <div className="p-4 sm:p-6">
-
             {/* FILTROS E PESQUISA */}
             <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap gap-2">
@@ -858,6 +917,7 @@ export default function NotificacoesInst() {
                   {itensPagina.map((notificacao) => {
                     const tipo = obterTipo(notificacao.tipo_informacao);
                     const Icone = tipo.Icone;
+
                     const estaProcessando =
                       Number(idProcessando) ===
                       Number(notificacao.id_notificacao);
@@ -874,15 +934,12 @@ export default function NotificacoesInst() {
                         }`}
                       >
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-
-                          {/* ÍCONE */}
                           <div
                             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${tipo.cor}`}
                           >
                             <Icone size={22} />
                           </div>
 
-                          {/* CONTEÚDO */}
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3 className="break-words text-sm font-bold text-[#082d56] sm:text-base">
@@ -939,7 +996,6 @@ export default function NotificacoesInst() {
 
                             {/* AÇÕES INDIVIDUAIS */}
                             <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
-
                               {notificacao.id_solicitacao && (
                                 <button
                                   type="button"
@@ -960,7 +1016,9 @@ export default function NotificacoesInst() {
                                   onClick={() =>
                                     marcarComoLida(notificacao.id_notificacao)
                                   }
-                                  disabled={processando || idProcessando !== null}
+                                  disabled={
+                                    processando || idProcessando !== null
+                                  }
                                   className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-green-800 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
                                   title="Marcar esta notificação como lida"
                                 >
@@ -981,7 +1039,9 @@ export default function NotificacoesInst() {
                                 onClick={() =>
                                   excluirNotificacao(notificacao.id_notificacao)
                                 }
-                                disabled={processando || idProcessando !== null}
+                                disabled={
+                                  processando || idProcessando !== null
+                                }
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                                 title="Excluir esta notificação"
                               >
@@ -1092,6 +1152,6 @@ export default function NotificacoesInst() {
           AndraRecursos · Central de notificações da instituição
         </p>
       </div>
-    </LayoutInstituicao>
+    </div>
   );
 }

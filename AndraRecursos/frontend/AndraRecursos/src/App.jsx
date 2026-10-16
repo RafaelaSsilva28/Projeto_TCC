@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import { Toaster } from "react-hot-toast";
@@ -21,6 +22,7 @@ import HistoricoAdmin from "./pages/HistoricoAdmin";
 
 import SolicitacoesAdmin from "./pages/SolicitacoesAdmin";
 import SolicitacoesInst from "./pages/SolicitacoesInst";
+import SolicitacoesInstituicao from "./pages/SolicitacoesInstituicao";
 
 import NotificacoesAdmin from "./pages/NotificacoesAdmin";
 import NotificacoesInst from "./pages/NotificaçõesInst";
@@ -29,7 +31,10 @@ import RelatoriosInst from "./pages/RelatoriosInst";
 
 import HistoricoInst from "./pages/HistoricoInst";
 
-// NOVA PÁGINA DE CONFIGURAÇÕES
+// ============================================
+// CONFIGURAÇÕES
+// ============================================
+
 import ConfiguracoesAdmin from "./pages/ConfiguracoesAdmin";
 import ConfiguracoesInst from "./pages/ConfiguracoesInst";
 
@@ -38,6 +43,7 @@ import ConfiguracoesInst from "./pages/ConfiguracoesInst";
 // ============================================
 
 import LayoutAdministrador from "./components/LayoutAdministrador";
+import LayoutInstituicao from "./components/LayoutInstituicao";
 
 import ProtecaoInstituicao from "./components/ProtecaoInstituicao";
 
@@ -48,10 +54,7 @@ import ProtecaoInstituicao from "./components/ProtecaoInstituicao";
 function App() {
   return (
     <BrowserRouter>
-      {/* ======================================
-          NOTIFICAÇÕES TOAST
-      ====================================== */}
-
+      {/* NOTIFICAÇÕES TOAST */}
       <Toaster
         position="top-right"
         reverseOrder={false}
@@ -130,7 +133,7 @@ function App() {
           }
         />
 
-        {/* HISTÓRICO */}
+        {/* HISTÓRICO ADMINISTRATIVO */}
         <Route
           path="/historico-adm"
           element={
@@ -146,7 +149,7 @@ function App() {
           element={<Navigate to="/historico-adm" replace />}
         />
 
-        {/* SOLICITAÇÕES */}
+        {/* SOLICITAÇÕES ADMINISTRATIVAS */}
         <Route
           path="/solicitacoes"
           element={
@@ -156,7 +159,7 @@ function App() {
           }
         />
 
-        {/* DETALHAMENTO DA SOLICITAÇÃO */}
+        {/* DETALHAMENTO DA SOLICITAÇÃO ADMINISTRATIVA */}
         <Route
           path="/solicitacoes/:id"
           element={
@@ -166,7 +169,7 @@ function App() {
           }
         />
 
-        {/* NOTIFICAÇÕES */}
+        {/* NOTIFICAÇÕES ADMINISTRATIVAS */}
         <Route
           path="/notificacoes"
           element={
@@ -176,10 +179,7 @@ function App() {
           }
         />
 
-        {/* ====================================
-            NOVA ROTA: CONFIGURAÇÕES
-        ==================================== */}
-
+        {/* CONFIGURAÇÕES ADMINISTRATIVAS */}
         <Route
           path="/configuracoes"
           element={
@@ -194,30 +194,102 @@ function App() {
         ==================================== */}
 
         {/* PRIMEIRO ACESSO */}
-        <Route element={<ProtecaoInstituicao exigirCadastro={false} />}>
-          <Route path="/obrigatorio-inst" element={<ObrigatorioInst />} />
+        <Route
+          element={
+            <ProtecaoInstituicao exigirCadastro={false} />
+          }
+        >
+          <Route
+            path="/obrigatorio-inst"
+            element={<ObrigatorioInst />}
+          />
         </Route>
 
-        {/* TELAS DA INSTITUIÇÃO */}
-        <Route element={<ProtecaoInstituicao exigirCadastro={true} />}>
-          <Route path="/principal-inst" element={<PrincipalInst />} />
+        {/* TELAS PROTEGIDAS DA INSTITUIÇÃO */}
+        <Route
+          element={
+            <ProtecaoInstituicao exigirCadastro={true} />
+          }
+        >
+          {/* DASHBOARD INSTITUCIONAL */}
+          <Route
+            path="/principal-inst"
+            element={
+              <LayoutInstituicao>
+                <PrincipalInst />
+              </LayoutInstituicao>
+            }
+          />
 
-          <Route path="/solicitacoes-inst" element={<SolicitacoesInst />} />
+          {/* ENVIAR NOVA SOLICITAÇÃO */}
+          <Route
+            path="/solicitacoes-inst"
+            element={
+              <LayoutInstituicao>
+                <SolicitacoesInst />
+              </LayoutInstituicao>
+            }
+          />
 
-          <Route path="/historico-inst" element={<HistoricoInst />} />
+          {/* MINHAS SOLICITAÇÕES */}
+          <Route
+            path="/instituicao/solicitacoes"
+            element={
+              <LayoutInstituicao>
+                <SolicitacoesInstituicao />
+              </LayoutInstituicao>
+            }
+          />
 
-          <Route path="/notificacoes-inst" element={<NotificacoesInst />} />
+          {/* HISTÓRICO INSTITUCIONAL */}
+          <Route
+            path="/historico-inst"
+            element={
+              <LayoutInstituicao>
+                <HistoricoInst />
+              </LayoutInstituicao>
+            }
+          />
 
-          <Route path="/relatorios-inst" element={<RelatoriosInst />} />
+          {/* NOTIFICAÇÕES INSTITUCIONAIS */}
+          <Route
+            path="/notificacoes-inst"
+            element={
+              <LayoutInstituicao>
+                <NotificacoesInst />
+              </LayoutInstituicao>
+            }
+          />
 
-          <Route path="/configuracoes-inst" element={<ConfiguracoesInst />} />
+          {/* RELATÓRIOS INSTITUCIONAIS */}
+          <Route
+            path="/relatorios-inst"
+            element={
+              <LayoutInstituicao>
+                <RelatoriosInst />
+              </LayoutInstituicao>
+            }
+          />
+
+          {/* CONFIGURAÇÕES INSTITUCIONAIS */}
+          <Route
+            path="/configuracoes-inst"
+            element={
+              <LayoutInstituicao>
+                <ConfiguracoesInst />
+              </LayoutInstituicao>
+            }
+          />
         </Route>
 
         {/* ====================================
             ROTA NÃO ENCONTRADA
         ==================================== */}
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
+        />
       </Routes>
     </BrowserRouter>
   );

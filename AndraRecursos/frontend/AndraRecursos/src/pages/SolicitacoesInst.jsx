@@ -1,3 +1,4 @@
+
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -14,7 +15,6 @@ import {
   FiRefreshCw,
 } from "react-icons/fi";
 
-import LayoutInstituicao from "../components/LayoutInstituicao";
 import { enderecoServidor } from "../utils";
 
 const API = String(enderecoServidor).replace(/\/$/, "");
@@ -166,7 +166,7 @@ export default function SolicitacoesInst() {
       evento.target.files || []
     );
 
-    // Permite selecionar o mesmo arquivo novamente
+    // Permite selecionar o mesmo arquivo novamente.
     evento.target.value = "";
 
     if (selecionados.length === 0) return;
@@ -251,33 +251,16 @@ export default function SolicitacoesInst() {
     setErro("");
 
     try {
-      // FormData permite enviar os campos e os arquivos juntos.
       const corpo = new FormData();
 
-      corpo.append(
-        "titulo",
-        formulario.titulo.trim()
-      );
-
-      corpo.append(
-        "setor",
-        formulario.setor
-      );
-
-      corpo.append(
-        "prioridade",
-        formulario.prioridade
-      );
-
-      corpo.append(
-        "descricao",
-        formulario.descricao.trim()
-      );
-
+      corpo.append("titulo", formulario.titulo.trim());
+      corpo.append("setor", formulario.setor);
+      corpo.append("prioridade", formulario.prioridade);
+      corpo.append("descricao", formulario.descricao.trim());
       corpo.append("status", "pendente");
 
-      // O nome "documentos" precisa corresponder ao
-      // upload.array("documentos", 10) do backend.
+      // O nome deve corresponder a upload.array("documentos", 10)
+      // no backend.
       arquivos.forEach((arquivo) => {
         corpo.append("documentos", arquivo);
       });
@@ -413,390 +396,387 @@ export default function SolicitacoesInst() {
   // ============================================
 
   return (
-    <LayoutInstituicao>
-      <div className="mx-auto w-full max-w-6xl space-y-5">
+    <div className="w-full min-w-0 space-y-6 pb-8">
 
-        {/* TÍTULO DA PÁGINA */}
-        <section>
-          <h1 className="text-2xl font-bold text-[#082d56] sm:text-3xl">
-            Nova Solicitação
-          </h1>
+      {/* TÍTULO DA PÁGINA */}
+      <section>
+        <h1 className="text-2xl font-bold text-[#082d56] sm:text-3xl">
+          Nova Solicitação
+        </h1>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Preencha as informações, detalhe seu pedido e
-            confirme o cadastro.
-          </p>
-        </section>
+        <p className="mt-1 text-sm text-slate-500">
+          Preencha as informações, detalhe seu pedido e
+          confirme o cadastro.
+        </p>
+      </section>
 
-        {/* CARTÃO PRINCIPAL */}
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      {/* CARTÃO PRINCIPAL */}
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
 
-          {/* INDICADOR DE ETAPAS */}
-          <div className="px-5 pb-6 pt-6 sm:px-8">
-            <IndicadorEtapas />
-          </div>
+        {/* INDICADOR DE ETAPAS */}
+        <div className="px-5 pb-6 pt-6 sm:px-8">
+          <IndicadorEtapas />
+        </div>
 
-          <div className="border-t border-slate-100 px-5 pb-7 pt-6 sm:px-8">
+        <div className="border-t border-slate-100 px-5 pb-7 pt-6 sm:px-8">
 
-            {/* TÍTULO DA ETAPA */}
-            <h2 className="mb-6 text-lg font-bold text-[#082d56] sm:text-xl">
-              {etapa === 1 && "Informações da Solicitação"}
-              {etapa === 2 && "Detalhes da Solicitação"}
-              {etapa === 3 && "Confirmação da Solicitação"}
-            </h2>
+          {/* TÍTULO DA ETAPA */}
+          <h2 className="mb-6 text-lg font-bold text-[#082d56] sm:text-xl">
+            {etapa === 1 && "Informações da Solicitação"}
+            {etapa === 2 && "Detalhes da Solicitação"}
+            {etapa === 3 && "Confirmação da Solicitação"}
+          </h2>
 
-            {erro && (
-              <div
-                role="alert"
-                className="mb-5 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-              >
-                <FiAlertCircle
-                  size={18}
-                  className="mt-0.5 shrink-0"
+          {erro && (
+            <div
+              role="alert"
+              className="mb-5 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+            >
+              <FiAlertCircle
+                size={18}
+                className="mt-0.5 shrink-0"
+              />
+
+              {erro}
+            </div>
+          )}
+
+          {/* ====================================
+              ETAPA 1
+          ==================================== */}
+
+          {etapa === 1 && (
+            <div className="space-y-5">
+
+              <div>
+                <label
+                  htmlFor="titulo"
+                  className={estiloLabel}
+                >
+                  Título da Solicitação
+                  <span className="ml-1 text-red-500">*</span>
+                </label>
+
+                <input
+                  id="titulo"
+                  name="titulo"
+                  type="text"
+                  maxLength={150}
+                  value={formulario.titulo}
+                  onChange={atualizarCampo}
+                  placeholder="Ex.: Aquisição de computadores"
+                  className={estiloInput}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="setor"
+                    className={estiloLabel}
+                  >
+                    Setor Responsável
+                    <span className="ml-1 text-red-500">*</span>
+                  </label>
+
+                  <select
+                    id="setor"
+                    name="setor"
+                    value={formulario.setor}
+                    onChange={atualizarCampo}
+                    className={estiloInput}
+                  >
+                    <option value="">
+                      Selecione o setor
+                    </option>
+
+                    <option value="Administrativo">
+                      Administrativo
+                    </option>
+
+                    <option value="Infraestrutura">
+                      Infraestrutura
+                    </option>
+
+                    <option value="Tecnologia">
+                      Tecnologia
+                    </option>
+
+                    <option value="Recursos Humanos">
+                      Recursos Humanos
+                    </option>
+
+                    <option value="Financeiro">
+                      Financeiro
+                    </option>
+
+                    <option value="Alimentício">
+                      Alimentício
+                    </option>
+
+                    <option value="Outro">
+                      Outro
+                    </option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="prioridade"
+                    className={estiloLabel}
+                  >
+                    Prioridade
+                    <span className="ml-1 text-red-500">*</span>
+                  </label>
+
+                  <select
+                    id="prioridade"
+                    name="prioridade"
+                    value={formulario.prioridade}
+                    onChange={atualizarCampo}
+                    className={estiloInput}
+                  >
+                    <option value="Baixa">Baixa</option>
+                    <option value="Média">Média</option>
+                    <option value="Alta">Alta</option>
+                    <option value="Urgente">Urgente</option>
+                  </select>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* ====================================
+              ETAPA 2
+          ==================================== */}
+
+          {etapa === 2 && (
+            <div className="space-y-5">
+
+              <div>
+                <label
+                  htmlFor="descricao"
+                  className={estiloLabel}
+                >
+                  Descrição da Solicitação
+                  <span className="ml-1 text-red-500">*</span>
+                </label>
+
+                <textarea
+                  id="descricao"
+                  name="descricao"
+                  rows={5}
+                  maxLength={3000}
+                  value={formulario.descricao}
+                  onChange={atualizarCampo}
+                  placeholder="Descreva os recursos necessários e a justificativa do pedido..."
+                  className="w-full resize-y rounded-lg border border-[#d4dce7] bg-white px-4 py-3 text-sm text-[#082d56] outline-none focus:border-[#1759ad] focus:ring-2 focus:ring-blue-100"
                 />
 
-                {erro}
+                <p className="mt-1 text-right text-xs text-slate-400">
+                  {formulario.descricao.length}/3000 caracteres
+                </p>
               </div>
-            )}
 
-            {/* ====================================
-                ETAPA 1
-            ==================================== */}
+              {/* SELEÇÃO DE DOCUMENTOS */}
+              <div>
+                <label className={estiloLabel}>
+                  Documentos e imagens (opcional)
+                </label>
 
-            {etapa === 1 && (
-              <div className="space-y-5">
-
-                <div>
-                  <label
-                    htmlFor="titulo"
-                    className={estiloLabel}
-                  >
-                    Título da Solicitação
-                    <span className="ml-1 text-red-500">*</span>
-                  </label>
-
-                  <input
-                    id="titulo"
-                    name="titulo"
-                    type="text"
-                    maxLength={150}
-                    value={formulario.titulo}
-                    onChange={atualizarCampo}
-                    placeholder="Ex.: Aquisição de computadores"
-                    className={estiloInput}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <div>
-                    <label
-                      htmlFor="setor"
-                      className={estiloLabel}
-                    >
-                      Setor Responsável
-                      <span className="ml-1 text-red-500">*</span>
-                    </label>
-
-                    <select
-                      id="setor"
-                      name="setor"
-                      value={formulario.setor}
-                      onChange={atualizarCampo}
-                      className={estiloInput}
-                    >
-                      <option value="">
-                        Selecione o setor
-                      </option>
-
-                      <option value="Administrativo">
-                        Administrativo
-                      </option>
-
-                      <option value="Infraestrutura">
-                        Infraestrutura
-                      </option>
-
-                      <option value="Tecnologia">
-                        Tecnologia
-                      </option>
-
-                      <option value="Recursos Humanos">
-                        Recursos Humanos
-                      </option>
-
-                      <option value="Financeiro">
-                        Financeiro
-                      </option>
-
-                      <option value="Alimentício">
-                        Alimentício
-                      </option>
-
-                      <option value="Outro">
-                        Outro
-                      </option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="prioridade"
-                      className={estiloLabel}
-                    >
-                      Prioridade
-                      <span className="ml-1 text-red-500">*</span>
-                    </label>
-
-                    <select
-                      id="prioridade"
-                      name="prioridade"
-                      value={formulario.prioridade}
-                      onChange={atualizarCampo}
-                      className={estiloInput}
-                    >
-                      <option value="Baixa">Baixa</option>
-                      <option value="Média">Média</option>
-                      <option value="Alta">Alta</option>
-                      <option value="Urgente">Urgente</option>
-                    </select>
-                  </div>
-                </div>
-
-              </div>
-            )}
-
-            {/* ====================================
-                ETAPA 2
-            ==================================== */}
-
-            {etapa === 2 && (
-              <div className="space-y-5">
-
-                <div>
-                  <label
-                    htmlFor="descricao"
-                    className={estiloLabel}
-                  >
-                    Descrição da Solicitação
-                    <span className="ml-1 text-red-500">*</span>
-                  </label>
-
-                  <textarea
-                    id="descricao"
-                    name="descricao"
-                    rows={5}
-                    maxLength={3000}
-                    value={formulario.descricao}
-                    onChange={atualizarCampo}
-                    placeholder="Descreva os recursos necessários e a justificativa do pedido..."
-                    className="w-full resize-y rounded-lg border border-[#d4dce7] bg-white px-4 py-3 text-sm text-[#082d56] outline-none focus:border-[#1759ad] focus:ring-2 focus:ring-blue-100"
-                  />
-
-                  <p className="mt-1 text-right text-xs text-slate-400">
-                    {formulario.descricao.length}/3000 caracteres
-                  </p>
-                </div>
-
-                {/* SELEÇÃO DE DOCUMENTOS */}
-                <div>
-                  <label className={estiloLabel}>
-                    Documentos e imagens (opcional)
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={() => inputArquivo.current?.click()}
-                    disabled={enviando}
-                    className="flex w-full items-center justify-center gap-3 rounded-lg border-2 border-dashed border-slate-300 bg-[#fafbfc] px-5 py-6 text-left transition hover:border-[#1759ad] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <FiUploadCloud
-                      size={27}
-                      className="shrink-0 text-[#1759ad]"
-                    />
-
-                    <div>
-                      <p className="text-sm font-semibold text-[#082d56]">
-                        Selecionar documentos
-                      </p>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        PDF, JPG ou PNG, até 10 MB por arquivo
-                      </p>
-                    </div>
-                  </button>
-
-                  <input
-                    ref={inputArquivo}
-                    type="file"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                    onChange={adicionarArquivos}
-                    disabled={enviando}
-                    className="hidden"
-                  />
-
-                  {/* LISTA DOS ARQUIVOS SELECIONADOS */}
-                  {arquivos.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {arquivos.map((arquivo, indice) => (
-                        <div
-                          key={`${arquivo.name}-${arquivo.size}-${arquivo.lastModified}`}
-                          className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3"
-                        >
-                          <FiFileText className="shrink-0 text-[#1759ad]" />
-
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-[#082d56]">
-                              {arquivo.name}
-                            </p>
-
-                            <p className="text-xs text-slate-500">
-                              {(arquivo.size / 1024 / 1024).toFixed(2)} MB
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removerArquivo(indice)}
-                            disabled={enviando}
-                            aria-label={`Remover ${arquivo.name}`}
-                            className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                          >
-                            <FiTrash2 size={17} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <p className="mt-2 text-xs text-slate-500">
-                    {arquivos.length} de {MAX_ARQUIVOS} arquivo(s) selecionado(s).
-                    Os documentos serão enviados junto com a solicitação.
-                  </p>
-                </div>
-
-              </div>
-            )}
-
-            {/* ====================================
-                ETAPA 3
-            ==================================== */}
-
-            {etapa === 3 && (
-              <div className="space-y-5">
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <ItemRevisao
-                    titulo="Título"
-                    valor={formulario.titulo}
-                    grande
-                  />
-
-                  <ItemRevisao
-                    titulo="Setor responsável"
-                    valor={formulario.setor}
-                  />
-
-                  <ItemRevisao
-                    titulo="Prioridade"
-                    valor={formulario.prioridade}
-                  />
-
-                  <ItemRevisao
-                    titulo="Descrição"
-                    valor={formulario.descricao}
-                    grande
-                  />
-
-                  <ItemRevisao
-                    titulo="Documentos selecionados"
-                    valor={
-                      arquivos.length
-                        ? arquivos
-                            .map((arquivo) => arquivo.name)
-                            .join("\n")
-                        : "Nenhum documento selecionado"
-                    }
-                    grande
-                  />
-                </div>
-
-                <div className="flex items-center gap-3 rounded-lg border border-blue-100 bg-[#f0f6fd] p-4">
-                  <FiCheckCircle
+                <button
+                  type="button"
+                  onClick={() => inputArquivo.current?.click()}
+                  disabled={enviando}
+                  className="flex w-full items-center justify-center gap-3 rounded-lg border-2 border-dashed border-slate-300 bg-[#fafbfc] px-5 py-6 text-left transition hover:border-[#1759ad] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FiUploadCloud
+                    size={27}
                     className="shrink-0 text-[#1759ad]"
-                    size={20}
                   />
 
-                  <p className="text-sm text-[#082d56]">
-                    Confira os dados antes de concluir.
-                    Os documentos selecionados serão enviados
-                    junto com a solicitação. Você pode voltar
-                    para corrigir qualquer informação.
-                  </p>
-                </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#082d56]">
+                      Selecionar documentos
+                    </p>
 
+                    <p className="mt-1 text-xs text-slate-500">
+                      PDF, JPG ou PNG, até 10 MB por arquivo
+                    </p>
+                  </div>
+                </button>
+
+                <input
+                  ref={inputArquivo}
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                  onChange={adicionarArquivos}
+                  disabled={enviando}
+                  className="hidden"
+                />
+
+                {/* LISTA DOS ARQUIVOS SELECIONADOS */}
+                {arquivos.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {arquivos.map((arquivo, indice) => (
+                      <div
+                        key={`${arquivo.name}-${arquivo.size}-${arquivo.lastModified}`}
+                        className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3"
+                      >
+                        <FiFileText className="shrink-0 text-[#1759ad]" />
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-[#082d56]">
+                            {arquivo.name}
+                          </p>
+
+                          <p className="text-xs text-slate-500">
+                            {(arquivo.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => removerArquivo(indice)}
+                          disabled={enviando}
+                          aria-label={`Remover ${arquivo.name}`}
+                          className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <FiTrash2 size={17} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="mt-2 text-xs text-slate-500">
+                  {arquivos.length} de {MAX_ARQUIVOS} arquivo(s) selecionado(s).
+                  Os documentos serão enviados junto com a solicitação.
+                </p>
               </div>
-            )}
 
-          </div>
-        </section>
+            </div>
+          )}
 
-        {/* BOTÕES DE NAVEGAÇÃO */}
-        <div className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
+          {/* ====================================
+              ETAPA 3
+          ==================================== */}
+
+          {etapa === 3 && (
+            <div className="space-y-5">
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <ItemRevisao
+                  titulo="Título"
+                  valor={formulario.titulo}
+                  grande
+                />
+
+                <ItemRevisao
+                  titulo="Setor responsável"
+                  valor={formulario.setor}
+                />
+
+                <ItemRevisao
+                  titulo="Prioridade"
+                  valor={formulario.prioridade}
+                />
+
+                <ItemRevisao
+                  titulo="Descrição"
+                  valor={formulario.descricao}
+                  grande
+                />
+
+                <ItemRevisao
+                  titulo="Documentos selecionados"
+                  valor={
+                    arquivos.length
+                      ? arquivos
+                          .map((arquivo) => arquivo.name)
+                          .join("\n")
+                      : "Nenhum documento selecionado"
+                  }
+                  grande
+                />
+              </div>
+
+              <div className="flex items-center gap-3 rounded-lg border border-blue-100 bg-[#f0f6fd] p-4">
+                <FiCheckCircle
+                  className="shrink-0 text-[#1759ad]"
+                  size={20}
+                />
+
+                <p className="text-sm text-[#082d56]">
+                  Confira os dados antes de concluir.
+                  Os documentos selecionados serão enviados
+                  junto com a solicitação. Você pode voltar
+                  para corrigir qualquer informação.
+                </p>
+              </div>
+
+            </div>
+          )}
+
+        </div>
+      </section>
+
+      {/* BOTÕES DE NAVEGAÇÃO */}
+      <div className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
+
+        <button
+          type="button"
+          disabled={enviando}
+          onClick={
+            etapa === 1
+              ? () => setModalCancelar(true)
+              : voltar
+          }
+          className="flex items-center justify-center gap-2 rounded-lg border border-[#a8bfdf] bg-[#c9d8eb] px-6 py-3 text-sm font-semibold text-[#082d56] transition hover:bg-[#b4c9e3] disabled:opacity-50"
+        >
+          <FiArrowLeft />
+          Voltar
+        </button>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+
+          {etapa < 3 ? (
+            <button
+              type="button"
+              onClick={avancar}
+              disabled={
+                etapa === 1
+                  ? !etapa1Completa
+                  : !etapa2Completa
+              }
+              className="flex items-center justify-center gap-2 rounded-lg bg-[#0b4b9b] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#083b7d] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Continuar
+              <FiArrowRight />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setModalEnviar(true)}
+              disabled={!formularioCompleto || enviando}
+              className="flex items-center justify-center gap-2 rounded-lg bg-[#0b4b9b] px-6 py-3 text-sm font-semibold text-white hover:bg-[#083b7d] disabled:opacity-50"
+            >
+              <FiCheckCircle />
+              Finalizar cadastro
+            </button>
+          )}
 
           <button
             type="button"
             disabled={enviando}
-            onClick={
-              etapa === 1
-                ? () => setModalCancelar(true)
-                : voltar
-            }
-            className="flex items-center justify-center gap-2 rounded-lg border border-[#a8bfdf] bg-[#c9d8eb] px-6 py-3 text-sm font-semibold text-[#082d56] transition hover:bg-[#b4c9e3] disabled:opacity-50"
+            onClick={() => setModalCancelar(true)}
+            className="flex items-center justify-center gap-2 rounded-lg bg-[#9db9df] px-6 py-3 text-sm font-semibold text-[#082d56] transition hover:bg-[#88a9d6] disabled:opacity-50"
           >
-            <FiArrowLeft />
-            Voltar
+            Cancelar
           </button>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-
-            {etapa < 3 ? (
-              <button
-                type="button"
-                onClick={avancar}
-                disabled={
-                  etapa === 1
-                    ? !etapa1Completa
-                    : !etapa2Completa
-                }
-                className="flex items-center justify-center gap-2 rounded-lg bg-[#0b4b9b] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#083b7d] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Continuar
-                <FiArrowRight />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setModalEnviar(true)}
-                disabled={!formularioCompleto || enviando}
-                className="flex items-center justify-center gap-2 rounded-lg bg-[#0b4b9b] px-6 py-3 text-sm font-semibold text-white hover:bg-[#083b7d] disabled:opacity-50"
-              >
-                <FiCheckCircle />
-                Finalizar cadastro
-              </button>
-            )}
-
-            <button
-              type="button"
-              disabled={enviando}
-              onClick={() => setModalCancelar(true)}
-              className="flex items-center justify-center gap-2 rounded-lg bg-[#9db9df] px-6 py-3 text-sm font-semibold text-[#082d56] transition hover:bg-[#88a9d6] disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-          </div>
         </div>
-
       </div>
 
       {/* ============================================
@@ -918,6 +898,6 @@ export default function SolicitacoesInst() {
         </div>
       )}
 
-    </LayoutInstituicao>
+    </div>
   );
 }
