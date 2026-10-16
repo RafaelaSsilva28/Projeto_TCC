@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FiClipboard,
   FiX,
@@ -10,30 +10,158 @@ import {
   FiEye,
   FiRefreshCw,
   FiAlertCircle,
-  FiCheckCircle,
   FiCalendar,
+  FiChevronLeft,
+  FiChevronRight,
+  FiFlag,
 } from "react-icons/fi";
-import { enderecoServidor } from "../utils";
 
+import { enderecoServidor } from "../utils";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-
 import LayoutInstituicao from "../components/LayoutInstituicao";
 
-export default function HistoricoInst() {
-  const navigate = useNavigate();
+const LIMITE_PAGINA = 10;
 
+// ============================================
+// FORMATAR STATUS
+// ============================================
+
+function formatarStatus(status) {
+  const valor = String(status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (
+    ["aprovada", "aprovado", "deferida", "deferido"].includes(valor) ||
+    valor.includes("aprov")
+  ) {
+    return {
+      texto: "APROVADA",
+      estilo: "bg-green-100 text-green-700",
+    };
+  }
+
+  if (
+    [
+      "recusada",
+      "recusado",
+      "rejeitada",
+      "rejeitado",
+      "indeferida",
+      "indeferido",
+      "cancelada",
+      "cancelado",
+    ].includes(valor) ||
+    valor.includes("recus") ||
+    valor.includes("rejeit") ||
+    valor.includes("cancel") ||
+    valor.includes("indefer")
+  ) {
+    return {
+      texto: "RECUSADA",
+      estilo: "bg-red-100 text-red-700",
+    };
+  }
+
+  if (
+    valor.includes("andamento") ||
+    valor.includes("analise") ||
+    valor.includes("em analise")
+  ) {
+    return {
+      texto: "EM ANDAMENTO",
+      estilo: "bg-blue-100 text-blue-700",
+    };
+  }
+
+  if (
+    ["pendente", "pendentes", "aguardando"].includes(valor) ||
+    valor.includes("pendente") ||
+    valor.includes("aguardando")
+  ) {
+    return {
+      texto: "PENDENTE",
+      estilo: "bg-yellow-100 text-yellow-700",
+    };
+  }
+
+  if (
+    valor.includes("conclu") ||
+    valor.includes("finaliz")
+  ) {
+    return {
+      texto: "CONCLUÍDA",
+      estilo: "bg-blue-100 text-blue-700",
+    };
+  }
+
+  return {
+    texto: String(status || "Não informado").toUpperCase(),
+    estilo: "bg-gray-200 text-gray-700",
+  };
+}
+
+// ============================================
+// FORMATAR DATA
+// ============================================
+
+function formatarData(valor) {
+  if (!valor) return "Não informada";
+
+  const texto = String(valor).trim();
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(texto)) {
+    return texto;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    const [ano, mes, dia] = texto.split("-");
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  const data = new Date(valor);
+
+  if (Number.isNaN(data.getTime())) {
+    return texto;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  }).format(data);
+}
+
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
+
+export default function HistoricoInst() {
   const [historico, setHistorico] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
-  const [pesquisa, setPesquisa] = useState("");
-  const [solicitacaoSelecionada, setSolicitacaoSelecionada] = useState(null);
 
-  const buscarHistorico = useCallback(async () => {
+  const [pesquisa, setPesquisa] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [pagina, setPagina] = useState(1);
+  const [atualizar, setAtualizar] = useState(0);
+
+  const [solicitacaoSelecionada, setSolicitacaoSelecionada] =
+    useState(null);
+
+  // ==========================================
+  // BUSCAR HISTÓRICO NA API
+  // ==========================================
+
+  const buscarHistorico = useCallback(async (signal) => {
     const token = localStorage.getItem("@AndraRecursos:token");
 
     if (!token) {
-      navigate("/", { replace: true });
+      window.location.replace("/");
       return;
     }
 
@@ -48,39 +176,62 @@ export default function HistoricoInst() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          signal,
         },
       );
 
       if (resposta.status === 401 || resposta.status === 403) {
         localStorage.removeItem("@AndraRecursos:token");
-        navigate("/", { replace: true });
+        window.location.replace("/");
         return;
       }
 
+      const dados = await resposta.json().catch(() => null);
+
       if (!resposta.ok) {
         throw new Error(
-          `Não foi possível carregar o histórico. Erro ${resposta.status}.`,
+          dados?.message ||
+            dados?.error ||
+            `Não foi possível carregar o histórico. Erro ${resposta.status}.`,
         );
       }
 
-      const dados = await resposta.json();
-
       if (!Array.isArray(dados)) {
-        throw new Error("A API retornou um formato de histórico inválido.");
+        throw new Error(
+          "A API retornou um formato de histórico inválido.",
+        );
       }
 
-      setHistorico(dados);
+      if (!signal?.aborted) {
+        setHistorico(dados);
+      }
     } catch (error) {
-      console.error("Erro ao buscar histórico da instituição:", error);
-      setErro(error.message || "Erro ao carregar o histórico.");
+      if (error.name !== "AbortError" && !signal?.aborted) {
+        console.error(
+          "Erro ao buscar histórico da instituição:",
+          error,
+        );
+
+        setErro(error.message || "Erro ao carregar o histórico.");
+      }
     } finally {
-      setCarregando(false);
+      if (!signal?.aborted) {
+        setCarregando(false);
+      }
     }
-  }, [navigate]);
+  }, []);
 
   useEffect(() => {
-    buscarHistorico();
-  }, [buscarHistorico]);
+    const controlador = new AbortController();
+
+    buscarHistorico(controlador.signal);
+
+    return () => controlador.abort();
+  }, [buscarHistorico, atualizar]);
+
+  // ==========================================
+  // FECHAR MODAL COM ESC
+  // ==========================================
 
   useEffect(() => {
     function fecharModal(event) {
@@ -96,234 +247,356 @@ export default function HistoricoInst() {
     };
   }, []);
 
-  const historicoFiltrado = historico.filter((item) => {
-    const termo = pesquisa.trim().toLowerCase();
+  // ==========================================
+  // PESQUISA E FILTROS
+  // ==========================================
 
-    return [
-      item.titulo_solicitacao,
-      item.status,
-      item.descricao,
-      item.prioridade,
-      item.id_solicitacao,
-    ].some((valor) =>
-      String(valor ?? "")
-        .toLowerCase()
-        .includes(termo),
-    );
-  });
+  const historicoFiltrado = useMemo(() => {
+    const termo = pesquisa.toLowerCase().trim();
 
-  function obterEstiloStatus(status) {
-    const valor = String(status || "").toLowerCase();
+    return historico.filter((item) => {
+      const correspondePesquisa =
+        !termo ||
+        [
+          item.titulo_solicitacao,
+          item.status,
+          item.descricao,
+          item.prioridade,
+          item.id_solicitacao,
+          item.id_historico,
+          item.data_alteracao,
+        ].some((valor) =>
+          String(valor ?? "")
+            .toLowerCase()
+            .includes(termo),
+        );
 
-    if (valor.includes("aprov")) {
-      return "border-green-200 bg-green-50 text-green-700";
-    }
+      const status = formatarStatus(item.status).texto;
 
-    if (
-      valor.includes("análise") ||
-      valor.includes("analise") ||
-      valor.includes("pendente")
-    ) {
-      return "border-amber-200 bg-amber-50 text-amber-700";
-    }
+      const correspondeStatus =
+        filtroStatus === "todos" || status === filtroStatus;
 
-    if (
-      valor.includes("rejeit") ||
-      valor.includes("recus") ||
-      valor.includes("cancel")
-    ) {
-      return "border-red-200 bg-red-50 text-red-700";
-    }
+      return correspondePesquisa && correspondeStatus;
+    });
+  }, [historico, pesquisa, filtroStatus]);
 
-    if (valor.includes("conclu") || valor.includes("finaliz")) {
-      return "border-blue-200 bg-blue-50 text-blue-700";
-    }
+  // ==========================================
+  // PAGINAÇÃO
+  // ==========================================
 
-    return "border-gray-200 bg-gray-100 text-gray-700";
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(historicoFiltrado.length / LIMITE_PAGINA),
+  );
+
+  const paginaAtual = Math.min(pagina, totalPaginas);
+
+  const itensPagina = historicoFiltrado.slice(
+    (paginaAtual - 1) * LIMITE_PAGINA,
+    paginaAtual * LIMITE_PAGINA,
+  );
+
+  function mudarPesquisa(valor) {
+    setPesquisa(valor);
+    setPagina(1);
   }
+
+  function mudarStatus(valor) {
+    setFiltroStatus(valor);
+    setPagina(1);
+  }
+
+  // ==========================================
+  // INDICADORES
+  // ==========================================
+
+  const totalRegistros = historico.length;
+
+  const totalAprovados = historico.filter(
+    (item) => formatarStatus(item.status).texto === "APROVADA",
+  ).length;
+
+  const totalRecusados = historico.filter(
+    (item) => formatarStatus(item.status).texto === "RECUSADA",
+  ).length;
+
+  const totalPendentes = historico.filter(
+    (item) =>
+      formatarStatus(item.status).texto === "PENDENTE" ||
+      formatarStatus(item.status).texto === "EM ANDAMENTO",
+  ).length;
+
+  // ==========================================
+  // EXPORTAR RELATÓRIO PDF
+  // ==========================================
 
   function exportarRelatorio() {
     if (historicoFiltrado.length === 0) {
-      alert("Não há registros para exportar.");
+      alert("Não há registros no histórico para exportar.");
       return;
     }
 
-    const doc = new jsPDF({
-      orientation: "landscape",
-      unit: "mm",
-      format: "a4",
-    });
+    try {
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
 
-    const larguraPagina = doc.internal.pageSize.getWidth();
-    const alturaPagina = doc.internal.pageSize.getHeight();
-    const azul = [8, 45, 86]; // #082d56
+      const azul = [8, 45, 86];
+      const larguraPagina = doc.internal.pageSize.getWidth();
+      const alturaPagina = doc.internal.pageSize.getHeight();
 
-    // CABEÇALHO
-    doc.setFillColor(...azul);
-    doc.rect(0, 0, larguraPagina, 24, "F");
+      const dataEmissao = new Intl.DateTimeFormat("pt-BR", {
+        dateStyle: "short",
+        timeStyle: "short",
+        timeZone: "America/Sao_Paulo",
+      }).format(new Date());
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("AndraRecursos", 14, 11);
+      const contarStatus = (statusDesejado) =>
+        historicoFiltrado.filter(
+          (item) =>
+            formatarStatus(item.status).texto === statusDesejado,
+        ).length;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text("Relatório - Histórico de solicitações da instituição", 14, 18);
+      // CABEÇALHO
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.setTextColor(...azul);
+      doc.text("AndraRecursos", 14, 17);
 
-    // INFORMAÇÕES DO RELATÓRIO
-    doc.setTextColor(60, 60, 60);
-    doc.setFontSize(9);
-
-    const geradoEm = new Date().toLocaleString("pt-BR");
-    doc.text(`Gerado em: ${geradoEm}`, 14, 31);
-    doc.text(
-      `Registros exportados: ${historicoFiltrado.length} de ${totalRegistros}`,
-      14,
-      36,
-    );
-    doc.text(
-      `Aprovados: ${totalAprovados}   |   Pendentes: ${totalPendentes}`,
-      14,
-      41,
-    );
-
-    if (pesquisa.trim()) {
+      doc.setFontSize(14);
       doc.text(
-        `Filtro aplicado: "${pesquisa.trim()}"`,
-        larguraPagina - 14,
-        31,
-        {
-          align: "right",
-        },
+        "Relatório do Histórico de Solicitações",
+        14,
+        26,
       );
-    }
 
-    // TABELA
-    autoTable(doc, {
-      startY: 46,
-      head: [
-        [
-          "ID Solicitação",
-          "Solicitação",
-          "Status",
-          "Prioridade",
-          "Data",
-          "Descrição",
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(90, 100, 115);
+
+      doc.text(`Data de emissão: ${dataEmissao}`, 14, 33);
+
+      doc.text(
+        `Registros exportados: ${historicoFiltrado.length}`,
+        14,
+        39,
+      );
+
+      // RESUMO
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(...azul);
+      doc.text("Resumo do histórico", 14, 49);
+
+      autoTable(doc, {
+        startY: 53,
+        head: [
+          [
+            "Total",
+            "Aprovadas",
+            "Recusadas",
+            "Pendentes",
+            "Em andamento",
+            "Concluídas",
+          ],
         ],
-      ],
-      body: historicoFiltrado.map((item) => [
-        item.id_solicitacao ?? "-",
-        item.titulo_solicitacao || "-",
-        item.status || "Não informado",
-        item.prioridade || "-",
-        item.data_alteracao || "Sem data",
-        item.descricao || "-",
-      ]),
-      styles: {
-        font: "helvetica",
-        fontSize: 8,
-        cellPadding: 2.5,
-        overflow: "linebreak",
-        valign: "middle",
-      },
-      headStyles: {
-        fillColor: azul,
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      alternateRowStyles: {
-        fillColor: [245, 247, 250],
-      },
-      columnStyles: {
-        0: { cellWidth: 24 },
-        1: { cellWidth: 50 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 32 },
-        5: { cellWidth: "auto" },
-      },
-      margin: { left: 14, right: 14, bottom: 14 },
-    });
-
-    // RODAPÉ COM NUMERAÇÃO DE PÁGINAS
-    const totalPaginas = doc.getNumberOfPages();
-
-    for (let i = 1; i <= totalPaginas; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(120, 120, 120);
-      doc.text(
-        `Página ${i} de ${totalPaginas}`,
-        larguraPagina - 14,
-        alturaPagina - 6,
-        {
-          align: "right",
+        body: [
+          [
+            historicoFiltrado.length,
+            contarStatus("APROVADA"),
+            contarStatus("RECUSADA"),
+            contarStatus("PENDENTE"),
+            contarStatus("EM ANDAMENTO"),
+            contarStatus("CONCLUÍDA"),
+          ],
+        ],
+        theme: "grid",
+        headStyles: {
+          fillColor: azul,
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
         },
-      );
-      doc.text("AndraRecursos - Área da Instituição", 14, alturaPagina - 6);
-    }
+        styles: {
+          font: "helvetica",
+          fontSize: 9,
+          cellPadding: 3,
+          halign: "center",
+        },
+      });
 
-    const dataArquivo = new Date().toISOString().slice(0, 10);
-    doc.save(`historico-instituicao-${dataArquivo}.pdf`);
+      // FILTROS APLICADOS
+      const filtros = [];
+
+      if (pesquisa.trim()) {
+        filtros.push(`Pesquisa: ${pesquisa.trim()}`);
+      }
+
+      if (filtroStatus !== "todos") {
+        filtros.push(`Status: ${filtroStatus}`);
+      }
+
+      const inicioFiltros = doc.lastAutoTable.finalY + 10;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...azul);
+      doc.text("Filtros utilizados", 14, inicioFiltros);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(70, 80, 95);
+
+      const textoFiltros = filtros.length
+        ? filtros.join(" | ")
+        : "Nenhum filtro específico aplicado.";
+
+      const linhasFiltros = doc.splitTextToSize(
+        textoFiltros,
+        larguraPagina - 28,
+      );
+
+      doc.text(linhasFiltros, 14, inicioFiltros + 6);
+
+      const inicioTabela =
+        inicioFiltros + 10 + linhasFiltros.length * 4;
+
+      // TABELA COMPLETA DOS REGISTROS FILTRADOS
+      autoTable(doc, {
+        startY: inicioTabela,
+        head: [
+          [
+            "ID Histórico",
+            "ID Solicitação",
+            "Solicitação",
+            "Status",
+            "Prioridade",
+            "Descrição",
+            "Data",
+          ],
+        ],
+        body: historicoFiltrado.map((item) => [
+          item.id_historico ?? "—",
+          item.id_solicitacao ?? "—",
+          item.titulo_solicitacao ||
+            `Solicitação #${item.id_solicitacao ?? "—"}`,
+          formatarStatus(item.status).texto,
+          item.prioridade || "Não informada",
+          item.descricao || "Sem descrição",
+          formatarData(item.data_alteracao),
+        ]),
+        theme: "striped",
+        headStyles: {
+          fillColor: azul,
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+        },
+        alternateRowStyles: {
+          fillColor: [245, 248, 252],
+        },
+        styles: {
+          font: "helvetica",
+          fontSize: 7,
+          cellPadding: 2.5,
+          overflow: "linebreak",
+          valign: "middle",
+        },
+        columnStyles: {
+          0: { cellWidth: 20 },
+          1: { cellWidth: 23 },
+          2: { cellWidth: 43 },
+          3: { cellWidth: 27 },
+          4: { cellWidth: 25 },
+          5: { cellWidth: "auto" },
+          6: { cellWidth: 25 },
+        },
+        margin: {
+          top: 15,
+          right: 10,
+          bottom: 18,
+          left: 10,
+        },
+        showHead: "everyPage",
+        didDrawPage: () => {
+          const numeroPagina = doc.internal.getNumberOfPages();
+          const altura = doc.internal.pageSize.getHeight();
+          const largura = doc.internal.pageSize.getWidth();
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(120, 130, 145);
+
+          doc.text(
+            "AndraRecursos - Área da Instituição",
+            10,
+            altura - 8,
+          );
+
+          doc.text(
+            `Página ${numeroPagina}`,
+            largura - 10,
+            altura - 8,
+            { align: "right" },
+          );
+        },
+      });
+
+      const dataArquivo = new Date()
+        .toLocaleDateString("pt-BR")
+        .replace(/\//g, "-");
+
+      doc.save(`Historico_Instituicao_${dataArquivo}.pdf`);
+    } catch (error) {
+      console.error("Erro ao exportar histórico em PDF:", error);
+      alert("Não foi possível gerar o relatório PDF.");
+    }
   }
 
-  const totalRegistros = historico.length;
-  const totalAprovados = historico.filter((item) =>
-    String(item.status || "")
-      .toLowerCase()
-      .includes("aprov"),
-  ).length;
-  const totalPendentes = historico.filter((item) => {
-    const status = String(item.status || "").toLowerCase();
-
-    return (
-      status.includes("pendente") ||
-      status.includes("análise") ||
-      status.includes("analise")
-    );
-  }).length;
+  // ==========================================
+  // INTERFACE
+  // ==========================================
 
   return (
     <LayoutInstituicao>
-      <div className="mx-auto max-w-7xl">
-        {/* TÍTULO E EXPORTAÇÃO */}
-        <section className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        {/* CABEÇALHO */}
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="mb-2 text-sm font-medium text-[#082d56]">
-              Área institucional / Solicitações
-            </p>
-
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-              Histórico de solicitações
+            <h1 className="text-[28px] font-bold text-[#082d56]">
+              Histórico
             </h1>
 
-            <p className="mt-2 text-sm text-gray-500 sm:text-base">
-              Acompanhe as alterações registradas nas suas solicitações.
+            <p className="mt-1 text-sm text-gray-500">
+              Histórico de alterações das suas solicitações
             </p>
           </div>
 
           <button
             type="button"
             onClick={exportarRelatorio}
-            disabled={historicoFiltrado.length === 0}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#082d56] px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-[#104580] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            disabled={carregando || historicoFiltrado.length === 0}
+            className="flex items-center gap-2 rounded-md bg-[#082d56] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#164675] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <FiDownload size={19} />
-            Exportar relatório
+            <FiDownload size={17} />
+            Exportar Relatório
           </button>
-        </section>
+        </div>
 
         {/* INDICADORES */}
-        <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm text-gray-500">Registros no histórico</p>
-                <p className="mt-2 text-2xl font-bold text-gray-900">
+                <p className="text-sm text-gray-500">
+                  Registros no histórico
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-[#082d56]">
                   {totalRegistros}
                 </p>
               </div>
+
               <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-[#082d56]">
                 <FiFileText size={22} />
               </div>
@@ -331,301 +604,413 @@ export default function HistoricoInst() {
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm text-gray-500">Registros aprovados</p>
+                <p className="text-sm text-gray-500">
+                  Registros aprovados
+                </p>
+
                 <p className="mt-2 text-2xl font-bold text-green-700">
                   {totalAprovados}
                 </p>
               </div>
+
               <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-green-50 text-green-600">
-                <FiCheckCircle size={22} />
+                <FiClipboard size={22} />
               </div>
             </div>
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm text-gray-500">Registros pendentes</p>
+                <p className="text-sm text-gray-500">
+                  Pendentes / em andamento
+                </p>
+
                 <p className="mt-2 text-2xl font-bold text-amber-600">
                   {totalPendentes}
                 </p>
               </div>
+
               <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
                 <FiClock size={22} />
               </div>
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* HISTÓRICO */}
-        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Registros de alterações
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Informações retornadas pelo histórico da sua instituição.
-              </p>
+        {/* PAINEL PRINCIPAL */}
+        <section className="min-h-[480px] rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          {/* FILTROS */}
+          <div className="mb-6 flex flex-col gap-3 md:flex-row">
+            <div className="relative flex-1">
+              <FiSearch
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+
+              <input
+                type="search"
+                value={pesquisa}
+                onChange={(e) => mudarPesquisa(e.target.value)}
+                placeholder="Pesquisar solicitação..."
+                aria-label="Pesquisar no histórico"
+                className="w-full rounded-lg border border-gray-200 bg-[#f7f7f7] py-3 pl-10 pr-4 text-sm outline-none focus:border-[#082d56] focus:ring-2 focus:ring-blue-100"
+              />
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative">
-                <FiSearch
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
-                <input
-                  type="search"
-                  value={pesquisa}
-                  onChange={(e) => setPesquisa(e.target.value)}
-                  placeholder="Buscar solicitação..."
-                  aria-label="Buscar no histórico"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-[#082d56] focus:ring-2 focus:ring-blue-100 sm:w-64"
-                />
-              </div>
+            <select
+              value={filtroStatus}
+              onChange={(e) => mudarStatus(e.target.value)}
+              aria-label="Filtrar por status"
+              className="rounded-lg border border-gray-200 bg-[#f7f7f7] px-4 py-3 text-sm text-[#082d56] outline-none focus:border-[#082d56]"
+            >
+              <option value="todos">Todos os status</option>
+              <option value="APROVADA">Aprovadas</option>
+              <option value="RECUSADA">Recusadas</option>
+              <option value="PENDENTE">Pendentes</option>
+              <option value="EM ANDAMENTO">Em andamento</option>
+              <option value="CONCLUÍDA">Concluídas</option>
+            </select>
 
-              <button
-                type="button"
-                onClick={buscarHistorico}
-                disabled={carregando}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-[#082d56] transition hover:bg-gray-50 disabled:opacity-50"
-              >
-                <FiRefreshCw
-                  size={17}
-                  className={carregando ? "animate-spin" : ""}
-                />
-                Atualizar
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setAtualizar((valor) => valor + 1)}
+              disabled={carregando}
+              className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-3 text-sm text-[#082d56] transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FiRefreshCw
+                size={16}
+                className={carregando ? "animate-spin" : ""}
+              />
+              Atualizar
+            </button>
           </div>
 
           {/* ERRO */}
           {erro && (
-            <div className="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2">
-                <FiAlertCircle size={20} className="shrink-0" />
-                <p className="text-sm">{erro}</p>
-              </div>
+            <div className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <FiAlertCircle size={19} className="shrink-0" />
 
-              <button
-                type="button"
-                onClick={buscarHistorico}
-                className="self-start text-sm font-semibold underline sm:self-auto"
-              >
-                Tentar novamente
-              </button>
+              <div className="flex-1">
+                <p>{erro}</p>
+
+                <button
+                  type="button"
+                  onClick={() => setAtualizar((valor) => valor + 1)}
+                  className="mt-2 font-semibold underline"
+                >
+                  Tentar novamente
+                </button>
+              </div>
             </div>
           )}
 
           {/* CARREGAMENTO */}
-          {carregando ? (
-            <div className="flex min-h-64 flex-col items-center justify-center gap-3">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#082d56]" />
-              <p className="text-sm text-gray-500">Carregando histórico...</p>
+          {carregando && (
+            <div className="flex min-h-52 items-center justify-center gap-3 text-[#082d56]">
+              <FiRefreshCw className="animate-spin" />
+              Carregando históricos...
             </div>
-          ) : erro ? null : historicoFiltrado.length === 0 ? (
-            /* ESTADO VAZIO */
-            <div className="flex min-h-72 flex-col items-center justify-center px-4 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-[#082d56]">
-                {pesquisa ? <FiSearch size={28} /> : <FiFileText size={30} />}
-              </div>
+          )}
 
-              <h3 className="text-lg font-semibold text-gray-800">
-                {pesquisa
-                  ? "Nenhum resultado encontrado"
-                  : "Nenhum histórico disponível"}
-              </h3>
+          {/* REGISTROS */}
+          {!carregando && !erro && (
+            <>
+              <div className="space-y-3">
+                {itensPagina.map((item, indice) => {
+                  const status = formatarStatus(item.status);
 
-              <p className="mt-2 max-w-md text-sm leading-6 text-gray-500">
-                {pesquisa
-                  ? "Tente pesquisar por outro título, status ou descrição."
-                  : "Quando houver alterações registradas nas solicitações da sua instituição, elas aparecerão aqui."}
-              </p>
-
-              {pesquisa && (
-                <button
-                  type="button"
-                  onClick={() => setPesquisa("")}
-                  className="mt-4 font-semibold text-[#082d56] hover:underline"
-                >
-                  Limpar pesquisa
-                </button>
-              )}
-            </div>
-          ) : (
-            /* LISTA */
-            <div className="space-y-4">
-              {historicoFiltrado.map((item, indice) => (
-                <article
-                  key={item.id_historico ?? `${item.id_solicitacao}-${indice}`}
-                  className="rounded-xl border border-gray-200 bg-white p-4 transition hover:border-blue-200 hover:shadow-sm sm:p-5"
-                >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#082d56]">
-                        <FiClipboard size={21} />
-                      </div>
-
+                  return (
+                    <article
+                      key={
+                        item.id_historico ??
+                        `${item.id_solicitacao}-${indice}`
+                      }
+                      className="grid grid-cols-1 items-center gap-3 rounded-lg border border-[#dddddd] bg-[#f1f1f1] px-5 py-4 shadow-[0_2px_2px_rgba(0,0,0,0.15)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md md:grid-cols-[minmax(0,2fr)_145px_115px_130px]"
+                    >
+                      {/* SOLICITAÇÃO */}
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-gray-900">
+                        <h3 className="break-words text-sm font-bold text-[#082d56]">
                           {item.titulo_solicitacao ||
                             `Solicitação #${item.id_solicitacao ?? "—"}`}
                         </h3>
 
-                        <p className="mt-1 text-xs text-gray-500">
+                        <p className="mt-1 text-xs text-gray-600">
                           Solicitação #{item.id_solicitacao ?? "—"}
                         </p>
-
-                        {item.descricao && (
-                          <p className="mt-2 line-clamp-2 break-words text-sm leading-5 text-gray-500">
-                            {item.descricao}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <span
-                        className={`inline-flex w-fit items-center rounded-full border px-3 py-1.5 text-xs font-semibold ${obterEstiloStatus(item.status)}`}
-                      >
-                        {item.status || "Não informado"}
-                      </span>
-
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <FiCalendar size={17} className="shrink-0" />
-                        <span>{item.data_alteracao || "Sem data"}</span>
                       </div>
 
+                      {/* STATUS */}
+                      <div>
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold ${status.estilo}`}
+                        >
+                          {status.texto}
+                        </span>
+                      </div>
+
+                      {/* DATA */}
+                      <div className="flex items-center gap-2 text-xs text-gray-600">
+                        <FiCalendar size={14} className="shrink-0" />
+                        <span>{formatarData(item.data_alteracao)}</span>
+                      </div>
+
+                      {/* DETALHES */}
                       <button
                         type="button"
                         onClick={() => setSolicitacaoSelecionada(item)}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-[#082d56] transition hover:bg-blue-50"
+                        className="flex items-center gap-2 whitespace-nowrap text-xs font-semibold text-[#082d56] transition hover:text-blue-600 hover:underline"
                       >
-                        <FiEye size={17} />
-                        Detalhes
+                        <FiEye size={16} />
+                        Ver Solicitação
                       </button>
+                    </article>
+                  );
+                })}
+
+                {/* ESTADO VAZIO */}
+                {itensPagina.length === 0 && (
+                  <div className="flex min-h-56 flex-col items-center justify-center gap-3 text-center">
+                    <FiFileText size={38} className="text-gray-300" />
+
+                    <p className="text-sm text-gray-500">
+                      {pesquisa || filtroStatus !== "todos"
+                        ? "Nenhum histórico encontrado para os filtros aplicados."
+                        : "Nenhum histórico disponível."}
+                    </p>
+
+                    {(pesquisa || filtroStatus !== "todos") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPesquisa("");
+                          setFiltroStatus("todos");
+                          setPagina(1);
+                        }}
+                        className="text-sm font-semibold text-[#082d56] hover:underline"
+                      >
+                        Limpar filtros
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* PAGINAÇÃO */}
+              {historicoFiltrado.length > 0 && (
+                <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-gray-100 pt-5 sm:flex-row">
+                  <p className="text-xs text-gray-500">
+                    Exibindo{" "}
+                    {(paginaAtual - 1) * LIMITE_PAGINA + 1} a{" "}
+                    {Math.min(
+                      paginaAtual * LIMITE_PAGINA,
+                      historicoFiltrado.length,
+                    )}{" "}
+                    de {historicoFiltrado.length} registros
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Página anterior"
+                      disabled={paginaAtual === 1}
+                      onClick={() =>
+                        setPagina((atual) => Math.max(1, atual - 1))
+                      }
+                      className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <FiChevronLeft size={18} />
+                    </button>
+
+                    <span className="rounded-lg bg-[#082d56] px-3 py-2 text-xs font-semibold text-white">
+                      {paginaAtual} / {totalPaginas}
+                    </span>
+
+                    <button
+                      type="button"
+                      aria-label="Próxima página"
+                      disabled={paginaAtual === totalPaginas}
+                      onClick={() =>
+                        setPagina((atual) =>
+                          Math.min(totalPaginas, atual + 1),
+                        )
+                      }
+                      className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <FiChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        {/* MODAL DE DETALHES */}
+        {solicitacaoSelecionada && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#07182b]/65 p-4 backdrop-blur-[3px]"
+            onClick={() => setSolicitacaoSelecionada(null)}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="titulo-detalhes"
+              onClick={(e) => e.stopPropagation()}
+              className="my-auto w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            >
+              {/* CABEÇALHO DO MODAL */}
+              <div className="flex items-start justify-between gap-4 border-b border-gray-100 bg-[#f7f9fc] px-6 py-5">
+                <div className="min-w-0">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#47719e]">
+                    Detalhes da Solicitação
+                  </p>
+
+                  <h2
+                    id="titulo-detalhes"
+                    className="break-words text-xl font-bold text-[#082d56]"
+                  >
+                    {solicitacaoSelecionada.titulo_solicitacao ||
+                      `Solicitação #${solicitacaoSelecionada.id_solicitacao ?? "—"}`}
+                  </h2>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    Solicitação #
+                    {solicitacaoSelecionada.id_solicitacao ?? "—"}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSolicitacaoSelecionada(null)}
+                  aria-label="Fechar detalhes"
+                  className="shrink-0 rounded-full p-2 text-gray-500 transition hover:bg-gray-200"
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+
+              {/* INFORMAÇÕES */}
+              <div className="space-y-5 px-6 py-6">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  {/* ID */}
+                  <div className="flex items-start gap-3">
+                    <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
+                      <FiClipboard size={17} />
+                    </span>
+
+                    <div>
+                      <p className="mb-1 text-xs text-gray-500">
+                        ID do histórico
+                      </p>
+
+                      <p className="text-sm font-semibold text-[#082d56]">
+                        {solicitacaoSelecionada.id_historico ?? "—"}
+                      </p>
                     </div>
                   </div>
 
-                  {item.prioridade && (
-                    <div className="mt-4 border-t border-gray-100 pt-3">
-                      <p className="text-xs text-gray-500">
-                        Prioridade:{" "}
-                        <span className="font-semibold text-gray-700">
-                          {item.prioridade}
-                        </span>
+                  {/* STATUS */}
+                  <div className="flex items-start gap-3">
+                    <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
+                      <FiClipboard size={17} />
+                    </span>
+
+                    <div>
+                      <p className="mb-1 text-xs text-gray-500">
+                        Status registrado
+                      </p>
+
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
+                          formatarStatus(
+                            solicitacaoSelecionada.status,
+                          ).estilo
+                        }`}
+                      >
+                        {
+                          formatarStatus(
+                            solicitacaoSelecionada.status,
+                          ).texto
+                        }
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* PRIORIDADE */}
+                  <div className="flex items-start gap-3">
+                    <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
+                      <FiFlag size={17} />
+                    </span>
+
+                    <div>
+                      <p className="mb-1 text-xs text-gray-500">
+                        Prioridade
+                      </p>
+
+                      <p className="text-sm font-semibold capitalize text-[#082d56]">
+                        {solicitacaoSelecionada.prioridade ||
+                          "Não informada"}
                       </p>
                     </div>
-                  )}
-                </article>
-              ))}
+                  </div>
 
-              <div className="border-t border-gray-100 pt-4 text-center text-sm text-gray-500">
-                Exibindo {historicoFiltrado.length} de {totalRegistros}{" "}
-                {totalRegistros === 1 ? "registro" : "registros"}
+                  {/* DATA */}
+                  <div className="flex items-start gap-3">
+                    <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
+                      <FiClock size={17} />
+                    </span>
+
+                    <div>
+                      <p className="mb-1 text-xs text-gray-500">
+                        Data da alteração
+                      </p>
+
+                      <p className="text-sm font-semibold text-[#082d56]">
+                        {formatarData(
+                          solicitacaoSelecionada.data_alteracao,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* DESCRIÇÃO */}
+                <div className="rounded-xl border border-[#e6edf5] bg-[#f7f9fc] p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <FiFileText
+                      size={16}
+                      className="text-[#47719e]"
+                    />
+
+                    <p className="text-xs font-semibold text-[#47719e]">
+                      Descrição da movimentação
+                    </p>
+                  </div>
+
+                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-700">
+                    {solicitacaoSelecionada.descricao ||
+                      "Nenhuma descrição registrada."}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
-        </section>
+
+              {/* BOTÃO FECHAR */}
+              <div className="border-t border-gray-100 bg-[#fcfcfd] px-6 py-5">
+                <button
+                  type="button"
+                  onClick={() => setSolicitacaoSelecionada(null)}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+                >
+                  Fechar
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
       </div>
-
-      {/* MODAL DE DETALHES */}
-      {solicitacaoSelecionada && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
-          onClick={() => setSolicitacaoSelecionada(null)}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="titulo-detalhes"
-            onClick={(e) => e.stopPropagation()}
-            className="my-auto w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl sm:p-8"
-          >
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">
-                  Histórico da solicitação
-                </p>
-
-                <h2
-                  id="titulo-detalhes"
-                  className="mt-2 break-words text-xl font-bold text-[#082d56]"
-                >
-                  {solicitacaoSelecionada.titulo_solicitacao ||
-                    `Solicitação #${solicitacaoSelecionada.id_solicitacao ?? "—"}`}
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                aria-label="Fechar detalhes"
-                onClick={() => setSolicitacaoSelecionada(null)}
-                className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
-              >
-                <FiX size={21} />
-              </button>
-            </div>
-
-            <div className="space-y-5">
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Status
-                </p>
-
-                <span
-                  className={`inline-flex rounded-full border px-3 py-2 text-xs font-semibold ${obterEstiloStatus(solicitacaoSelecionada.status)}`}
-                >
-                  {solicitacaoSelecionada.status || "Não informado"}
-                </span>
-              </div>
-
-              <div>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Data da alteração
-                </p>
-
-                <p className="flex items-center gap-2 text-sm text-gray-700">
-                  <FiCalendar size={16} />
-                  {solicitacaoSelecionada.data_alteracao || "Não informada"}
-                </p>
-              </div>
-
-              <div>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Prioridade
-                </p>
-
-                <p className="text-sm text-gray-700">
-                  {solicitacaoSelecionada.prioridade || "Não informada"}
-                </p>
-              </div>
-
-              <div>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Descrição da alteração
-                </p>
-
-                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
-                  {solicitacaoSelecionada.descricao ||
-                    "Nenhuma descrição informada."}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSolicitacaoSelecionada(null)}
-              className="mt-8 w-full rounded-xl bg-[#082d56] px-5 py-3 font-semibold text-white transition hover:bg-[#104580]"
-            >
-              Fechar detalhes
-            </button>
-          </section>
-        </div>
-      )}
     </LayoutInstituicao>
   );
 }
