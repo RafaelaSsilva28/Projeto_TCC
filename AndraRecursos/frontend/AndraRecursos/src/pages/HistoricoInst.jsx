@@ -326,29 +326,69 @@ export default function HistoricoInst() {
       formatarStatus(item.status).texto === "EM ANDAMENTO",
   ).length;
 
-
+  
   // ==========================================
   // FUNÇÃO PARA EXCLUIR SOLICITAÇÃO
   // ==========================================
- async function excluirSolicitacao(solicitacao) {
-  const confirmar = window.confirm(
-    "Deseja realmente excluir esta solicitação?"
-  );
+  async function excluirSolicitacao(solicitacao) {
+    const id = solicitacao?.id_solicitacao;
 
-  if(!confirmar) return;
-   try{
-    const id = solicitacao.id_solicitacoes;
-    const resposta = await fetch(`${enderecoServidor}/solicitacoes/${id}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("@AndraRecursos:token")}`,
-      },
-    });
-   }
- }
- 
- 
+    if (!id) {
+      alert("Não foi possível identificar a solicitação.");
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Deseja excluir a solicitação #${id} inteira? Esta ação não poderá ser desfeita.`
+    );
+
+    if (!confirmar) return;
+
+    try {
+      const token = localStorage.getItem("@AndraRecursos:token");
+
+      if (!token) {
+        alert("Sua sessão expirou. Faça login novamente.");
+        return;
+      }
+
+      const resposta = await fetch(
+        `${enderecoServidor}/solicitacoes/instituicao/solicitacoes/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const resultado = await resposta.json().catch(() => ({}));
+
+      if (!resposta.ok) {
+        throw new Error(
+          resultado.error ||
+          resultado.message ||
+          "Não foi possível excluir a solicitação."
+        );
+      }
+
+      // Remove do histórico todos os registros
+      // relacionados à solicitação excluída.
+      setHistorico((listaAtual) =>
+        listaAtual.filter(
+          (item) => item.id_solicitacao !== id
+        )
+      );
+
+      setSolicitacaoSelecionada(null);
+
+      alert("Solicitação excluída com sucesso!");
+    } catch (erro) {
+      console.error("Erro ao excluir solicitação:", erro);
+      alert(erro.message || "Erro ao excluir a solicitação.");
+    }
+  }
+
   // ==========================================
   // EXPORTAR RELATÓRIO PDF
   // ==========================================
@@ -1051,3 +1091,4 @@ export default function HistoricoInst() {
     </div>
   );
 }
+
