@@ -27,6 +27,39 @@ function idValido(valor) {
   return Number.isSafeInteger(numero) && numero > 0;
 }
 
+function tipoAcessoNormalizado(usuario) {
+  const tipo = String(
+    usuario?.tipo_acesso_normalizado ??
+    usuario?.tipo_acesso ??
+    ""
+  )
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  if (tipo.includes("admin")) return "administrador";
+
+  if (
+    tipo === "instituicao" ||
+    tipo.includes("institucional")
+  ) {
+    return "instituicao";
+  }
+
+  return "";
+}
+
+function obterIdInstituicaoUsuario(req) {
+  const id = Number(
+    req.instituicao?.id_instituicao ??
+    req.usuario?.id_instituicao
+  );
+
+  return idValido(id) ? id : null;
+}
+
+
 function textoValido(valor) {
   return typeof valor === "string" && valor.trim().length > 0;
 }
@@ -980,12 +1013,14 @@ router.delete(
 // Somente administrador.
 // ============================================
 
+
 router.get(
   "/solicitacoes/:id_solicitacoes/documentos",
   autenticarToken,
-  autenticarAdministrador,
   async (req, res) => {
     const id = Number(req.params.id_solicitacoes);
+    const tipo = tipoAcessoNormalizado(req.usuario);
+    const idInstituicao = obterIdInstituicaoUsuario(req);
 
     if (!idValido(id)) {
       return res.status(400).json({
@@ -993,7 +1028,30 @@ router.get(
       });
     }
 
+    if (
+      tipo !== "administrador" &&
+      tipo !== "instituicao"
+    ) {
+      return res.status(403).json({
+        error: "Perfil sem permissão para consultar documentos.",
+      });
+    }
+
+    if (tipo === "instituicao" && !idInstituicao) {
+      return res.status(403).json({
+        error: "Instituição não identificada.",
+      });
+    }
+
     try {
+      const parametros = [id];
+      let filtroInstituicao = "";
+
+      if (tipo === "instituicao") {
+        parametros.push(idInstituicao);
+        filtroInstituicao = "AND s.id_instituicao = $2";
+      }
+
       const resultado = await BD.query(
         `
           SELECT
@@ -1005,9 +1063,10 @@ router.get(
           INNER JOIN solicitacoes s
             ON s.id_solicitacoes = d.id_solicitacao
           WHERE s.id_solicitacoes = $1
+          ${filtroInstituicao}
           ORDER BY d.id_documento ASC
         `,
-        [id]
+        parametros
       );
 
       return res.status(200).json({
@@ -1026,17 +1085,90 @@ router.get(
   }
 );
 
+
+router.get(
+  "/documentos/solicitacao/:id_solicitacoes",
+  autenticarToken,
+  async (req, res) => {
+    const id = Number(req.params.id_solicitacoes);
+    const tipo = tipoAcessoNormalizado(req.usuario);
+    const idInstituicao = obterIdInstituicaoUsuario(req);
+
+    if (!idValido(id)) {
+      return res.status(400).json({
+        error: "ID da solicitação inválido.",
+      });
+    }
+
+    if (
+      tipo !== "administrador" &&
+      tipo !== "instituicao"
+    ) {
+      return res.status(403).json({
+        error: "Perfil sem permissão para consultar documentos.",
+      });
+    }
+
+    if (tipo === "instituicao" && !idInstituicao) {
+      return res.status(403).json({
+        error: "Instituição não identificada.",
+      });
+    }
+
+    try {
+      const parametros = [id];
+      let filtroInstituicao = "";
+
+      if (tipo === "instituicao") {
+        parametros.push(idInstituicao);
+        filtroInstituicao = "AND s.id_instituicao = $2";
+      }
+
+      const resultado = await BD.query(
+        `
+          SELECT
+            d.id_documento,
+            d.nome_arquivo,
+            d.tipo,
+            d.id_solicitacao
+          FROM documentos d
+          INNER JOIN solicitacoes s
+            ON s.id_solicitacoes = d.id_solicitacao
+          WHERE s.id_solicitacoes = $1
+          ${filtroInstituicao}
+          ORDER BY d.id_documento ASC
+        `,
+        parametros
+      );
+
+      return res.status(200).json(resultado.rows);
+    } catch (error) {
+      console.error(
+        "Erro ao consultar documentos:",
+        error.message
+      );
+
+      return res.status(500).json({
+        error: "Não foi possível consultar os documentos.",
+      });
+    }
+  }
+);
+
+
 // ============================================
 // GET - DOWNLOAD SEGURO DE DOCUMENTO
 // Somente administrador.
 // ============================================
 
+
 router.get(
   "/documentos/:id_documento/download",
   autenticarToken,
-  autenticarAdministrador,
   async (req, res) => {
     const idDocumento = Number(req.params.id_documento);
+    const tipo = tipoAcessoNormalizado(req.usuario);
+    const idInstituicao = obterIdInstituicaoUsuario(req);
 
     if (!idValido(idDocumento)) {
       return res.status(400).json({
@@ -1044,7 +1176,30 @@ router.get(
       });
     }
 
+    if (
+      tipo !== "administrador" &&
+      tipo !== "instituicao"
+    ) {
+      return res.status(403).json({
+        error: "Perfil sem permissão para baixar documentos.",
+      });
+    }
+
+    if (tipo === "instituicao" && !idInstituicao) {
+      return res.status(403).json({
+        error: "Instituição não identificada.",
+      });
+    }
+
     try {
+      const parametros = [idDocumento];
+      let filtroInstituicao = "";
+
+      if (tipo === "instituicao") {
+        parametros.push(idInstituicao);
+        filtroInstituicao = "AND s.id_instituicao = $2";
+      }
+
       const resultado = await BD.query(
         `
           SELECT
@@ -1056,14 +1211,15 @@ router.get(
           INNER JOIN solicitacoes s
             ON s.id_solicitacoes = d.id_solicitacao
           WHERE d.id_documento = $1
+          ${filtroInstituicao}
           LIMIT 1
         `,
-        [idDocumento]
+        parametros
       );
 
       if (!resultado.rows.length) {
         return res.status(404).json({
-          error: "Documento não encontrado.",
+          error: "Documento não encontrado ou sem acesso.",
         });
       }
 
@@ -1092,7 +1248,7 @@ router.get(
         );
 
         return res.status(502).json({
-          error: "Não foi possível preparar o download do documento.",
+          error: "Não foi possível preparar o download.",
         });
       }
 
@@ -1112,5 +1268,6 @@ router.get(
     }
   }
 );
+
 
 export default router;
