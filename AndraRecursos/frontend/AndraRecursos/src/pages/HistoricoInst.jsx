@@ -119,8 +119,206 @@ export default function HistoricoInst() {
     }
   }
 
+  // ==========================================
+  // EXPORTAR RELATÓRIO
+  // ==========================================
+
+  function exportarRelatorio() {
+    if (historicoFiltrado.length === 0) {
+      alert("Não há registros no histórico para exportar.");
+      return;
+    }
+
+    try {
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const azul = [8, 45, 86];
+
+      const dataEmissao = new Intl.DateTimeFormat("pt-BR", {
+        dateStyle: "short",
+        timeStyle: "short",
+        timeZone: "America/Sao_Paulo",
+      }).format(new Date());
+
+      const contarStatus = (statusDesejado) =>
+        historicoFiltrado.filter(
+          (item) => formatarStatus(item.status).texto === statusDesejado,
+        ).length;
+
+      // Cabeçalho
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.setTextColor(...azul);
+      doc.text("AndraRecursos", 14, 17);
+
+      doc.setFontSize(14);
+      doc.text("Relatório do Histórico de Solicitações", 14, 26);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(90, 100, 115);
+      doc.text(`Data de emissão: ${dataEmissao}`, 14, 33);
+      doc.text(`Total de registros: ${historicoFiltrado.length}`, 14, 39);
+
+      // Resumo dos registros
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(...azul);
+      doc.text("Resumo do histórico", 14, 49);
+
+      autoTable(doc, {
+        startY: 53,
+        head: [
+          ["Total", "Aprovadas", "Recusadas", "Pendentes", "Em andamento"],
+        ],
+        body: [
+          [
+            historicoFiltrado.length,
+            contarStatus("APROVADA"),
+            contarStatus("RECUSADA"),
+            contarStatus("PENDENTE"),
+            contarStatus("EM ANDAMENTO"),
+          ],
+        ],
+        theme: "grid",
+        headStyles: {
+          fillColor: azul,
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+        },
+        styles: {
+          font: "helvetica",
+          fontSize: 9,
+          cellPadding: 3,
+          halign: "center",
+        },
+      });
+
+      // Filtros aplicados
+      const filtros = [];
+
+      if (pesquisa.trim()) {
+        filtros.push(`Pesquisa: ${pesquisa.trim()}`);
+      }
+
+      if (filtroStatus !== "todos") {
+        filtros.push(`Status: ${filtroStatus}`);
+      }
+
+      const inicioFiltros = doc.lastAutoTable.finalY + 10;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...azul);
+      doc.text("Filtros utilizados", 14, inicioFiltros);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(70, 80, 95);
+
+      const textoFiltros = filtros.length
+        ? filtros.join(" | ")
+        : "Nenhum filtro específico aplicado.";
+
+      const linhasFiltros = doc.splitTextToSize(textoFiltros, 265);
+
+      doc.text(linhasFiltros, 14, inicioFiltros + 6);
+
+      const inicioTabela = inicioFiltros + 10 + linhasFiltros.length * 4;
+
+      // Tabela do histórico filtrado
+      autoTable(doc, {
+        startY: inicioTabela,
+        head: [
+          [
+            "ID Histórico",
+            "ID Solicitação",
+            "Instituição",
+            "Título",
+            "Status",
+            "Prioridade",
+            "Descrição",
+            "Data",
+          ],
+        ],
+        body: historicoFiltrado.map((item) => [
+          item.id_historico ?? "—",
+          item.id_solicitacao ?? "—",
+          item.instituicao || "Não informada",
+          item.titulo || "Sem título",
+          formatarStatus(item.status).texto,
+          item.prioridade || "Não informada",
+          item.descricao || "Sem descrição",
+          item.data || "Não informada",
+        ]),
+        theme: "striped",
+        headStyles: {
+          fillColor: azul,
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+        },
+        alternateRowStyles: {
+          fillColor: [245, 248, 252],
+        },
+        styles: {
+          font: "helvetica",
+          fontSize: 7,
+          cellPadding: 2.5,
+          overflow: "linebreak",
+          valign: "middle",
+        },
+        columnStyles: {
+          0: { cellWidth: 19 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 35 },
+          3: { cellWidth: 35 },
+          4: { cellWidth: 25 },
+          5: { cellWidth: 23 },
+          6: { cellWidth: 85 },
+          7: { cellWidth: 22 },
+        },
+        margin: {
+          top: 15,
+          right: 10,
+          bottom: 18,
+          left: 10,
+        },
+        showHead: "everyPage",
+        didDrawPage: () => {
+          const paginaAtual = doc.internal.getNumberOfPages();
+          const altura = doc.internal.pageSize.getHeight();
+          const largura = doc.internal.pageSize.getWidth();
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(120, 130, 145);
+
+          doc.text("AndraRecursos - Histórico de Solicitações", 10, altura - 8);
+
+          doc.text(`Página ${paginaAtual}`, largura - 10, altura - 8, {
+            align: "right",
+          });
+        },
+      });
+
+      // Gerar e baixar o PDF
+      const dataArquivo = new Date()
+        .toLocaleDateString("pt-BR")
+        .replace(/\//g, "-");
+
+      doc.save(`Historico_AndraRecursos_${dataArquivo}.pdf`);
+    } catch (error) {
+      console.error("Erro ao exportar histórico em PDF:", error);
+      alert("Não foi possível gerar o relatório PDF.");
+    }
+  }
+
   return (
-     <div className="min-w-0">
+    <div className="min-w-0">
       {/* CABEÇALHO DO HISTÓRICO */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
