@@ -20,7 +20,44 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { FiTrash2 } from "react-icons/fi";
 
+const API = String(enderecoServidor).replace(/\/$/, "");
+const TOKEN_KEY = "@AndraRecursos:token";
+const USUARIO_KEY = "@AndraRecursos:usuario";
 const LIMITE_PAGINA = 10;
+
+function obterToken() {
+  const tokenSalvo = localStorage.getItem(TOKEN_KEY);
+
+  if (tokenSalvo && tokenSalvo !== "null" && tokenSalvo !== "undefined") {
+    // Se a chave contém um token simples, usa-o diretamente.
+    try {
+      const valor = JSON.parse(tokenSalvo);
+      if (typeof valor === "string") return valor;
+      if (valor && typeof valor === "object") {
+        const tokenDoObjeto =
+          valor.token || valor.accessToken || valor.access_token;
+        if (tokenDoObjeto) return tokenDoObjeto;
+      }
+    } catch {
+      return tokenSalvo;
+    }
+    return tokenSalvo;
+  }
+
+  try {
+    const usuarioSalvo = localStorage.getItem(USUARIO_KEY);
+    if (!usuarioSalvo) return null;
+
+    const usuario = JSON.parse(usuarioSalvo);
+    if (typeof usuario === "string") return usuario;
+
+    return (
+      usuario?.token || usuario?.accessToken || usuario?.access_token || null
+    );
+  } catch {
+    return null;
+  }
+}
 
 // ============================================
 // FORMATAR STATUS
@@ -132,43 +169,6 @@ function formatarData(valor) {
   }).format(data);
 }
 
-function obterToken() {
-  const tokenSalvo = localStorage.getItem("@AndraRecursos:token");
-
-  if (tokenSalvo) {
-    try {
-      const usuario = JSON.parse(tokenSalvo);
-
-      if (typeof usuario === "string") return usuario;
-
-      return (
-        usuario?.token ||
-        usuario?.accessToken ||
-        usuario?.access_token ||
-        tokenSalvo
-      );
-    } catch {
-      return tokenSalvo;
-    }
-  }
-
-  const usuarioSalvo = localStorage.getItem("@AndraRecursos:usuario");
-
-  if (!usuarioSalvo) return null;
-
-  try {
-    const usuario = JSON.parse(usuarioSalvo);
-
-    if (typeof usuario === "string") return usuario;
-
-    return (
-      usuario?.token || usuario?.accessToken || usuario?.access_token || null
-    );
-  } catch {
-    return usuarioSalvo;
-  }
-}
-
 // ============================================
 // COMPONENTE PRINCIPAL
 // ============================================
@@ -190,54 +190,65 @@ export default function HistoricoInst() {
   // ==========================================
 
   const buscarHistorico = useCallback(async (signal) => {
-    const token = obterToken();
-    if (!token) {
-      window.location.replace("/");
-      return;
-    }
-
     setCarregando(true);
     setErro("");
 
     try {
-      const resposta = await fetch(
-        `${enderecoServidor}/historico-instituicao`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          signal,
-        },
-      );
+      const token = obterToken();
 
-      if (resposta.status === 401 || resposta.status === 403) {
-        localStorage.removeItem("@AndraRecursos:token");
-        window.location.replace("/");
-        return;
+      if (!token) {
+        throw new Error("Sua sessão não foi encontrada. Faça login novamente.");
       }
 
-      const dados = await resposta.json().catch(() => null);
+      const resposta = await fetch(`${API}/historico-instituicao`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        signal,
+      });
+
+      const texto = await resposta.text();
+      let dados = null;
+
+      try {
+        dados = texto ? JSON.parse(texto) : null;
+      } catch {
+        throw new Error("A API retornou uma resposta que não é JSON válido.");
+      }
 
       if (!resposta.ok) {
         throw new Error(
-          dados?.message ||
+          dados?.mensagem ||
+            dados?.message ||
+            dados?.erro ||
             dados?.error ||
             `Não foi possível carregar o histórico. Erro ${resposta.status}.`,
         );
       }
 
-      if (!Array.isArray(dados)) {
+      const lista = Array.isArray(dados)
+        ? dados
+        : Array.isArray(dados?.historico)
+          ? dados.historico
+          : Array.isArray(dados?.dados)
+            ? dados.dados
+            : Array.isArray(dados?.registros)
+              ? dados.registros
+              : null;
+
+      if (!lista) {
+        console.error("Formato recebido em /historico-instituicao:", dados);
         throw new Error("A API retornou um formato de histórico inválido.");
       }
 
       if (!signal?.aborted) {
-        setHistorico(dados);
+        setHistorico(lista);
       }
     } catch (error) {
       if (error.name !== "AbortError" && !signal?.aborted) {
         console.error("Erro ao buscar histórico da instituição:", error);
-
         setErro(error.message || "Erro ao carregar o histórico.");
       }
     } finally {
@@ -370,43 +381,34 @@ export default function HistoricoInst() {
     if (!confirmar) return;
 
     try {
-      const token = localStorage.getItem("@AndraRecursos:token");
+      const token = obterToken();
 
       if (!token) {
         alert("Sua sessão expirou. Faça login novamente.");
         return;
       }
 
-      const resposta = await fetch(
-        `${enderecoServidor}/instituicao/solicitacoes/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const resposta = await fetch(`${API}/instituicao/solicitacoes/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       const resultado = await resposta.json().catch(() => ({}));
 
       if (!resposta.ok) {
-        console.error("Erro na exclusão:", {
-          status: resposta.status,
-          url: resposta.url,
-          resposta: resultado,
-        });
-
         throw new Error(
           resultado.error ||
             resultado.message ||
-            `Erro ${resposta.status} ao excluir a solicitação.`,
+            "Não foi possível excluir a solicitação.",
         );
       }
 
       // Remove do histórico todos os registros
       // relacionados à solicitação excluída.
       setHistorico((listaAtual) =>
-        listaAtual.filter((item) => item.id_solicitacao !== id),
+        listaAtual.filter((item) => String(item.id_solicitacao) !== String(id)),
       );
 
       setSolicitacaoSelecionada(null);

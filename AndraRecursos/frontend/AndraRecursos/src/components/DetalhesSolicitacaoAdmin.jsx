@@ -267,22 +267,19 @@ export default function DetalhesSolicitacaoAdmin({
     // ==========================================
 
     
+
 async function buscarComunicacao() {
-    const [
-        dadosHistorico,
-        dadosRespostasAdmin,
-        dadosRespostasInstituicao,
-    ] = await Promise.all([
-        chamarAPI(
-            `/historico-solicitacoes/solicitacao/${id}`
-        ),
-        chamarAPI(
-            `/respostas-adm/solicitacao/${id}`
-        ),
-        chamarAPI(
-            `/respostas-instituicao/solicitacao/${id}`
-        ),
-    ]);
+    // O histórico e as respostas administrativas são essenciais
+    // para o detalhamento do administrador.
+    const [dadosHistorico, dadosRespostasAdmin] =
+        await Promise.all([
+            chamarAPI(
+                `/historico-solicitacoes/solicitacao/${id}`
+            ),
+            chamarAPI(
+                `/respostas-adm/solicitacao/${id}`
+            ),
+        ]);
 
     const historico = Array.isArray(dadosHistorico)
         ? dadosHistorico
@@ -292,11 +289,24 @@ async function buscarComunicacao() {
         ? dadosRespostasAdmin
         : dadosRespostasAdmin?.respostas ?? [];
 
-    const respostasInstituicao = Array.isArray(
-        dadosRespostasInstituicao
-    )
-        ? dadosRespostasInstituicao
-        : dadosRespostasInstituicao?.respostas ?? [];
+    // A rota institucional pode recusar o administrador.
+    // Essa falha não deve impedir o carregamento das demais mensagens.
+    let respostasInstituicao = [];
+
+    try {
+        const dados = await chamarAPI(
+            `/respostas-instituicao/solicitacao/${id}`
+        );
+
+        respostasInstituicao = Array.isArray(dados)
+            ? dados
+            : dados?.respostas ?? [];
+    } catch (error) {
+        console.warn(
+            "Não foi possível carregar as respostas institucionais:",
+            error.message
+        );
+    }
 
     const movimentacoes = historico.map((item) => ({
         chave: `historico-${item.id_historico}`,
@@ -342,6 +352,7 @@ async function buscarComunicacao() {
         return dataA - dataB;
     });
 }
+
 
 
     // ==========================================
