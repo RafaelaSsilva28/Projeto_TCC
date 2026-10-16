@@ -29,7 +29,14 @@ const LIMITE_PAGINA = 10;
 // OBTER TOKEN DA INSTITUIÇÃO
 // ============================================
 
+
 function obterToken() {
+  const tokenSalvo = localStorage.getItem("@AndraRecursos:token");
+
+  if (tokenSalvo) {
+    return tokenSalvo;
+  }
+
   const valor = localStorage.getItem("@AndraRecursos:usuario");
 
   if (!valor) return null;
