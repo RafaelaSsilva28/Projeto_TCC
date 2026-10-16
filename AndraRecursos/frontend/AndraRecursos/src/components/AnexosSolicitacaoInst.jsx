@@ -15,6 +15,8 @@ import { enderecoServidor } from "../utils";
 
 const API = String(enderecoServidor).replace(/\/$/, "");
 
+const CHAVE_TOKEN = "@AndraRecursos:token";
+
 // ============================================
 // COMPONENTE DE ANEXOS DA SOLICITAÇÃO
 // ============================================
@@ -31,10 +33,8 @@ export default function AnexosSolicitacaoInst({
     // REQUISIÇÕES AUTENTICADAS
     // ==========================================
 
-    async function chamarAPI(caminho, opcoes = {}) {
-        const token = localStorage.getItem(
-            "@AndraRecursos:token"
-        );
+    const chamarAPI = useCallback(async (caminho, opcoes = {}) => {
+        const token = localStorage.getItem(CHAVE_TOKEN);
 
         if (!token) {
             throw new Error(
@@ -50,9 +50,7 @@ export default function AnexosSolicitacaoInst({
             },
         });
 
-        const dados = await resposta
-            .json()
-            .catch(() => null);
+        const dados = await resposta.json().catch(() => null);
 
         if (!resposta.ok) {
             throw new Error(
@@ -63,81 +61,114 @@ export default function AnexosSolicitacaoInst({
         }
 
         return dados;
-    }
+    }, []);
+
+    // ==========================================
+    // VALIDAR ID DA SOLICITAÇÃO
+    // ==========================================
+
+    const idValido =
+        idSolicitacao !== null &&
+        idSolicitacao !== undefined &&
+        String(idSolicitacao).trim() !== "" &&
+        Number.isSafeInteger(Number(idSolicitacao)) &&
+        Number(idSolicitacao) > 0;
+
+    const id = idValido ? Number(idSolicitacao) : null;
 
     // ==========================================
     // CARREGAR DOCUMENTOS
     // ==========================================
 
-
-const carregarDocumentos = useCallback(
-    async (signal) => {
-        const id = Number(idSolicitacao);
-
-        if (
-            idSolicitacao === null ||
-            idSolicitacao === undefined ||
-            String(idSolicitacao).trim() === "" ||
-            !Number.isSafeInteger(id) ||
-            id <= 0
-        ) {
-            setDocumentos([]);
-            setErro("Não foi possível identificar a solicitação.");
-            setCarregando(false);
-            return;
-        }
-
-        setCarregando(true);
-        setErro("");
-
-        try {
-            const dados = await chamarAPI(
-                `/solicitacoes/${id}/documentos`,
-                { signal }
-            );
-
-            const lista = Array.isArray(dados)
-                ? dados
-                : dados?.documentos ?? [];
-
-            if (!Array.isArray(lista)) {
-                throw new Error(
-                    "A API retornou uma lista de documentos inválida."
+    const carregarDocumentos = useCallback(
+        async (signal) => {
+            if (
+                id === null ||
+                !Number.isSafeInteger(id) ||
+                id <= 0
+            ) {
+                setDocumentos([]);
+                setErro(
+                    "Não foi possível identificar a solicitação. Verifique o ID enviado pelo componente."
                 );
-            }
-
-            setDocumentos(lista);
-        } catch (error) {
-            if (error.name === "AbortError") {
+                setCarregando(false);
                 return;
             }
 
-            setErro(error.message);
-            setDocumentos([]);
-        } finally {
-            if (!signal?.aborted) {
-                setCarregando(false);
+            setCarregando(true);
+            setErro("");
+
+            try {
+                // Rota existente no backend:
+                // GET /documentos/solicitacao/:id_solicitacoes
+
+                const dados = await chamarAPI(
+                    `/documentos/solicitacao/${id}`,
+                    { signal }
+                );
+
+                const lista = Array.isArray(dados)
+                    ? dados
+                    : dados?.documentos;
+
+                if (!Array.isArray(lista)) {
+                    throw new Error(
+                        "A API retornou uma lista de documentos inválida."
+                    );
+                }
+
+                setDocumentos(lista);
+            } catch (error) {
+                if (error.name === "AbortError") {
+                    return;
+                }
+
+                console.error(
+                    "Erro ao carregar documentos da solicitação:",
+                    error
+                );
+
+                setDocumentos([]);
+                setErro(error.message || "Não foi possível carregar os documentos.");
+            } finally {
+                if (!signal?.aborted) {
+                    setCarregando(false);
+                }
             }
-        }
-    },
-    [idSolicitacao]
-);
+        },
+        [id, chamarAPI]
+    );
 
-useEffect(() => {
-    const controlador = new AbortController();
+    // ==========================================
+    // CARREGAMENTO AUTOMÁTICO
+    // ==========================================
 
-    carregarDocumentos(controlador.signal);
+    useEffect(() => {
+        const controlador = new AbortController();
 
-    return () => controlador.abort();
-}, [carregarDocumentos]);
+        carregarDocumentos(controlador.signal);
+
+        return () => controlador.abort();
+    }, [carregarDocumentos]);
 
     // ==========================================
     // OBTER LINK SEGURO DO DOCUMENTO
     // ==========================================
 
     async function obterUrlDocumento(documento) {
+        const idDocumento = Number(documento?.id_documento);
+
+        if (
+            !Number.isSafeInteger(idDocumento) ||
+            idDocumento <= 0
+        ) {
+            throw new Error(
+                "O identificador do documento é inválido."
+            );
+        }
+
         const dados = await chamarAPI(
-            `/documentos/${documento.id_documento}/download`
+            `/documentos/${idDocumento}/download`
         );
 
         if (!dados?.url) {
@@ -146,7 +177,19 @@ useEffect(() => {
             );
         }
 
-        return dados;
+        const url = new URL(dados.url);
+
+        if (
+            !["https:", "http:"].includes(url.protocol) ||
+            url.username ||
+            url.password
+        ) {
+            throw new Error(
+                "O servidor retornou um link inválido."
+            );
+        }
+
+        return { ...dados, url: url.href };
     }
 
     // ==========================================
@@ -161,25 +204,15 @@ useEffect(() => {
         try {
             const dados = await obterUrlDocumento(documento);
 
-            const url = new URL(dados.url);
-
-            if (!["https:", "http:"].includes(url.protocol)) {
-                throw new Error(
-                    "O servidor retornou um link inválido."
-                );
-            }
-
-            // Abre o documento em outra aba.
             const link = document.createElement("a");
 
-            link.href = url.href;
+            link.href = dados.url;
             link.target = "_blank";
             link.rel = "noopener noreferrer";
 
             document.body.appendChild(link);
             link.click();
             link.remove();
-
         } catch (error) {
             toast.error(
                 error.message ||
@@ -202,17 +235,9 @@ useEffect(() => {
         try {
             const dados = await obterUrlDocumento(documento);
 
-            const url = new URL(dados.url);
-
-            if (!["https:", "http:"].includes(url.protocol)) {
-                throw new Error(
-                    "O servidor retornou um link inválido."
-                );
-            }
-
             const link = document.createElement("a");
 
-            link.href = url.href;
+            link.href = dados.url;
             link.download =
                 dados.nome_arquivo ||
                 documento.nome_arquivo ||
@@ -224,9 +249,7 @@ useEffect(() => {
             link.click();
             link.remove();
 
-            toast.success(
-                "Download solicitado com sucesso!"
-            );
+            toast.success("Download solicitado com sucesso!");
         } catch (error) {
             toast.error(
                 error.message ||
@@ -345,9 +368,7 @@ useEffect(() => {
                                             onClick={() =>
                                                 abrirDocumento(documento)
                                             }
-                                            disabled={
-                                                processando !== null
-                                            }
+                                            disabled={processando !== null}
                                             className="flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-[#1759ad] transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {ocupado ? (
@@ -364,9 +385,7 @@ useEffect(() => {
                                             onClick={() =>
                                                 baixarDocumento(documento)
                                             }
-                                            disabled={
-                                                processando !== null
-                                            }
+                                            disabled={processando !== null}
                                             className="flex items-center justify-center gap-2 rounded-lg bg-[#082d56] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#164675] disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {ocupado ? (
