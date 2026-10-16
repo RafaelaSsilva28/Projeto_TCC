@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
-import { enderecoServidor } from "../utils";
-import LayoutInstituicao from "../components/LayoutInstituicao";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { enderecoServidor } from "../utils";
 
 import {
   FiDownload,
@@ -19,10 +19,15 @@ import {
   FiClipboard,
   FiClock,
   FiFlag,
-  FiHome,
 } from "react-icons/fi";
 
-const ROTA_HISTORICO = "/historico-solicitacoes";
+const ROTA_HISTORICO = "/historico-instituicao";
+const ROTA_SOLICITACOES = "/solicitacoes";
+const LIMITE_PAGINA = 10;
+
+// ============================================
+// OBTER TOKEN DA INSTITUIÇÃO
+// ============================================
 
 function obterToken() {
   const valor = localStorage.getItem("@AndraRecursos:usuario");
@@ -37,112 +42,265 @@ function obterToken() {
     }
 
     return (
-      usuario?.token || usuario?.accessToken || usuario?.access_token || null
+      usuario?.token ||
+      usuario?.accessToken ||
+      usuario?.access_token ||
+      null
     );
   } catch {
     return valor;
   }
 }
 
+// ============================================
+// FORMATAR STATUS
+// ============================================
+
+function formatarStatus(status) {
+  const valor = String(status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (["aprovada", "aprovado", "deferida"].includes(valor)) {
+    return {
+      texto: "APROVADA",
+      estilo: "bg-green-100 text-green-700",
+    };
+  }
+
+  if (
+    ["recusada", "recusado", "rejeitada", "indeferida"].includes(valor)
+  ) {
+    return {
+      texto: "RECUSADA",
+      estilo: "bg-red-100 text-red-700",
+    };
+  }
+
+  if (valor === "em andamento") {
+    return {
+      texto: "EM ANDAMENTO",
+      estilo: "bg-blue-100 text-blue-700",
+    };
+  }
+
+  if (["pendente", "aguardando"].includes(valor)) {
+    return {
+      texto: "PENDENTE",
+      estilo: "bg-yellow-100 text-yellow-700",
+    };
+  }
+
+  return {
+    texto: String(status || "Não informado").toUpperCase(),
+    estilo: "bg-gray-200 text-gray-700",
+  };
+}
+
+// ============================================
+// FORMATAR DATA
+// ============================================
+
+function formatarData(registro) {
+  if (registro.data_formatada) {
+    return registro.data_formatada;
+  }
+
+  const valor = registro.data_alteracao;
+
+  if (!valor) return "Não informada";
+
+  const texto = String(valor);
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(texto)) {
+    return texto;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(texto)) {
+    const [ano, mes, dia] = texto.slice(0, 10).split("-");
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  const data = new Date(valor);
+
+  if (Number.isNaN(data.getTime())) {
+    return texto;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  }).format(data);
+}
+
+// ============================================
+// NORMALIZAR DADOS DA API
+// ============================================
+
+function formatarRegistro(registro) {
+  return {
+    id_historico: registro.id_historico ?? null,
+    id_solicitacao: registro.id_solicitacao ?? null,
+    titulo: registro.titulo_solicitacao || "Solicitação sem título",
+    descricao: registro.descricao || "",
+    status: registro.status || "Não informado",
+    prioridade: registro.prioridade || "Não informada",
+    data: formatarData(registro),
+    dataOriginal: registro.data_alteracao,
+  };
+}
+
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
+
 export default function HistoricoInst() {
+  const navigate = useNavigate();
+
   const [historico, setHistorico] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
-  const [busca, setBusca] = useState("");
 
-  async function buscarHistorico() {
-    try {
+  const [pesquisa, setPesquisa] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [pagina, setPagina] = useState(1);
+  const [atualizar, setAtualizar] = useState(0);
+
+  const [detalhes, setDetalhes] = useState(null);
+
+  // ==========================================
+  // BUSCAR HISTÓRICO DA INSTITUIÇÃO
+  // ==========================================
+
+  useEffect(() => {
+    const controlador = new AbortController();
+
+    async function carregarHistorico() {
       setCarregando(true);
       setErro("");
 
       const token = obterToken();
 
       if (!token) {
-        throw new Error(
-          "Sua sessão não foi encontrada. Entre novamente na sua conta.",
-        );
+        setErro("Sessão não encontrada. Entre novamente na sua conta.");
+        setCarregando(false);
+        return;
       }
-
-      const resposta = await fetch(
-        `${enderecoServidor}/historico-instituicao`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        },
-      );
-
-      const texto = await resposta.text();
-
-      let dados;
 
       try {
-        dados = texto ? JSON.parse(texto) : [];
-      } catch {
-        throw new Error("A API retornou uma resposta inválida.");
-      }
-
-      if (!resposta.ok) {
-        throw new Error(
-          dados?.error ||
-            dados?.mensagem ||
-            "Não foi possível carregar o histórico.",
+        const resposta = await fetch(
+          `${enderecoServidor}${ROTA_HISTORICO}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+            signal: controlador.signal,
+          }
         );
+
+        const resultado = await resposta.json().catch(() => null);
+
+        if (!resposta.ok) {
+          throw new Error(
+            resultado?.message ||
+              resultado?.error ||
+              resultado?.mensagem ||
+              `Erro ${resposta.status} ao buscar histórico.`
+          );
+        }
+
+        if (!Array.isArray(resultado)) {
+          throw new Error("A API não retornou uma lista válida.");
+        }
+
+        const registros = resultado.map(formatarRegistro);
+
+        if (!controlador.signal.aborted) {
+          setHistorico(registros);
+        }
+      } catch (error) {
+        if (
+          error.name !== "AbortError" &&
+          !controlador.signal.aborted
+        ) {
+          setErro(error.message || "Erro ao carregar o histórico.");
+        }
+      } finally {
+        if (!controlador.signal.aborted) {
+          setCarregando(false);
+        }
       }
-
-      const registros = Array.isArray(dados)
-        ? dados
-        : dados?.historico || dados?.dados || dados?.registros || [];
-
-      setHistorico(registros);
-    } catch (error) {
-      console.error("Erro ao buscar histórico:", error);
-      setErro(error.message || "Erro ao carregar o histórico.");
-    } finally {
-      setCarregando(false);
     }
+
+    carregarHistorico();
+
+    return () => controlador.abort();
+  }, [atualizar]);
+
+  // ==========================================
+  // FILTRO E PESQUISA
+  // ==========================================
+
+  const historicoFiltrado = useMemo(() => {
+    const termo = pesquisa.toLowerCase().trim();
+
+    return historico.filter((item) => {
+      const correspondePesquisa =
+        !termo ||
+        [
+          item.titulo,
+          item.descricao,
+          item.id_solicitacao,
+          item.id_historico,
+          item.status,
+          item.prioridade,
+        ].some((valor) =>
+          String(valor ?? "").toLowerCase().includes(termo)
+        );
+
+      const status = formatarStatus(item.status).texto;
+
+      const correspondeStatus =
+        filtroStatus === "todos" || status === filtroStatus;
+
+      return correspondePesquisa && correspondeStatus;
+    });
+  }, [historico, pesquisa, filtroStatus]);
+
+  // ==========================================
+  // PAGINAÇÃO
+  // ==========================================
+
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(historicoFiltrado.length / LIMITE_PAGINA)
+  );
+
+  const paginaAtual = Math.min(pagina, totalPaginas);
+
+  const itensPagina = historicoFiltrado.slice(
+    (paginaAtual - 1) * LIMITE_PAGINA,
+    paginaAtual * LIMITE_PAGINA
+  );
+
+  function mudarPesquisa(valor) {
+    setPesquisa(valor);
+    setPagina(1);
   }
 
-  useEffect(() => {
-    buscarHistorico();
-  }, []);
-
-  const historicoFiltrado = historico.filter((item) => {
-    const termo = busca.toLowerCase();
-
-    return [
-      item.titulo_solicitacao,
-      item.descricao,
-      item.status,
-      item.prioridade,
-      item.id_solicitacao,
-      item.data_alteracao,
-    ].some((valor) =>
-      String(valor ?? "")
-        .toLowerCase()
-        .includes(termo),
-    );
-  });
-
-  function corStatus(status) {
-    switch (String(status || "").toLowerCase()) {
-      case "aprovada":
-        return "bg-green-100 text-green-700";
-      case "recusada":
-        return "bg-red-100 text-red-700";
-      case "em andamento":
-        return "bg-blue-100 text-blue-700";
-      case "pendente":
-        return "bg-yellow-100 text-yellow-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
+  function mudarStatus(valor) {
+    setFiltroStatus(valor);
+    setPagina(1);
   }
 
   // ==========================================
-  // EXPORTAR RELATÓRIO
+  // EXPORTAR RELATÓRIO PDF
   // ==========================================
 
   function exportarRelatorio() {
@@ -168,17 +326,16 @@ export default function HistoricoInst() {
 
       const contarStatus = (statusDesejado) =>
         historicoFiltrado.filter(
-          (item) => formatarStatus(item.status).texto === statusDesejado,
+          (item) => formatarStatus(item.status).texto === statusDesejado
         ).length;
 
-      // Cabeçalho
       doc.setFont("helvetica", "bold");
       doc.setFontSize(20);
       doc.setTextColor(...azul);
       doc.text("AndraRecursos", 14, 17);
 
       doc.setFontSize(14);
-      doc.text("Relatório do Histórico de Solicitações", 14, 26);
+      doc.text("Histórico de Solicitações da Instituição", 14, 26);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
@@ -186,7 +343,6 @@ export default function HistoricoInst() {
       doc.text(`Data de emissão: ${dataEmissao}`, 14, 33);
       doc.text(`Total de registros: ${historicoFiltrado.length}`, 14, 39);
 
-      // Resumo dos registros
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(...azul);
@@ -220,7 +376,6 @@ export default function HistoricoInst() {
         },
       });
 
-      // Filtros aplicados
       const filtros = [];
 
       if (pesquisa.trim()) {
@@ -250,16 +405,15 @@ export default function HistoricoInst() {
 
       doc.text(linhasFiltros, 14, inicioFiltros + 6);
 
-      const inicioTabela = inicioFiltros + 10 + linhasFiltros.length * 4;
+      const inicioTabela =
+        inicioFiltros + 10 + linhasFiltros.length * 4;
 
-      // Tabela do histórico filtrado
       autoTable(doc, {
         startY: inicioTabela,
         head: [
           [
             "ID Histórico",
             "ID Solicitação",
-            "Instituição",
             "Título",
             "Status",
             "Prioridade",
@@ -270,12 +424,11 @@ export default function HistoricoInst() {
         body: historicoFiltrado.map((item) => [
           item.id_historico ?? "—",
           item.id_solicitacao ?? "—",
-          item.instituicao || "Não informada",
-          item.titulo || "Sem título",
+          item.titulo,
           formatarStatus(item.status).texto,
-          item.prioridade || "Não informada",
+          item.prioridade,
           item.descricao || "Sem descrição",
-          item.data || "Não informada",
+          item.data,
         ]),
         theme: "striped",
         headStyles: {
@@ -288,20 +441,19 @@ export default function HistoricoInst() {
         },
         styles: {
           font: "helvetica",
-          fontSize: 7,
+          fontSize: 8,
           cellPadding: 2.5,
           overflow: "linebreak",
           valign: "middle",
         },
         columnStyles: {
-          0: { cellWidth: 19 },
-          1: { cellWidth: 22 },
-          2: { cellWidth: 35 },
-          3: { cellWidth: 35 },
+          0: { cellWidth: 22 },
+          1: { cellWidth: 25 },
+          2: { cellWidth: 43 },
+          3: { cellWidth: 28 },
           4: { cellWidth: 25 },
-          5: { cellWidth: 23 },
-          6: { cellWidth: 85 },
-          7: { cellWidth: 22 },
+          5: { cellWidth: 105 },
+          6: { cellWidth: 22 },
         },
         margin: {
           top: 15,
@@ -311,7 +463,7 @@ export default function HistoricoInst() {
         },
         showHead: "everyPage",
         didDrawPage: () => {
-          const paginaAtual = doc.internal.getNumberOfPages();
+          const numeroPagina = doc.internal.getNumberOfPages();
           const altura = doc.internal.pageSize.getHeight();
           const largura = doc.internal.pageSize.getWidth();
 
@@ -319,35 +471,60 @@ export default function HistoricoInst() {
           doc.setFontSize(8);
           doc.setTextColor(120, 130, 145);
 
-          doc.text("AndraRecursos - Histórico de Solicitações", 10, altura - 8);
+          doc.text(
+            "AndraRecursos - Histórico da Instituição",
+            10,
+            altura - 8
+          );
 
-          doc.text(`Página ${paginaAtual}`, largura - 10, altura - 8, {
-            align: "right",
-          });
+          doc.text(
+            `Página ${numeroPagina}`,
+            largura - 10,
+            altura - 8,
+            { align: "right" }
+          );
         },
       });
 
-      // Gerar e baixar o PDF
       const dataArquivo = new Date()
         .toLocaleDateString("pt-BR")
         .replace(/\//g, "-");
 
-      doc.save(`Historico_AndraRecursos_${dataArquivo}.pdf`);
+      doc.save(`Historico_Instituicao_${dataArquivo}.pdf`);
     } catch (error) {
       console.error("Erro ao exportar histórico em PDF:", error);
       alert("Não foi possível gerar o relatório PDF.");
     }
   }
 
+  // ==========================================
+  // VER SOLICITAÇÃO
+  // ==========================================
+
+  function saberMais() {
+    if (!detalhes?.id_solicitacao) return;
+
+    const id = detalhes.id_solicitacao;
+
+    setDetalhes(null);
+
+    navigate(`${ROTA_SOLICITACOES}/${encodeURIComponent(id)}`);
+  }
+
+  // ==========================================
+  // INTERFACE
+  // ==========================================
+
   return (
     <div className="min-w-0">
-      {/* CABEÇALHO DO HISTÓRICO */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-bold text-[#082d56]">Histórico</h1>
+          <h1 className="text-[28px] font-bold text-[#082d56]">
+            Histórico de Solicitações
+          </h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            Históricos de solicitações de recursos
+            Acompanhe as atualizações das suas solicitações de recursos.
           </p>
         </div>
 
@@ -358,11 +535,10 @@ export default function HistoricoInst() {
           className="flex items-center gap-2 rounded-md bg-[#082d56] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#164675] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <FiDownload size={17} />
-          Exportar Relatório
+          Exportar relatório
         </button>
       </div>
 
-      {/* PAINEL */}
       <section className="min-h-[480px] rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
         {/* FILTROS */}
         <div className="mb-6 flex flex-col gap-3 md:flex-row">
@@ -376,7 +552,7 @@ export default function HistoricoInst() {
               type="search"
               value={pesquisa}
               onChange={(e) => mudarPesquisa(e.target.value)}
-              placeholder="Pesquisar instituição ou solicitação..."
+              placeholder="Pesquisar por título, descrição ou solicitação..."
               className="w-full rounded-lg border border-gray-200 bg-[#f7f7f7] py-3 pl-10 pr-4 text-sm outline-none focus:border-[#082d56] focus:ring-2 focus:ring-blue-100"
             />
           </div>
@@ -387,13 +563,9 @@ export default function HistoricoInst() {
             className="rounded-lg border border-gray-200 bg-[#f7f7f7] px-4 py-3 text-sm text-[#082d56] outline-none"
           >
             <option value="todos">Todos os status</option>
-
             <option value="APROVADA">Aprovadas</option>
-
             <option value="RECUSADA">Recusadas</option>
-
             <option value="PENDENTE">Pendentes</option>
-
             <option value="EM ANDAMENTO">Em andamento</option>
           </select>
 
@@ -407,7 +579,7 @@ export default function HistoricoInst() {
           </button>
         </div>
 
-        {/* ERROS */}
+        {/* ERRO */}
         {erro && (
           <div className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <FiAlertCircle size={19} className="shrink-0" />
@@ -419,7 +591,7 @@ export default function HistoricoInst() {
         {carregando && (
           <div className="flex min-h-52 items-center justify-center gap-3 text-[#082d56]">
             <FiRefreshCw className="animate-spin" />
-            Carregando históricos...
+            Carregando histórico...
           </div>
         )}
 
@@ -427,26 +599,27 @@ export default function HistoricoInst() {
         {!carregando && !erro && (
           <>
             <div className="space-y-3">
-              {itensPagina.map((item) => {
+              {itensPagina.map((item, indice) => {
                 const status = formatarStatus(item.status);
 
                 return (
                   <article
-                    key={item.id_historico}
+                    key={
+                      item.id_historico ??
+                      `${item.id_solicitacao}-${indice}`
+                    }
                     className="grid grid-cols-1 items-center gap-3 rounded-lg border border-[#dddddd] bg-[#f1f1f1] px-5 py-4 shadow-[0_2px_2px_rgba(0,0,0,0.15)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md md:grid-cols-[minmax(0,2fr)_125px_115px_130px]"
                   >
-                    {/* INSTITUIÇÃO */}
                     <div className="min-w-0">
                       <h3 className="text-sm font-bold text-[#082d56]">
-                        {item.instituicao}
+                        {item.titulo}
                       </h3>
 
                       <p className="mt-1 text-xs text-gray-600">
-                        {item.titulo}
+                        Solicitação #{item.id_solicitacao ?? "—"}
                       </p>
                     </div>
 
-                    {/* STATUS */}
                     <div>
                       <span
                         className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold ${status.estilo}`}
@@ -455,20 +628,18 @@ export default function HistoricoInst() {
                       </span>
                     </div>
 
-                    {/* DATA */}
                     <div className="flex items-center gap-2 text-xs text-gray-600">
                       <FiCalendar size={14} />
                       {item.data}
                     </div>
 
-                    {/* VER SOLICITAÇÃO */}
                     <button
                       type="button"
                       onClick={() => setDetalhes(item)}
                       className="flex items-center gap-2 whitespace-nowrap text-xs font-semibold text-[#082d56] transition hover:text-blue-600 hover:underline"
                     >
                       <FiEye size={16} />
-                      Ver Solicitação
+                      Ver detalhes
                     </button>
                   </article>
                 );
@@ -492,7 +663,7 @@ export default function HistoricoInst() {
                   Exibindo {(paginaAtual - 1) * LIMITE_PAGINA + 1} a{" "}
                   {Math.min(
                     paginaAtual * LIMITE_PAGINA,
-                    historicoFiltrado.length,
+                    historicoFiltrado.length
                   )}{" "}
                   de {historicoFiltrado.length} registros
                 </p>
@@ -501,7 +672,9 @@ export default function HistoricoInst() {
                   <button
                     type="button"
                     disabled={paginaAtual === 1}
-                    onClick={() => setPagina((atual) => Math.max(1, atual - 1))}
+                    onClick={() =>
+                      setPagina((atual) => Math.max(1, atual - 1))
+                    }
                     className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:opacity-40"
                   >
                     <FiChevronLeft size={18} />
@@ -515,7 +688,9 @@ export default function HistoricoInst() {
                     type="button"
                     disabled={paginaAtual === totalPaginas}
                     onClick={() =>
-                      setPagina((atual) => Math.min(totalPaginas, atual + 1))
+                      setPagina((atual) =>
+                        Math.min(totalPaginas, atual + 1)
+                      )
                     }
                     className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:opacity-40"
                   >
@@ -528,10 +703,7 @@ export default function HistoricoInst() {
         )}
       </section>
 
-      {/* ======================================
-          MODAL DE DETALHES
-      ====================================== */}
-
+      {/* MODAL DE DETALHES */}
       {detalhes && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#07182b]/65 p-4 backdrop-blur-[3px]"
@@ -544,11 +716,10 @@ export default function HistoricoInst() {
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl"
           >
-            {/* CABEÇALHO DO MODAL */}
             <div className="flex items-start justify-between gap-4 border-b border-gray-100 bg-[#f7f9fc] px-6 py-5">
               <div className="min-w-0">
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#47719e]">
-                  Detalhes da Solicitação
+                  Detalhes da solicitação
                 </p>
 
                 <h2
@@ -559,7 +730,7 @@ export default function HistoricoInst() {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-500">
-                  Solicitação #{detalhes.id_solicitacao}
+                  Solicitação #{detalhes.id_solicitacao ?? "—"}
                 </p>
               </div>
 
@@ -573,32 +744,15 @@ export default function HistoricoInst() {
               </button>
             </div>
 
-            {/* INFORMAÇÕES */}
             <div className="space-y-5 px-6 py-6">
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                {/* INSTITUIÇÃO */}
-                <div className="flex items-start gap-3">
-                  <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
-                    <FiHome size={17} />
-                  </span>
-
-                  <div>
-                    <p className="mb-1 text-xs text-gray-500">Instituição</p>
-
-                    <p className="text-sm font-semibold text-[#082d56]">
-                      {detalhes.instituicao}
-                    </p>
-                  </div>
-                </div>
-
-                {/* STATUS */}
                 <div className="flex items-start gap-3">
                   <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
                     <FiClipboard size={17} />
                   </span>
 
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Status atual</p>
+                    <p className="mb-1 text-xs text-gray-500">Status</p>
 
                     <span
                       className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
@@ -610,7 +764,6 @@ export default function HistoricoInst() {
                   </div>
                 </div>
 
-                {/* PRIORIDADE */}
                 <div className="flex items-start gap-3">
                   <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
                     <FiFlag size={17} />
@@ -625,7 +778,6 @@ export default function HistoricoInst() {
                   </div>
                 </div>
 
-                {/* DATA */}
                 <div className="flex items-start gap-3">
                   <span className="rounded-lg bg-blue-50 p-2.5 text-[#082d56]">
                     <FiClock size={17} />
@@ -633,7 +785,7 @@ export default function HistoricoInst() {
 
                   <div>
                     <p className="mb-1 text-xs text-gray-500">
-                      Última atualização
+                      Data da atualização
                     </p>
 
                     <p className="text-sm font-semibold text-[#082d56]">
@@ -643,7 +795,6 @@ export default function HistoricoInst() {
                 </div>
               </div>
 
-              {/* DESCRIÇÃO */}
               <div className="rounded-xl border border-[#e6edf5] bg-[#f7f9fc] p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <FiFileText size={16} className="text-[#47719e]" />
@@ -659,7 +810,6 @@ export default function HistoricoInst() {
               </div>
             </div>
 
-            {/* BOTÕES DO MODAL */}
             <div className="flex flex-col gap-3 border-t border-gray-100 bg-[#fcfcfd] px-6 py-5 sm:flex-row">
               <button
                 type="button"
@@ -675,7 +825,7 @@ export default function HistoricoInst() {
                 disabled={!detalhes.id_solicitacao}
                 className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#082d56] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#164675] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Saber mais
+                Ver solicitação
                 <FiArrowUpRight size={18} />
               </button>
             </div>
