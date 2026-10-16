@@ -132,6 +132,43 @@ function formatarData(valor) {
   }).format(data);
 }
 
+function obterToken() {
+  const tokenSalvo = localStorage.getItem("@AndraRecursos:token");
+
+  if (tokenSalvo) {
+    try {
+      const usuario = JSON.parse(tokenSalvo);
+
+      if (typeof usuario === "string") return usuario;
+
+      return (
+        usuario?.token ||
+        usuario?.accessToken ||
+        usuario?.access_token ||
+        tokenSalvo
+      );
+    } catch {
+      return tokenSalvo;
+    }
+  }
+
+  const usuarioSalvo = localStorage.getItem("@AndraRecursos:usuario");
+
+  if (!usuarioSalvo) return null;
+
+  try {
+    const usuario = JSON.parse(usuarioSalvo);
+
+    if (typeof usuario === "string") return usuario;
+
+    return (
+      usuario?.token || usuario?.accessToken || usuario?.access_token || null
+    );
+  } catch {
+    return usuarioSalvo;
+  }
+}
+
 // ============================================
 // COMPONENTE PRINCIPAL
 // ============================================
@@ -153,8 +190,7 @@ export default function HistoricoInst() {
   // ==========================================
 
   const buscarHistorico = useCallback(async (signal) => {
-    const token = localStorage.getItem("@AndraRecursos:token");
-
+    const token = obterToken();
     if (!token) {
       window.location.replace("/");
       return;
@@ -380,7 +416,7 @@ export default function HistoricoInst() {
       console.error("Erro ao excluir solicitação:", erro);
       alert(erro.message || "Erro ao excluir a solicitação.");
     }
-  };
+  }
 
   // ==========================================
   // EXPORTAR RELATÓRIO PDF
