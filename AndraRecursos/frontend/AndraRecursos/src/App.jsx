@@ -15,6 +15,7 @@ import PrincipalInst from "./pages/PrincipalInst";
 import ObrigatorioInst from "./pages/ObrigatorioInst";
 
 import PerfilAdministrador from "./pages/PerfilAdministrador";
+import PerfilInstituicao from "./pages/PerfilInstituicao";
 
 import CadastrarInstADM from "./pages/CadastrarInstADM";
 
@@ -54,14 +55,12 @@ import ProtecaoInstituicao from "./components/ProtecaoInstituicao";
 function App() {
   return (
     <BrowserRouter>
-      {/* NOTIFICAÇÕES TOAST */}
       <Toaster
         position="top-right"
         reverseOrder={false}
         gutter={12}
         toastOptions={{
           duration: 3500,
-
           style: {
             background: "#ffffff",
             color: "#082d56",
@@ -72,17 +71,14 @@ function App() {
             fontWeight: "500",
             boxShadow: "0 10px 30px rgba(8,45,86,0.15)",
           },
-
           success: {
             iconTheme: {
               primary: "#15803d",
               secondary: "#ffffff",
             },
           },
-
           error: {
             duration: 4500,
-
             iconTheme: {
               primary: "#dc2626",
               secondary: "#ffffff",
@@ -91,19 +87,17 @@ function App() {
         }}
       />
 
-      {/* ======================================
-          ROTAS DO SISTEMA
-      ====================================== */}
-
       <Routes>
-        {/* LOGIN */}
+        {/* ====================================
+            LOGIN
+        ==================================== */}
+
         <Route path="/" element={<Login />} />
 
         {/* ====================================
             ÁREA ADMINISTRATIVA
         ==================================== */}
 
-        {/* DASHBOARD */}
         <Route
           path="/principal-adm"
           element={
@@ -113,7 +107,6 @@ function App() {
           }
         />
 
-        {/* PERFIL DO ADMINISTRADOR */}
         <Route
           path="/perfilAdministrador"
           element={
@@ -123,7 +116,6 @@ function App() {
           }
         />
 
-        {/* CADASTRAR INSTITUIÇÃO */}
         <Route
           path="/cadastrarInstituicao"
           element={
@@ -133,7 +125,6 @@ function App() {
           }
         />
 
-        {/* HISTÓRICO ADMINISTRATIVO */}
         <Route
           path="/historico-adm"
           element={
@@ -143,13 +134,11 @@ function App() {
           }
         />
 
-        {/* REDIRECIONAMENTO DO HISTÓRICO */}
         <Route
           path="/historico"
           element={<Navigate to="/historico-adm" replace />}
         />
 
-        {/* SOLICITAÇÕES ADMINISTRATIVAS */}
         <Route
           path="/solicitacoes"
           element={
@@ -159,7 +148,6 @@ function App() {
           }
         />
 
-        {/* DETALHAMENTO DA SOLICITAÇÃO ADMINISTRATIVA */}
         <Route
           path="/solicitacoes/:id"
           element={
@@ -169,7 +157,6 @@ function App() {
           }
         />
 
-        {/* NOTIFICAÇÕES ADMINISTRATIVAS */}
         <Route
           path="/notificacoes"
           element={
@@ -179,7 +166,6 @@ function App() {
           }
         />
 
-        {/* CONFIGURAÇÕES ADMINISTRATIVAS */}
         <Route
           path="/configuracoes"
           element={
@@ -211,7 +197,7 @@ function App() {
             <ProtecaoInstituicao exigirCadastro={true} />
           }
         >
-          {/* DASHBOARD INSTITUCIONAL */}
+          {/* DASHBOARD */}
           <Route
             path="/principal-inst"
             element={
@@ -221,7 +207,7 @@ function App() {
             }
           />
 
-          {/* ENVIAR NOVA SOLICITAÇÃO */}
+          {/* ENVIAR SOLICITAÇÃO */}
           <Route
             path="/solicitacoes-inst"
             element={
@@ -240,12 +226,18 @@ function App() {
               </LayoutInstituicao>
             }
           />
-          <Route
-    path="/instituicao/solicitacoes/:id"
-    element={ <LayoutInstituicao><SolicitacoesInstituicao /></LayoutInstituicao>}
-/>
 
-          {/* HISTÓRICO INSTITUCIONAL */}
+          {/* DETALHES DA SOLICITAÇÃO */}
+          <Route
+            path="/instituicao/solicitacoes/:id"
+            element={
+              <LayoutInstituicao>
+                <SolicitacoesInstituicao />
+              </LayoutInstituicao>
+            }
+          />
+
+          {/* HISTÓRICO */}
           <Route
             path="/historico-inst"
             element={
@@ -255,7 +247,7 @@ function App() {
             }
           />
 
-          {/* NOTIFICAÇÕES INSTITUCIONAIS */}
+          {/* NOTIFICAÇÕES */}
           <Route
             path="/notificacoes-inst"
             element={
@@ -265,7 +257,7 @@ function App() {
             }
           />
 
-          {/* RELATÓRIOS INSTITUCIONAIS */}
+          {/* RELATÓRIOS */}
           <Route
             path="/relatorios-inst"
             element={
@@ -275,7 +267,17 @@ function App() {
             }
           />
 
-          {/* CONFIGURAÇÕES INSTITUCIONAIS */}
+          {/* PERFIL DA INSTITUIÇÃO */}
+          <Route
+            path="/perfil-inst"
+            element={
+              <LayoutInstituicao>
+                <PerfilInstituicao />
+              </LayoutInstituicao>
+            }
+          />
+
+          {/* CONFIGURAÇÕES */}
           <Route
             path="/configuracoes-inst"
             element={

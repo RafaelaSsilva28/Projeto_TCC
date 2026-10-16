@@ -12,6 +12,7 @@ import {
   FiAlertCircle,
   FiLoader,
   FiMonitor,
+  FiMoon,
   FiRefreshCw,
 } from "react-icons/fi";
 
@@ -116,6 +117,28 @@ function lerIdentidadeLocal() {
   return identidade;
 }
 
+// Aplica o tema na página (classe "dark" no <html>) e guarda no navegador
+// para que o tema continue o mesmo ao recarregar.
+const CHAVE_TEMA = "@AndraRecursos:modo_escuro";
+
+function aplicarTema(escuro) {
+  document.documentElement.classList.toggle("dark", Boolean(escuro));
+
+  try {
+    localStorage.setItem(CHAVE_TEMA, escuro ? "true" : "false");
+  } catch {
+    // ignora
+  }
+}
+
+function lerTemaLocal() {
+  try {
+    return localStorage.getItem(CHAVE_TEMA) === "true";
+  } catch {
+    return false;
+  }
+}
+
 // ==========================================
 // COMPONENTES VISUAIS (fora do componente principal
 // para os inputs não perderem o foco)
@@ -134,7 +157,7 @@ function CampoSenha({
     <div>
       <label
         htmlFor={campo}
-        className="mb-2 block text-sm font-semibold text-slate-700"
+        className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200"
       >
         {titulo}
       </label>
@@ -150,14 +173,14 @@ function CampoSenha({
           autoComplete={autoComplete}
           maxLength={72}
           required
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#1755ad] focus:bg-white focus:ring-4 focus:ring-blue-100"
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#1755ad] focus:bg-white focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:bg-slate-900 dark:focus:ring-blue-900/40"
         />
 
         <button
           type="button"
           onClick={() => onAlternar(campo)}
           aria-label={visivel ? "Ocultar senha" : "Mostrar senha"}
-          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition hover:bg-slate-200 hover:text-[#082d56]"
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition hover:bg-slate-200 hover:text-[#082d56] dark:hover:bg-slate-700 dark:hover:text-white"
         >
           {visivel ? <FiEyeOff size={18} /> : <FiEye size={18} />}
         </button>
@@ -175,16 +198,18 @@ function OpcaoPreferencia({
   onAlternar,
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 p-4 transition hover:border-blue-100 hover:bg-slate-50">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 p-4 transition hover:border-blue-100 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-700/40">
       <div className="flex min-w-0 items-start gap-3">
-        <div className="mt-0.5 rounded-lg bg-blue-50 p-2.5 text-[#1755ad]">
+        <div className="mt-0.5 rounded-lg bg-blue-50 p-2.5 text-[#1755ad] dark:bg-slate-700 dark:text-blue-300">
           {icone}
         </div>
 
         <div>
-          <p className="text-sm font-semibold text-[#082d56]">{titulo}</p>
+          <p className="text-sm font-semibold text-[#082d56] dark:text-white">
+            {titulo}
+          </p>
 
-          <p className="mt-1 text-sm leading-relaxed text-slate-500">
+          <p className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
             {descricao}
           </p>
         </div>
@@ -197,7 +222,7 @@ function OpcaoPreferencia({
         aria-label={titulo}
         onClick={() => onAlternar(campo, !ativo)}
         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          ativo ? "bg-[#1755ad]" : "bg-slate-300"
+          ativo ? "bg-[#1755ad]" : "bg-slate-300 dark:bg-slate-600"
         }`}
       >
         <span
@@ -219,7 +244,7 @@ export default function ConfiguracoesInst() {
     email_institucional: "",
     notificar_atualizacoes_solicitacoes: true,
     notificar_respostas_administrador: true,
-    reduzir_animacoes: false,
+    modo_escuro: lerTemaLocal(),
   });
 
   const [senhas, setSenhas] = useState({
@@ -238,6 +263,12 @@ export default function ConfiguracoesInst() {
   const [salvando, setSalvando] = useState(false);
   const [alterandoSenha, setAlterandoSenha] = useState(false);
   const [mensagem, setMensagem] = useState({ tipo: "", texto: "" });
+
+  // ---------- TEMA ----------
+  // Sempre que a opção muda, aplica o tema claro/escuro na hora
+  useEffect(() => {
+    aplicarTema(configuracoes.modo_escuro);
+  }, [configuracoes.modo_escuro]);
 
   // ---------- CARREGAR ----------
   async function carregarConfiguracoes() {
@@ -297,7 +328,7 @@ export default function ConfiguracoesInst() {
           configuracoes.notificar_atualizacoes_solicitacoes,
         notificar_respostas_administrador:
           configuracoes.notificar_respostas_administrador,
-        reduzir_animacoes: configuracoes.reduzir_animacoes,
+        modo_escuro: configuracoes.modo_escuro,
       });
 
       setMensagem({
@@ -396,25 +427,39 @@ export default function ConfiguracoesInst() {
   }
 
   const classeBotaoSalvar =
-    "flex w-full items-center justify-center gap-2 rounded-xl bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
+    "flex w-full items-center justify-center gap-2 rounded-xl bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto dark:bg-[#1755ad] dark:hover:bg-[#1f66c9]";
+
+  const classeCartao =
+    "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800";
+
+  const classeCabecalhoCartao =
+    "flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6 dark:border-slate-700";
+
+  const classeIconeCartao =
+    "rounded-xl bg-blue-50 p-3 text-[#1755ad] dark:bg-slate-700 dark:text-blue-300";
+
+  const classeCampoLeitura =
+    "flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-600 dark:bg-slate-900";
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8 dark:bg-slate-900">
       <div className="mx-auto max-w-6xl">
         {/* CABEÇALHO */}
         <div className="mb-8">
-          <div className="mb-3 flex items-center gap-2 text-sm text-slate-500">
+          <div className="mb-3 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
             <FiMonitor size={16} />
             <span>Instituição</span>
             <span>/</span>
-            <span className="font-medium text-[#1755ad]">Configurações</span>
+            <span className="font-medium text-[#1755ad] dark:text-blue-300">
+              Configurações
+            </span>
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight text-[#082d56] sm:text-3xl">
+          <h1 className="text-2xl font-bold tracking-tight text-[#082d56] sm:text-3xl dark:text-white">
             Configurações
           </h1>
 
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base">
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base dark:text-slate-400">
             Gerencie suas preferências, notificações e configurações de
             segurança.
           </p>
@@ -426,8 +471,8 @@ export default function ConfiguracoesInst() {
             role="status"
             className={`mb-6 flex items-start gap-3 rounded-xl border p-4 ${
               mensagem.tipo === "sucesso"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : "border-red-200 bg-red-50 text-red-700"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                : "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
             }`}
           >
             {mensagem.tipo === "sucesso" ? (
@@ -450,9 +495,12 @@ export default function ConfiguracoesInst() {
         )}
 
         {carregando ? (
-          <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white">
-            <FiLoader size={30} className="animate-spin text-[#1755ad]" />
-            <p className="mt-4 text-sm text-slate-500">
+          <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+            <FiLoader
+              size={30}
+              className="animate-spin text-[#1755ad] dark:text-blue-300"
+            />
+            <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
               Carregando configurações...
             </p>
           </div>
@@ -461,17 +509,17 @@ export default function ConfiguracoesInst() {
             {/* COLUNA PRINCIPAL */}
             <div className="space-y-6 lg:col-span-2">
               {/* DADOS DA INSTITUIÇÃO */}
-              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
-                  <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
+              <section className={classeCartao}>
+                <div className={classeCabecalhoCartao}>
+                  <div className={classeIconeCartao}>
                     <FiUser size={21} />
                   </div>
 
                   <div>
-                    <h2 className="font-bold text-[#082d56]">
+                    <h2 className="font-bold text-[#082d56] dark:text-white">
                       Dados da instituição
                     </h2>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                       Informações da conta autenticada.
                     </p>
                   </div>
@@ -479,32 +527,32 @@ export default function ConfiguracoesInst() {
 
                 <div className="space-y-5 p-5 sm:p-6">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">
                       Nome da instituição
                     </label>
 
-                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className={classeCampoLeitura}>
                       <FiUser className="shrink-0 text-slate-400" size={18} />
-                      <span className="text-sm text-slate-700">
+                      <span className="text-sm text-slate-700 dark:text-slate-200">
                         {configuracoes.nome || "Não informado"}
                       </span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">
                       E-mail institucional
                     </label>
 
-                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className={classeCampoLeitura}>
                       <FiMail className="shrink-0 text-slate-400" size={18} />
-                      <span className="break-all text-sm text-slate-700">
+                      <span className="break-all text-sm text-slate-700 dark:text-slate-200">
                         {configuracoes.email_institucional || "Não informado"}
                       </span>
                     </div>
                   </div>
 
-                  <p className="text-xs leading-relaxed text-slate-400">
+                  <p className="text-xs leading-relaxed text-slate-400 dark:text-slate-500">
                     Para alterar os dados cadastrais, entre na área de
                     atendimento responsável pelo cadastro da instituição.
                   </p>
@@ -512,15 +560,17 @@ export default function ConfiguracoesInst() {
               </section>
 
               {/* NOTIFICAÇÕES */}
-              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
-                  <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
+              <section className={classeCartao}>
+                <div className={classeCabecalhoCartao}>
+                  <div className={classeIconeCartao}>
                     <FiBell size={21} />
                   </div>
 
                   <div>
-                    <h2 className="font-bold text-[#082d56]">Notificações</h2>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <h2 className="font-bold text-[#082d56] dark:text-white">
+                      Notificações
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                       Escolha quais avisos deseja receber.
                     </p>
                   </div>
@@ -548,7 +598,7 @@ export default function ConfiguracoesInst() {
                     onAlternar={alterarPreferencia}
                   />
 
-                  <div className="flex justify-end border-t border-slate-100 pt-5">
+                  <div className="flex justify-end border-t border-slate-100 pt-5 dark:border-slate-700">
                     <button
                       type="submit"
                       disabled={salvando}
@@ -566,18 +616,18 @@ export default function ConfiguracoesInst() {
               </section>
 
               {/* APARÊNCIA */}
-              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
-                  <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
+              <section className={classeCartao}>
+                <div className={classeCabecalhoCartao}>
+                  <div className={classeIconeCartao}>
                     <FiMonitor size={21} />
                   </div>
 
                   <div>
-                    <h2 className="font-bold text-[#082d56]">
-                      Aparência e acessibilidade
+                    <h2 className="font-bold text-[#082d56] dark:text-white">
+                      Aparência
                     </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Ajuste os efeitos visuais da interface.
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      Escolha entre o tema claro e o tema escuro.
                     </p>
                   </div>
                 </div>
@@ -587,15 +637,15 @@ export default function ConfiguracoesInst() {
                   className="space-y-4 p-5 sm:p-6"
                 >
                   <OpcaoPreferencia
-                    titulo="Reduzir animações"
-                    descricao="Prefira transições e movimentos reduzidos durante a navegação."
-                    campo="reduzir_animacoes"
-                    icone={<FiMonitor size={19} />}
-                    ativo={configuracoes.reduzir_animacoes}
+                    titulo="Tema escuro"
+                    descricao="Ative para usar o tema escuro. Desative para voltar ao tema claro."
+                    campo="modo_escuro"
+                    icone={<FiMoon size={19} />}
+                    ativo={configuracoes.modo_escuro}
                     onAlternar={alterarPreferencia}
                   />
 
-                  <div className="flex justify-end border-t border-slate-100 pt-5">
+                  <div className="flex justify-end border-t border-slate-100 pt-5 dark:border-slate-700">
                     <button
                       type="submit"
                       disabled={salvando}
@@ -615,7 +665,7 @@ export default function ConfiguracoesInst() {
 
             {/* COLUNA LATERAL */}
             <aside className="space-y-6">
-              <section className="overflow-hidden rounded-2xl bg-[#082d56] p-5 text-white shadow-sm sm:p-6">
+              <section className="overflow-hidden rounded-2xl bg-[#082d56] p-5 text-white shadow-sm sm:p-6 dark:border dark:border-slate-700 dark:bg-slate-800">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
                   <FiShield size={24} />
                 </div>
@@ -640,15 +690,17 @@ export default function ConfiguracoesInst() {
               </section>
 
               {/* FORMULÁRIO DE SENHA */}
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-800">
                 <div className="mb-5 flex items-center gap-3">
-                  <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
+                  <div className={classeIconeCartao}>
                     <FiLock size={21} />
                   </div>
 
                   <div>
-                    <h2 className="font-bold text-[#082d56]">Alterar senha</h2>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <h2 className="font-bold text-[#082d56] dark:text-white">
+                      Alterar senha
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       Proteja seu acesso.
                     </p>
                   </div>
@@ -701,7 +753,7 @@ export default function ConfiguracoesInst() {
                   <button
                     type="submit"
                     disabled={alterandoSenha}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1755ad] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1755ad] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-[#1f66c9]"
                   >
                     {alterandoSenha ? (
                       <FiLoader className="animate-spin" size={18} />
@@ -713,9 +765,12 @@ export default function ConfiguracoesInst() {
                 </form>
               </section>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="text-xs leading-relaxed text-slate-500">
-                  <FiShield className="mr-1 inline text-[#1755ad]" size={14} />
+              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+                <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                  <FiShield
+                    className="mr-1 inline text-[#1755ad] dark:text-blue-300"
+                    size={14}
+                  />
                   Suas configurações são vinculadas à instituição autenticada.
                 </p>
               </div>

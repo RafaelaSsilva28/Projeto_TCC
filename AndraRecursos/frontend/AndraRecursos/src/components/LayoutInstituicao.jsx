@@ -80,6 +80,7 @@ const titulos = {
     "/notificacoes-inst": "Notificações",
     "/relatorios-inst": "Relatórios",
     "/configuracoes-inst": "Configurações",
+    "/perfil-inst": "Perfil da Instituição",
 };
 
 // ============================================
@@ -882,23 +883,30 @@ export default function LayoutInstituicao({
 
                         <div className="hidden h-8 w-px bg-slate-200 sm:block" />
 
-                        {/* INSTITUIÇÃO */}
-                        <div className="flex items-center gap-3">
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eaf2fc] text-[#1755ad]">
-                                <FiUser size={20} />
-                            </span>
+                        
+{/* INSTITUIÇÃO — ACESSO AO PERFIL */}
+<button
+    type="button"
+    title="Acessar perfil da instituição"
+    aria-label="Acessar perfil da instituição"
+    onClick={() => navigate("/perfil-inst")}
+    className="flex items-center gap-3 rounded-xl p-2 text-left transition hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+>
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eaf2fc] text-[#1755ad] transition hover:bg-blue-100">
+        <FiUser size={20} />
+    </span>
 
-                            <div className="hidden min-w-0 sm:block">
-                                <p className="text-xs text-slate-500">
-                                    Instituição
-                                </p>
+    <span className="hidden min-w-0 sm:block">
+        <span className="block text-xs text-slate-500">
+            Instituição
+        </span>
 
-                                <p className="max-w-44 truncate text-sm font-bold text-[#082d56]">
-                                    {nomeInstituicao ||
-                                        "Área Institucional"}
-                                </p>
-                            </div>
-                        </div>
+        <span className="block max-w-44 truncate text-sm font-bold text-[#082d56]">
+            {nomeInstituicao || "Área Institucional"}
+        </span>
+    </span>
+</button>
+
 
                         {/* SAIR */}
                         <button
