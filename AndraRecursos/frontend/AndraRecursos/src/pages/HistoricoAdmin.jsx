@@ -21,8 +21,6 @@ import {
   FiHome,
 } from "react-icons/fi";
 
-import { enderecoServidor } from "../utils";
-
 const ROTA_HISTORICO = "/historico-solicitacoes";
 const LIMITE_PAGINA = 10;
 

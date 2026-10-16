@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  FiBell,
   FiLock,
   FiEye,
   FiEyeOff,
-  FiSave,
   FiShield,
   FiUser,
   FiMail,
@@ -13,13 +11,13 @@ import {
   FiLoader,
   FiMonitor,
   FiMoon,
-  FiRefreshCw,
+  FiSun,
 } from "react-icons/fi";
 
 import { enderecoServidor } from "../utils";
 
 // ==========================================
-// FUNÇÕES AUXILIARES (fora do componente)
+// FUNÇÕES AUXILIARES
 // ==========================================
 async function requisicaoAPI(caminho, metodo = "GET", dados = null) {
   const token = localStorage.getItem("@AndraRecursos:token");
@@ -42,6 +40,7 @@ async function requisicaoAPI(caminho, metodo = "GET", dados = null) {
   }
 
   let resposta;
+
   try {
     resposta = await fetch(`${enderecoServidor}${caminho}`, opcoes);
   } catch {
@@ -72,23 +71,30 @@ async function requisicaoAPI(caminho, metodo = "GET", dados = null) {
   return resultado;
 }
 
-// Plano B: tenta ler nome/e-mail do token JWT ou do usuário salvo no navegador
+// ==========================================
+// IDENTIDADE LOCAL
+// ==========================================
 function lerIdentidadeLocal() {
-  const identidade = { nome: "", email_institucional: "" };
+  const identidade = {
+    nome: "",
+    email_institucional: "",
+  };
 
   try {
     const token = localStorage.getItem("@AndraRecursos:token");
 
     if (token) {
       const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+
       const payload = JSON.parse(decodeURIComponent(escape(atob(base64))));
 
       identidade.nome = payload.nome || payload.nome_instituicao || "";
+
       identidade.email_institucional =
         payload.email_institucional || payload.email || "";
     }
   } catch {
-    // ignora token fora do padrão
+    // Ignora token fora do padrão esperado.
   }
 
   if (!identidade.nome || !identidade.email_institucional) {
@@ -102,6 +108,7 @@ function lerIdentidadeLocal() {
 
         if (salvo) {
           identidade.nome = identidade.nome || salvo.nome || "";
+
           identidade.email_institucional =
             identidade.email_institucional ||
             salvo.email_institucional ||
@@ -109,7 +116,7 @@ function lerIdentidadeLocal() {
             "";
         }
       } catch {
-        // ignora
+        // Ignora dados locais inválidos.
       }
     }
   }
@@ -117,19 +124,10 @@ function lerIdentidadeLocal() {
   return identidade;
 }
 
-// Aplica o tema na página (classe "dark" no <html>) e guarda no navegador
-// para que o tema continue o mesmo ao recarregar.
+// ==========================================
+// TEMA LOCAL
+// ==========================================
 const CHAVE_TEMA = "@AndraRecursos:modo_escuro";
-
-function aplicarTema(escuro) {
-  document.documentElement.classList.toggle("dark", Boolean(escuro));
-
-  try {
-    localStorage.setItem(CHAVE_TEMA, escuro ? "true" : "false");
-  } catch {
-    // ignora
-  }
-}
 
 function lerTemaLocal() {
   try {
@@ -139,9 +137,18 @@ function lerTemaLocal() {
   }
 }
 
+function aplicarTema(escuro) {
+  document.documentElement.classList.toggle("dark", escuro);
+
+  try {
+    localStorage.setItem(CHAVE_TEMA, String(escuro));
+  } catch {
+    // O tema continua aplicado durante a sessão atual.
+  }
+}
+
 // ==========================================
-// COMPONENTES VISUAIS (fora do componente principal
-// para os inputs não perderem o foco)
+// CAMPO DE SENHA
 // ==========================================
 function CampoSenha({
   campo,
@@ -189,28 +196,26 @@ function CampoSenha({
   );
 }
 
-function OpcaoPreferencia({
-  titulo,
-  descricao,
-  campo,
-  icone,
-  ativo,
-  onAlternar,
-}) {
+// ==========================================
+// OPÇÃO DE TEMA
+// ==========================================
+function OpcaoTema({ escuro, onAlternar }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 p-4 transition hover:border-blue-100 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-700/40">
       <div className="flex min-w-0 items-start gap-3">
         <div className="mt-0.5 rounded-lg bg-blue-50 p-2.5 text-[#1755ad] dark:bg-slate-700 dark:text-blue-300">
-          {icone}
+          {escuro ? <FiMoon size={19} /> : <FiSun size={19} />}
         </div>
 
         <div>
           <p className="text-sm font-semibold text-[#082d56] dark:text-white">
-            {titulo}
+            {escuro ? "Tema escuro" : "Tema claro"}
           </p>
 
           <p className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-            {descricao}
+            {escuro
+              ? "O tema escuro está ativado. Desative para voltar ao tema claro."
+              : "O tema claro está ativado. Ative para utilizar cores escuras."}
           </p>
         </div>
       </div>
@@ -218,16 +223,16 @@ function OpcaoPreferencia({
       <button
         type="button"
         role="switch"
-        aria-checked={Boolean(ativo)}
-        aria-label={titulo}
-        onClick={() => onAlternar(campo, !ativo)}
+        aria-checked={escuro}
+        aria-label="Alternar entre tema claro e escuro"
+        onClick={() => onAlternar(!escuro)}
         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          ativo ? "bg-[#1755ad]" : "bg-slate-300 dark:bg-slate-600"
+          escuro ? "bg-[#1755ad]" : "bg-slate-300"
         }`}
       >
         <span
           className={`pointer-events-none absolute left-1 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white shadow-sm transition-transform ${
-            ativo ? "translate-x-5" : "translate-x-0"
+            escuro ? "translate-x-5" : "translate-x-0"
           }`}
         />
       </button>
@@ -242,10 +247,9 @@ export default function ConfiguracoesInst() {
   const [configuracoes, setConfiguracoes] = useState({
     nome: "",
     email_institucional: "",
-    notificar_atualizacoes_solicitacoes: true,
-    notificar_respostas_administrador: true,
-    modo_escuro: lerTemaLocal(),
   });
+
+  const [temaEscuro, setTemaEscuro] = useState(lerTemaLocal);
 
   const [senhas, setSenhas] = useState({
     senhaAtual: "",
@@ -260,39 +264,40 @@ export default function ConfiguracoesInst() {
   });
 
   const [carregando, setCarregando] = useState(true);
-  const [salvando, setSalvando] = useState(false);
   const [alterandoSenha, setAlterandoSenha] = useState(false);
-  const [mensagem, setMensagem] = useState({ tipo: "", texto: "" });
 
-  // ---------- TEMA ----------
-  // Sempre que a opção muda, aplica o tema claro/escuro na hora
+  const [mensagem, setMensagem] = useState({
+    tipo: "",
+    texto: "",
+  });
+
+  // ---------- APLICAR TEMA ----------
   useEffect(() => {
-    aplicarTema(configuracoes.modo_escuro);
-  }, [configuracoes.modo_escuro]);
+    aplicarTema(temaEscuro);
+  }, [temaEscuro]);
 
-  // ---------- CARREGAR ----------
+  // ---------- CARREGAR DADOS ----------
   async function carregarConfiguracoes() {
     setCarregando(true);
 
     try {
       const resposta = await requisicaoAPI("/configuracoes-inst");
+
       const dados = resposta.dados || resposta.configuracoes || resposta;
+
       const local = lerIdentidadeLocal();
 
-      setConfiguracoes((anterior) => ({
-        ...anterior,
-        ...dados,
+      setConfiguracoes({
         nome: dados.nome || local.nome,
         email_institucional:
           dados.email_institucional || local.email_institucional,
-      }));
+      });
     } catch (error) {
-      console.error("Erro ao carregar configurações:", error);
+      console.error("Erro ao carregar dados da instituição:", error);
 
-      // Mesmo com erro na API, mostra nome/e-mail se existirem localmente
       const local = lerIdentidadeLocal();
+
       setConfiguracoes((anterior) => ({
-        ...anterior,
         nome: anterior.nome || local.nome,
         email_institucional:
           anterior.email_institucional || local.email_institucional,
@@ -300,7 +305,8 @@ export default function ConfiguracoesInst() {
 
       setMensagem({
         tipo: "erro",
-        texto: error.message || "Não foi possível carregar as configurações.",
+        texto:
+          error.message || "Não foi possível carregar os dados da instituição.",
       });
     } finally {
       setCarregando(false);
@@ -311,45 +317,17 @@ export default function ConfiguracoesInst() {
     carregarConfiguracoes();
   }, []);
 
-  // ---------- PREFERÊNCIAS ----------
-  function alterarPreferencia(campo, valor) {
-    setConfiguracoes((anterior) => ({ ...anterior, [campo]: valor }));
-  }
-
-  async function salvarPreferencias(event) {
-    event.preventDefault();
-
-    setSalvando(true);
-    setMensagem({ tipo: "", texto: "" });
-
-    try {
-      await requisicaoAPI("/configuracoes-inst", "PATCH", {
-        notificar_atualizacoes_solicitacoes:
-          configuracoes.notificar_atualizacoes_solicitacoes,
-        notificar_respostas_administrador:
-          configuracoes.notificar_respostas_administrador,
-        modo_escuro: configuracoes.modo_escuro,
-      });
-
-      setMensagem({
-        tipo: "sucesso",
-        texto: "Preferências salvas com sucesso!",
-      });
-    } catch (error) {
-      console.error("Erro ao salvar preferências:", error);
-
-      setMensagem({
-        tipo: "erro",
-        texto: error.message || "Não foi possível salvar suas preferências.",
-      });
-    } finally {
-      setSalvando(false);
-    }
+  // ---------- TEMA ----------
+  function alternarTema(valor) {
+    setTemaEscuro(valor);
   }
 
   // ---------- SENHA ----------
   function alterarCampoSenha(campo, valor) {
-    setSenhas((anterior) => ({ ...anterior, [campo]: valor }));
+    setSenhas((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
   }
 
   function alternarVisibilidade(campo) {
@@ -361,7 +339,11 @@ export default function ConfiguracoesInst() {
 
   async function alterarSenha(event) {
     event.preventDefault();
-    setMensagem({ tipo: "", texto: "" });
+
+    setMensagem({
+      tipo: "",
+      texto: "",
+    });
 
     if (!senhas.senhaAtual || !senhas.novaSenha || !senhas.confirmarSenha) {
       setMensagem({
@@ -371,10 +353,10 @@ export default function ConfiguracoesInst() {
       return;
     }
 
-    if (senhas.novaSenha.length < 8) {
+    if (senhas.novaSenha.length < 8 || senhas.novaSenha.length > 72) {
       setMensagem({
         tipo: "erro",
-        texto: "A nova senha deve conter pelo menos 8 caracteres.",
+        texto: "A nova senha deve conter entre 8 e 72 caracteres.",
       });
       return;
     }
@@ -400,7 +382,12 @@ export default function ConfiguracoesInst() {
         },
       );
 
-      setSenhas({ senhaAtual: "", novaSenha: "", confirmarSenha: "" });
+      setSenhas({
+        senhaAtual: "",
+        novaSenha: "",
+        confirmarSenha: "",
+      });
+
       setMostrarSenhas({
         senhaAtual: false,
         novaSenha: false,
@@ -426,9 +413,6 @@ export default function ConfiguracoesInst() {
     }
   }
 
-  const classeBotaoSalvar =
-    "flex w-full items-center justify-center gap-2 rounded-xl bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto dark:bg-[#1755ad] dark:hover:bg-[#1f66c9]";
-
   const classeCartao =
     "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800";
 
@@ -437,6 +421,9 @@ export default function ConfiguracoesInst() {
 
   const classeIconeCartao =
     "rounded-xl bg-blue-50 p-3 text-[#1755ad] dark:bg-slate-700 dark:text-blue-300";
+
+  const classeBotaoSalvar =
+    "flex w-full items-center justify-center gap-2 rounded-xl bg-[#1755ad] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-[#1f66c9]";
 
   const classeCampoLeitura =
     "flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-600 dark:bg-slate-900";
@@ -460,12 +447,12 @@ export default function ConfiguracoesInst() {
           </h1>
 
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base dark:text-slate-400">
-            Gerencie suas preferências, notificações e configurações de
-            segurança.
+            Gerencie os dados da instituição, a aparência e a segurança da sua
+            conta.
           </p>
         </div>
 
-        {/* MENSAGEM DE RETORNO */}
+        {/* MENSAGEM */}
         {mensagem.texto && (
           <div
             role="status"
@@ -500,6 +487,7 @@ export default function ConfiguracoesInst() {
               size={30}
               className="animate-spin text-[#1755ad] dark:text-blue-300"
             />
+
             <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
               Carregando configurações...
             </p>
@@ -519,6 +507,7 @@ export default function ConfiguracoesInst() {
                     <h2 className="font-bold text-[#082d56] dark:text-white">
                       Dados da instituição
                     </h2>
+
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                       Informações da conta autenticada.
                     </p>
@@ -533,6 +522,7 @@ export default function ConfiguracoesInst() {
 
                     <div className={classeCampoLeitura}>
                       <FiUser className="shrink-0 text-slate-400" size={18} />
+
                       <span className="text-sm text-slate-700 dark:text-slate-200">
                         {configuracoes.nome || "Não informado"}
                       </span>
@@ -546,6 +536,7 @@ export default function ConfiguracoesInst() {
 
                     <div className={classeCampoLeitura}>
                       <FiMail className="shrink-0 text-slate-400" size={18} />
+
                       <span className="break-all text-sm text-slate-700 dark:text-slate-200">
                         {configuracoes.email_institucional || "Não informado"}
                       </span>
@@ -559,107 +550,31 @@ export default function ConfiguracoesInst() {
                 </div>
               </section>
 
-              {/* NOTIFICAÇÕES */}
-              <section className={classeCartao}>
-                <div className={classeCabecalhoCartao}>
-                  <div className={classeIconeCartao}>
-                    <FiBell size={21} />
-                  </div>
-
-                  <div>
-                    <h2 className="font-bold text-[#082d56] dark:text-white">
-                      Notificações
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                      Escolha quais avisos deseja receber.
-                    </p>
-                  </div>
-                </div>
-
-                <form
-                  onSubmit={salvarPreferencias}
-                  className="space-y-3 p-5 sm:p-6"
-                >
-                  <OpcaoPreferencia
-                    titulo="Atualizações de solicitações"
-                    descricao="Receba avisos quando houver atualizações nos pedidos da instituição."
-                    campo="notificar_atualizacoes_solicitacoes"
-                    icone={<FiRefreshCw size={19} />}
-                    ativo={configuracoes.notificar_atualizacoes_solicitacoes}
-                    onAlternar={alterarPreferencia}
-                  />
-
-                  <OpcaoPreferencia
-                    titulo="Respostas do administrador"
-                    descricao="Receba avisos quando a administração responder às suas solicitações."
-                    campo="notificar_respostas_administrador"
-                    icone={<FiBell size={19} />}
-                    ativo={configuracoes.notificar_respostas_administrador}
-                    onAlternar={alterarPreferencia}
-                  />
-
-                  <div className="flex justify-end border-t border-slate-100 pt-5 dark:border-slate-700">
-                    <button
-                      type="submit"
-                      disabled={salvando}
-                      className={classeBotaoSalvar}
-                    >
-                      {salvando ? (
-                        <FiLoader className="animate-spin" size={18} />
-                      ) : (
-                        <FiSave size={18} />
-                      )}
-                      {salvando ? "Salvando..." : "Salvar preferências"}
-                    </button>
-                  </div>
-                </form>
-              </section>
-
               {/* APARÊNCIA */}
               <section className={classeCartao}>
                 <div className={classeCabecalhoCartao}>
                   <div className={classeIconeCartao}>
-                    <FiMonitor size={21} />
+                    {temaEscuro ? <FiMoon size={21} /> : <FiSun size={21} />}
                   </div>
 
                   <div>
                     <h2 className="font-bold text-[#082d56] dark:text-white">
                       Aparência
                     </h2>
+
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                       Escolha entre o tema claro e o tema escuro.
                     </p>
                   </div>
                 </div>
 
-                <form
-                  onSubmit={salvarPreferencias}
-                  className="space-y-4 p-5 sm:p-6"
-                >
-                  <OpcaoPreferencia
-                    titulo="Tema escuro"
-                    descricao="Ative para usar o tema escuro. Desative para voltar ao tema claro."
-                    campo="modo_escuro"
-                    icone={<FiMoon size={19} />}
-                    ativo={configuracoes.modo_escuro}
-                    onAlternar={alterarPreferencia}
-                  />
+                <div className="space-y-4 p-5 sm:p-6">
+                  <OpcaoTema escuro={temaEscuro} onAlternar={alternarTema} />
 
-                  <div className="flex justify-end border-t border-slate-100 pt-5 dark:border-slate-700">
-                    <button
-                      type="submit"
-                      disabled={salvando}
-                      className={classeBotaoSalvar}
-                    >
-                      {salvando ? (
-                        <FiLoader className="animate-spin" size={18} />
-                      ) : (
-                        <FiSave size={18} />
-                      )}
-                      {salvando ? "Salvando..." : "Salvar aparência"}
-                    </button>
-                  </div>
-                </form>
+                  <p className="text-xs leading-relaxed text-slate-400 dark:text-slate-500">
+                    Sua preferência é salva automaticamente neste navegador.
+                  </p>
+                </div>
               </section>
             </div>
 
@@ -700,6 +615,7 @@ export default function ConfiguracoesInst() {
                     <h2 className="font-bold text-[#082d56] dark:text-white">
                       Alterar senha
                     </h2>
+
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       Proteja seu acesso.
                     </p>
@@ -707,7 +623,6 @@ export default function ConfiguracoesInst() {
                 </div>
 
                 <form onSubmit={alterarSenha} className="space-y-4">
-                  {/* Campo de usuário oculto: ajuda o navegador a entender o formulário */}
                   <input
                     type="text"
                     name="username"
@@ -753,13 +668,14 @@ export default function ConfiguracoesInst() {
                   <button
                     type="submit"
                     disabled={alterandoSenha}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1755ad] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-[#1f66c9]"
+                    className={classeBotaoSalvar}
                   >
                     {alterandoSenha ? (
                       <FiLoader className="animate-spin" size={18} />
                     ) : (
                       <FiShield size={18} />
                     )}
+
                     {alterandoSenha ? "Alterando senha..." : "Atualizar senha"}
                   </button>
                 </form>
@@ -771,7 +687,7 @@ export default function ConfiguracoesInst() {
                     className="mr-1 inline text-[#1755ad] dark:text-blue-300"
                     size={14}
                   />
-                  Suas configurações são vinculadas à instituição autenticada.
+                  Seus dados são vinculados à instituição autenticada.
                 </p>
               </div>
             </aside>

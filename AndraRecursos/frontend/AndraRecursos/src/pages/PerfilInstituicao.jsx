@@ -1,6 +1,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+
 import {
   FiUser,
   FiMail,
@@ -20,7 +22,7 @@ import {
   FiArrowLeft,
   FiChevronRight,
 } from "react-icons/fi";
-import toast from "react-hot-toast";
+
 import { enderecoServidor } from "../utils";
 
 const API = String(enderecoServidor).replace(/\/$/, "");
@@ -36,7 +38,7 @@ const CAMPOS_EDITAVEIS = [
   "horario_funcionamento",
 ];
 
-const FORMULARIO_INICIAL = {
+const FORMULARIO_VAZIO = {
   gestor: "",
   secretaria_vinculada: "",
   logradouro: "",
@@ -48,43 +50,24 @@ const FORMULARIO_INICIAL = {
 };
 
 function obterToken() {
-  const token = localStorage.getItem("@AndraRecursos:token");
-
-  if (token) return token;
-
-  try {
-    const usuario = JSON.parse(
-      localStorage.getItem("@AndraRecursos:usuario") || "null"
-    );
-
-    return (
-      usuario?.token ||
-      usuario?.accessToken ||
-      usuario?.access_token ||
-      ""
-    );
-  } catch {
-    return "";
-  }
+  return localStorage.getItem("@AndraRecursos:token");
 }
 
 function formatarCEP(valor) {
-  const numeros = String(valor || "")
-    .replace(/\D/g, "")
-    .slice(0, 8);
+  const numeros = String(valor ?? "").replace(/\D/g, "").slice(0, 8);
 
-  return numeros.length > 5
-    ? `${numeros.slice(0, 5)}-${numeros.slice(5)}`
-    : numeros;
+  if (numeros.length > 5) {
+    return `${numeros.slice(0, 5)}-${numeros.slice(5)}`;
+  }
+
+  return numeros;
 }
 
 function formatarTelefone(valor) {
-  const numeros = String(valor || "")
-    .replace(/\D/g, "")
-    .slice(0, 11);
+  const numeros = String(valor ?? "").replace(/\D/g, "").slice(0, 11);
 
   if (numeros.length <= 2) {
-    return numeros ? `(${numeros}` : "";
+    return numeros.length ? `(${numeros}` : "";
   }
 
   if (numeros.length <= 6) {
@@ -92,112 +75,98 @@ function formatarTelefone(valor) {
   }
 
   if (numeros.length <= 10) {
-    return `(${numeros.slice(0, 2)}) ${numeros.slice(
-      2,
-      6
-    )}-${numeros.slice(6)}`;
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 6)}-${numeros.slice(6)}`;
   }
 
-  return `(${numeros.slice(0, 2)}) ${numeros.slice(
-    2,
-    7
-  )}-${numeros.slice(7)}`;
+  return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(7)}`;
 }
 
 function normalizarFormulario(instituicao = {}) {
   return {
-    gestor: instituicao.gestor || "",
-    secretaria_vinculada: instituicao.secretaria_vinculada || "",
-    logradouro: instituicao.logradouro || "",
-    cep: formatarCEP(instituicao.cep || ""),
-    numero: instituicao.numero || "",
-    bairro: instituicao.bairro || "",
-    telefone: formatarTelefone(instituicao.telefone || ""),
-    horario_funcionamento: instituicao.horario_funcionamento || "",
+    gestor: instituicao.gestor ?? "",
+    secretaria_vinculada: instituicao.secretaria_vinculada ?? "",
+    logradouro: instituicao.logradouro ?? "",
+    cep: formatarCEP(instituicao.cep ?? ""),
+    numero: instituicao.numero ?? "",
+    bairro: instituicao.bairro ?? "",
+    telefone: formatarTelefone(instituicao.telefone ?? ""),
+    horario_funcionamento: instituicao.horario_funcionamento ?? "",
   };
 }
 
 function Campo({
   label,
-  name,
+  icon: Icon,
   value,
   onChange,
-  editando,
+  editing,
   placeholder,
   type = "text",
   required = false,
   maxLength,
 }) {
+  const classeInput =
+    "min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-[#082d56] outline-none transition placeholder:text-gray-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 disabled:cursor-default disabled:bg-gray-50 disabled:text-gray-600";
+
   return (
     <div className="min-w-0">
-      <label
-        htmlFor={name}
-        className="mb-2 block text-sm font-semibold text-slate-700"
-      >
+      <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-gray-600">
+        {Icon && <Icon size={15} className="text-[#1759ad]" />}
         {label}
-        {editando && required && (
-          <span className="ml-1 text-red-500">*</span>
-        )}
+        {editing && required && <span className="text-red-500">*</span>}
       </label>
 
-      {editando ? (
-        <input
-          id={name}
-          name={name}
-          type={type}
-          value={value ?? ""}
-          onChange={onChange}
-          placeholder={placeholder || label}
-          required={required}
-          maxLength={maxLength}
-          className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
-        />
-      ) : (
-        <div className="flex min-h-12 items-center rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-          <p className="break-words text-sm text-slate-700">
-            {value || (
-              <span className="text-slate-400">Não informado</span>
-            )}
-          </p>
-        </div>
-      )}
+      <input
+        type={type}
+        value={value ?? ""}
+        onChange={onChange}
+        disabled={!editing}
+        required={editing && required}
+        maxLength={maxLength}
+        placeholder={placeholder || label}
+        className={classeInput}
+      />
     </div>
   );
 }
 
-function CampoBloqueado({ label, value }) {
+function CampoBloqueado({ label, icon: Icon, value }) {
   return (
     <div className="min-w-0">
-      <label className="mb-2 block text-sm font-semibold text-slate-700">
+      <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-gray-600">
+        {Icon && <Icon size={15} className="text-[#1759ad]" />}
         {label}
       </label>
 
-      <div className="flex min-h-12 items-center rounded-xl border border-slate-200 bg-slate-100 px-4 py-3">
-        <p className="break-words text-sm text-slate-600">
+      <div className="flex min-h-11 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600">
+        <span className="min-w-0 break-words">
           {value || "Não informado"}
-        </p>
+        </span>
       </div>
     </div>
   );
 }
 
-function Secao({ icon: Icon, titulo, descricao, children }) {
+function Secao({ titulo, descricao, icon: Icon, children }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-5 md:px-7">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1759ad]">
+    <section className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex items-start gap-3 border-b border-gray-200 px-5 py-5 sm:px-6">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#1759ad]">
           <Icon size={20} />
         </div>
 
         <div className="min-w-0">
-          <h2 className="font-bold text-[#082d56]">{titulo}</h2>
-          <p className="mt-1 text-sm leading-5 text-slate-500">
+          <h2 className="text-base font-semibold text-[#082d56]">
+            {titulo}
+          </h2>
+
+          <p className="mt-1 text-sm leading-relaxed text-gray-500">
             {descricao}
           </p>
         </div>
       </div>
 
-      <div className="grid gap-x-6 gap-y-5 p-5 md:grid-cols-2 md:p-7">
+      <div className="grid grid-cols-1 gap-5 p-5 sm:grid-cols-2 sm:p-6">
         {children}
       </div>
     </section>
@@ -206,75 +175,78 @@ function Secao({ icon: Icon, titulo, descricao, children }) {
 
 function Indicador({ titulo, valor, icon: Icon }) {
   return (
-    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-[#1759ad]">
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#1759ad]">
         <Icon size={19} />
       </div>
 
       <div className="min-w-0">
-        <p className="text-xs font-medium text-slate-500">{titulo}</p>
-        <p className="mt-1 break-words text-sm font-bold text-[#082d56]">
-          {valor || "Não informado"}
+        <p className="text-xs font-medium text-gray-500">{titulo}</p>
+        <p className="mt-1 break-words text-sm font-semibold text-[#082d56]">
+          {valor}
         </p>
       </div>
     </div>
   );
 }
 
-function PerfilInstituicao() {
+export default function PerfilInstituicao() {
   const navigate = useNavigate();
 
   const [instituicao, setInstituicao] = useState(null);
-  const [formulario, setFormulario] = useState(FORMULARIO_INICIAL);
+  const [formulario, setFormulario] = useState(FORMULARIO_VAZIO);
+  const [formularioOriginal, setFormularioOriginal] =
+    useState(FORMULARIO_VAZIO);
+
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [editando, setEditando] = useState(false);
   const [erro, setErro] = useState("");
 
   const buscarPerfil = useCallback(async () => {
-    const token = obterToken();
-
-    if (!token) {
-      setErro("Sua sessão não foi encontrada. Entre novamente no sistema.");
-      setCarregando(false);
-      return;
-    }
-
     setCarregando(true);
     setErro("");
 
     try {
+      const token = obterToken();
+
+      if (!token) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+
       const resposta = await fetch(`${API}/instituicoes/me`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
-          Accept: "application/json",
         },
       });
 
-      const dados = await resposta.json().catch(() => ({}));
+      const resultado = await resposta.json().catch(() => null);
 
       if (!resposta.ok) {
         throw new Error(
-          dados.message ||
-            dados.mensagem ||
-            "Não foi possível carregar o perfil."
+          resultado?.error ||
+            resultado?.message ||
+            `Erro ${resposta.status} ao carregar o perfil.`,
         );
       }
 
-      const perfil = dados?.instituicao || dados?.perfil || dados;
+      const dados =
+        resultado?.instituicao ??
+        resultado?.perfil ??
+        resultado;
 
-      if (!perfil || typeof perfil !== "object") {
-        throw new Error("Os dados da instituição não foram encontrados.");
+      if (!dados || typeof dados !== "object") {
+        throw new Error("A API não retornou os dados da instituição.");
       }
 
-      setInstituicao(perfil);
-      setFormulario(normalizarFormulario(perfil));
+      const formularioInicial = normalizarFormulario(dados);
+
+      setInstituicao(dados);
+      setFormulario(formularioInicial);
+      setFormularioOriginal(formularioInicial);
     } catch (error) {
-      console.error("Erro ao buscar perfil institucional:", error);
-      setErro(
-        error.message || "Ocorreu um erro ao carregar os dados."
-      );
+      setErro(error.message || "Não foi possível carregar o perfil.");
     } finally {
       setCarregando(false);
     }
@@ -284,474 +256,487 @@ function PerfilInstituicao() {
     buscarPerfil();
   }, [buscarPerfil]);
 
-  function alterarCampo(evento) {
-    const { name, value } = evento.target;
-    let novoValor = value;
-
-    if (name === "cep") novoValor = formatarCEP(value);
-    if (name === "telefone") novoValor = formatarTelefone(value);
-    if (name === "numero") novoValor = value.slice(0, 10);
-
+  function alterarCampo(campo, valor) {
     setFormulario((anterior) => ({
       ...anterior,
-      [name]: novoValor,
+      [campo]: valor,
     }));
   }
 
   function iniciarEdicao() {
-    setFormulario(normalizarFormulario(instituicao));
+    setFormularioOriginal({ ...formulario });
     setEditando(true);
+    setErro("");
   }
 
   function cancelarEdicao() {
-    setFormulario(normalizarFormulario(instituicao));
+    setFormulario({ ...formularioOriginal });
     setEditando(false);
+    setErro("");
   }
 
-  async function salvarAlteracoes(evento) {
-    evento.preventDefault();
+  async function salvarAlteracoes(event) {
+    event.preventDefault();
 
     if (salvando) return;
 
     const token = obterToken();
 
     if (!token) {
-      toast.error("Sua sessão expirou. Entre novamente no sistema.");
+      toast.error("Sessão expirada. Faça login novamente.");
       return;
     }
 
-    const obrigatorios = [
-      ["gestor", "Informe o nome do gestor."],
-      ["secretaria_vinculada", "Informe a secretaria vinculada."],
-      ["logradouro", "Informe o logradouro."],
-      ["cep", "Informe o CEP."],
-      ["numero", "Informe o número."],
-      ["bairro", "Informe o bairro."],
-      ["telefone", "Informe o telefone."],
-      [
-        "horario_funcionamento",
-        "Informe o horário de funcionamento.",
-      ],
-    ];
-
-    for (const [campo, mensagem] of obrigatorios) {
-      if (!String(formulario[campo] || "").trim()) {
-        toast.error(mensagem);
+    for (const campo of CAMPOS_EDITAVEIS) {
+      if (!String(formulario[campo] ?? "").trim()) {
+        toast.error("Preencha todos os campos obrigatórios.");
         return;
       }
     }
 
-    const cep = String(formulario.cep).replace(/\D/g, "");
-    const telefone = String(formulario.telefone).replace(/\D/g, "");
+    const cepNumerico = formulario.cep.replace(/\D/g, "");
+    const telefoneNumerico = formulario.telefone.replace(/\D/g, "");
 
-    if (cep.length !== 8) {
-      toast.error("O CEP deve conter 8 números.");
+    if (cepNumerico.length !== 8) {
+      toast.error("Informe um CEP válido com 8 números.");
       return;
     }
 
-    if (![10, 11].includes(telefone.length)) {
-      toast.error("Informe o telefone com DDD e 8 ou 9 números.");
+    if (![10, 11].includes(telefoneNumerico.length)) {
+      toast.error("Informe um telefone válido com DDD.");
       return;
     }
 
-    const dadosParaEnviar = {};
-
-    for (const campo of CAMPOS_EDITAVEIS) {
-      let valor = String(formulario[campo] || "").trim();
-
-      if (campo === "cep") valor = cep;
-      if (campo === "telefone") valor = telefone;
-
-      dadosParaEnviar[campo] = valor;
+    if (String(formulario.numero).trim().length > 10) {
+      toast.error("O número do endereço deve ter no máximo 10 caracteres.");
+      return;
     }
 
     setSalvando(true);
+    setErro("");
 
     try {
+      const corpo = {
+        gestor: formulario.gestor.trim(),
+        secretaria_vinculada: formulario.secretaria_vinculada.trim(),
+        logradouro: formulario.logradouro.trim(),
+        cep: cepNumerico,
+        numero: String(formulario.numero).trim(),
+        bairro: formulario.bairro.trim(),
+        telefone: telefoneNumerico,
+        horario_funcionamento: formulario.horario_funcionamento.trim(),
+      };
+
       const resposta = await fetch(`${API}/instituicoes/me`, {
         method: "PATCH",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
-          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(dadosParaEnviar),
+        body: JSON.stringify(corpo),
       });
 
-      const dados = await resposta.json().catch(() => ({}));
+      const resultado = await resposta.json().catch(() => null);
 
       if (!resposta.ok) {
         throw new Error(
-          dados.message ||
-            dados.mensagem ||
-            "Não foi possível salvar as alterações."
+          resultado?.error ||
+            resultado?.message ||
+            `Erro ${resposta.status} ao salvar as alterações.`,
         );
       }
 
-      const perfilAtualizado =
-        dados?.instituicao || dados?.perfil || null;
+      const dadosAtualizados =
+        resultado?.instituicao ??
+        resultado?.perfil ??
+        null;
 
-      if (perfilAtualizado) {
-        setInstituicao(perfilAtualizado);
-        setFormulario(normalizarFormulario(perfilAtualizado));
+      if (dadosAtualizados) {
+        setInstituicao(dadosAtualizados);
+
+        const novoFormulario = normalizarFormulario(dadosAtualizados);
+
+        setFormulario(novoFormulario);
+        setFormularioOriginal(novoFormulario);
       } else {
         await buscarPerfil();
       }
 
       setEditando(false);
-      toast.success("Perfil atualizado com sucesso!");
-    } catch (error) {
-      console.error("Erro ao salvar perfil institucional:", error);
-      toast.error(
-        error.message || "Erro ao salvar os dados da instituição."
+      toast.success(
+        resultado?.message || "Perfil atualizado com sucesso!",
       );
+    } catch (error) {
+      setErro(error.message || "Não foi possível salvar as alterações.");
+      toast.error(error.message || "Erro ao atualizar o perfil.");
     } finally {
       setSalvando(false);
     }
   }
 
-  const cadastroCompleto =
-    instituicao?.cadastro_completo === true ||
-    instituicao?.cadastro_completo === "true";
+  const nomeInstituicao =
+    instituicao?.nome || "Instituição";
 
-  if (carregando && !instituicao) {
-    return (
-      <main className="flex min-h-[60vh] items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-3">
-          <FiRefreshCw
-            size={32}
-            className="animate-spin text-[#1759ad]"
-          />
-          <p className="text-sm text-slate-500">
-            Carregando perfil da instituição...
-          </p>
-        </div>
-      </main>
-    );
-  }
+  const statusInstituicao =
+    instituicao?.status_instituicao || "Não informado";
 
-  if (erro && !instituicao) {
-    return (
-      <main className="min-h-[60vh] bg-slate-50 p-5 md:p-8">
-        <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-7">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-red-600">
-            <FiAlertCircle size={25} />
-          </div>
+  const nomeGestor =
+    formulario.gestor || "Não informado";
 
-          <h1 className="text-xl font-bold text-[#082d56]">
-            Não foi possível abrir o perfil
+  const enderecoCompleto = [
+    formulario.logradouro,
+    formulario.numero,
+    formulario.bairro,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const classeBotaoSecundario =
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-[#082d56] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50";
+
+  const classeBotaoPrincipal =
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#082d56] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#164675] disabled:cursor-not-allowed disabled:opacity-50";
+
+  return (
+    <div className="min-w-0 space-y-6">
+      {/* CAMINHO DA PÁGINA */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+        <button
+          type="button"
+          onClick={() => navigate("/principal-inst")}
+          className="transition hover:text-[#1759ad]"
+        >
+          Início
+        </button>
+
+        <FiChevronRight size={14} />
+
+        <span className="font-semibold text-[#082d56]">
+          Perfil da instituição
+        </span>
+      </div>
+
+      {/* CABEÇALHO */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[#082d56] sm:text-3xl">
+            Perfil da Instituição
           </h1>
 
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            {erro}
+          <p className="mt-1 text-sm leading-relaxed text-gray-500">
+            Consulte e mantenha atualizados os dados institucionais.
           </p>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={buscarPerfil}
+            disabled={carregando || salvando}
+            className={classeBotaoSecundario}
+          >
+            <FiRefreshCw
+              size={16}
+              className={carregando ? "animate-spin" : ""}
+            />
+            Atualizar
+          </button>
+
+          {!editando && (
+            <button
+              type="button"
+              onClick={iniciarEdicao}
+              disabled={carregando || Boolean(erro) || !instituicao}
+              className={classeBotaoPrincipal}
+            >
+              <FiEdit3 size={16} />
+              Editar perfil
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ERRO */}
+      {erro && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          <FiAlertCircle size={18} className="mt-0.5 shrink-0" />
+
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Não foi possível concluir a operação</p>
+            <p className="mt-1 break-words">{erro}</p>
+          </div>
 
           <button
             type="button"
             onClick={buscarPerfil}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1759ad] px-5 py-3 text-sm font-semibold text-white hover:bg-[#104889]"
+            className="shrink-0 font-semibold underline"
           >
-            <FiRefreshCw size={17} />
             Tentar novamente
           </button>
         </div>
-      </main>
-    );
-  }
+      )}
 
-  return (
-    <main className="min-h-screen bg-[#f5f7fb] px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-7xl">
-        {/* CAMINHO DE NAVEGAÇÃO */}
-        <div className="mb-5 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-          <button
-            type="button"
-            onClick={() => navigate("/principal-inst")}
-            className="transition hover:text-[#1759ad]"
-          >
-            Área institucional
-          </button>
+      {/* IDENTIFICAÇÃO */}
+      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="h-1.5 bg-[#082d56]" />
 
-          <FiChevronRight size={15} />
+        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1759ad]">
+            <FiHome size={30} />
+          </div>
 
-          <span className="font-semibold text-[#082d56]">
-            Meu perfil
-          </span>
-        </div>
-
-        {/* CABEÇALHO DA PÁGINA */}
-        <div className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#082d56] md:text-3xl">
-              Meu perfil
-            </h1>
-
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Consulte e gerencie as informações da sua instituição.
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Instituição cadastrada
             </p>
-          </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={buscarPerfil}
-              disabled={carregando || salvando}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              <FiRefreshCw
-                size={16}
-                className={carregando ? "animate-spin" : ""}
-              />
-              Atualizar
-            </button>
+            <h2 className="mt-1 break-words text-xl font-bold text-[#082d56] sm:text-2xl">
+              {carregando ? "Carregando..." : nomeInstituicao}
+            </h2>
 
-            {!editando && (
-              <button
-                type="button"
-                onClick={iniciarEdicao}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1759ad] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#104889]"
-              >
-                <FiEdit3 size={16} />
-                Editar informações
-              </button>
-            )}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-[#1759ad]">
+                <FiShield size={13} />
+                Usuário institucional
+              </span>
+
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                {statusInstituicao}
+              </span>
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* IDENTIFICAÇÃO DA INSTITUIÇÃO */}
-        <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="h-1.5 bg-[#1759ad]" />
+      {/* INDICADORES */}
+      <section
+        aria-label="Resumo do perfil"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      >
+        <Indicador
+          titulo="Gestor responsável"
+          valor={nomeGestor}
+          icon={FiUser}
+        />
 
-          <div className="p-5 md:p-7">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
-              <div className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-2xl bg-[#edf4ff] text-[#1759ad]">
-                <FiHome size={34} />
-              </div>
+        <Indicador
+          titulo="Contato institucional"
+          valor={instituicao?.email_institucional || "Não informado"}
+          icon={FiMail}
+        />
 
-              <div className="min-w-0 flex-1">
-                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Instituição
-                </p>
+        <Indicador
+          titulo="Cadastro"
+          valor={
+            instituicao?.cadastro_completo
+              ? "Completo"
+              : "Pendente de conclusão"
+          }
+          icon={FiCheckCircle}
+        />
+      </section>
 
-                <h2 className="break-words text-xl font-bold text-[#082d56] md:text-2xl">
-                  {instituicao?.nome || "Nome não informado"}
-                </h2>
+      {/* CARREGAMENTO */}
+      {carregando && !instituicao ? (
+        <div className="rounded-xl border border-gray-200 bg-white px-5 py-14 text-center shadow-sm">
+          <FiRefreshCw
+            size={24}
+            className="mx-auto animate-spin text-[#1759ad]"
+          />
 
-                <p className="mt-2 flex items-start gap-2 break-all text-sm text-slate-500">
-                  <FiMail size={16} className="mt-0.5 shrink-0" />
-                  {instituicao?.email_institucional || "E-mail não informado"}
-                </p>
-              </div>
+          <p className="mt-3 text-sm text-gray-500">
+            Carregando os dados da instituição...
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={salvarAlteracoes} className="space-y-6">
+          {/* IDENTIFICAÇÃO INSTITUCIONAL */}
+          <Secao
+            titulo="Identificação institucional"
+            descricao="Dados principais associados ao cadastro da instituição."
+            icon={FiHome}
+          >
+            <CampoBloqueado
+              label="Nome da instituição"
+              icon={FiHome}
+              value={instituicao?.nome}
+            />
 
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold ${
-                    cadastroCompleto
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-amber-50 text-amber-700"
-                  }`}
-                >
-                  <FiCheckCircle size={15} />
-                  {cadastroCompleto
-                    ? "Cadastro completo"
-                    : "Cadastro pendente"}
-                </span>
-              </div>
-            </div>
+            <CampoBloqueado
+              label="E-mail institucional"
+              icon={FiMail}
+              value={instituicao?.email_institucional}
+            />
 
-            <div className="mt-6 grid gap-3 border-t border-slate-100 pt-6 sm:grid-cols-2 lg:grid-cols-3">
-              <Indicador
-                titulo="Código institucional"
-                valor={instituicao?.id_instituicao}
-                icon={FiHash}
-              />
+            <CampoBloqueado
+              label="Tipo de acesso"
+              icon={FiShield}
+              value={instituicao?.tipo_acesso || "Usuário Institucional"}
+            />
 
-              <Indicador
-                titulo="Tipo de acesso"
-                valor={instituicao?.tipo_acesso || "Usuário Institucional"}
-                icon={FiShield}
-              />
+            <CampoBloqueado
+              label="Status da instituição"
+              icon={FiCheckCircle}
+              value={instituicao?.status_instituicao}
+            />
+          </Secao>
 
-              <Indicador
-                titulo="Status da instituição"
-                valor={instituicao?.status_instituicao}
-                icon={FiCheckCircle}
-              />
-            </div>
-          </div>
-        </section>
+          {/* GESTÃO */}
+          <Secao
+            titulo="Dados da gestão"
+            descricao="Informações do responsável e da secretaria vinculada."
+            icon={FiBriefcase}
+          >
+            <Campo
+              label="Gestor responsável"
+              icon={FiUser}
+              value={formulario.gestor}
+              editing={editando}
+              required
+              placeholder="Nome completo do gestor"
+              onChange={(e) => alterarCampo("gestor", e.target.value)}
+            />
 
-        {/* FORMULÁRIO */}
-        <form onSubmit={salvarAlteracoes}>
-          {editando && (
-            <div className="mb-5 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
-              <FiAlertCircle
-                size={19}
-                className="mt-0.5 shrink-0 text-[#1759ad]"
-              />
-
-              <div>
-                <p className="text-sm font-bold text-[#082d56]">
-                  Você está editando seu perfil
-                </p>
-
-                <p className="mt-1 text-sm leading-5 text-slate-600">
-                  Os campos marcados com asterisco são obrigatórios.
-                  Nome, e-mail institucional e status não podem ser
-                  alterados por esta tela.
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-5">
-            {/* GESTÃO */}
-            <Secao
+            <Campo
+              label="Secretaria vinculada"
               icon={FiBriefcase}
-              titulo="Dados da gestão"
-              descricao="Responsáveis e vínculo administrativo da instituição."
-            >
-              <CampoBloqueado
-                label="Nome da instituição"
-                value={instituicao?.nome}
-              />
+              value={formulario.secretaria_vinculada}
+              editing={editando}
+              required
+              placeholder="Nome da secretaria"
+              onChange={(e) =>
+                alterarCampo("secretaria_vinculada", e.target.value)
+              }
+            />
+          </Secao>
 
-              <CampoBloqueado
-                label="E-mail institucional"
-                value={instituicao?.email_institucional}
-              />
-
-              <Campo
-                label="Nome do gestor"
-                name="gestor"
-                value={formulario.gestor}
-                onChange={alterarCampo}
-                editando={editando}
-                placeholder="Digite o nome completo do gestor"
-                required
-              />
-
-              <Campo
-                label="Secretaria vinculada"
-                name="secretaria_vinculada"
-                value={formulario.secretaria_vinculada}
-                onChange={alterarCampo}
-                editando={editando}
-                placeholder="Digite a secretaria responsável"
-                required
-              />
-            </Secao>
-
-            {/* LOCALIZAÇÃO */}
-            <Secao
-              icon={FiMapPin}
-              titulo="Endereço"
-              descricao="Localização e endereço cadastrado da instituição."
-            >
+          {/* ENDEREÇO */}
+          <Secao
+            titulo="Endereço da instituição"
+            descricao="Localização e endereço cadastrado para contato institucional."
+            icon={FiMapPin}
+          >
+            <div className="sm:col-span-2">
               <Campo
                 label="Logradouro"
-                name="logradouro"
+                icon={FiMapPin}
                 value={formulario.logradouro}
-                onChange={alterarCampo}
-                editando={editando}
-                placeholder="Rua, avenida ou praça"
+                editing={editando}
                 required
+                placeholder="Rua, avenida ou outro logradouro"
+                onChange={(e) => alterarCampo("logradouro", e.target.value)}
               />
+            </div>
 
-              <Campo
-                label="Bairro"
-                name="bairro"
-                value={formulario.bairro}
-                onChange={alterarCampo}
-                editando={editando}
-                placeholder="Digite o bairro"
-                required
-              />
+            <Campo
+              label="Número"
+              icon={FiHash}
+              value={formulario.numero}
+              editing={editando}
+              required
+              maxLength={10}
+              placeholder="Número do endereço"
+              onChange={(e) => alterarCampo("numero", e.target.value)}
+            />
 
-              <Campo
-                label="Número"
-                name="numero"
-                value={formulario.numero}
-                onChange={alterarCampo}
-                editando={editando}
-                placeholder="Número do endereço"
-                required
-                maxLength={10}
-              />
+            <Campo
+              label="Bairro"
+              icon={FiMapPin}
+              value={formulario.bairro}
+              editing={editando}
+              required
+              placeholder="Bairro"
+              onChange={(e) => alterarCampo("bairro", e.target.value)}
+            />
 
-              <Campo
-                label="CEP"
-                name="cep"
-                value={formulario.cep}
-                onChange={alterarCampo}
-                editando={editando}
-                placeholder="00000-000"
-                required
-                maxLength={9}
-              />
-            </Secao>
+            <Campo
+              label="CEP"
+              icon={FiMapPin}
+              value={formulario.cep}
+              editing={editando}
+              required
+              maxLength={9}
+              placeholder="00000-000"
+              onChange={(e) =>
+                alterarCampo("cep", formatarCEP(e.target.value))
+              }
+            />
 
-            {/* CONTATO */}
-            <Secao
+            <CampoBloqueado
+              label="Endereço cadastrado"
+              icon={FiHome}
+              value={enderecoCompleto}
+            />
+          </Secao>
+
+          {/* CONTATO */}
+          <Secao
+            titulo="Contato e funcionamento"
+            descricao="Telefone e horário de atendimento da instituição."
+            icon={FiPhone}
+          >
+            <Campo
+              label="Telefone institucional"
               icon={FiPhone}
-              titulo="Contato e funcionamento"
-              descricao="Telefone e horário de atendimento ao público."
-            >
-              <Campo
-                label="Telefone institucional"
-                name="telefone"
-                value={formulario.telefone}
-                onChange={alterarCampo}
-                editando={editando}
-                placeholder="(00) 00000-0000"
-                required
-                maxLength={15}
-              />
+              value={formulario.telefone}
+              editing={editando}
+              required
+              maxLength={15}
+              placeholder="(00) 00000-0000"
+              onChange={(e) =>
+                alterarCampo("telefone", formatarTelefone(e.target.value))
+              }
+            />
 
-              <Campo
-                label="Horário de funcionamento"
-                name="horario_funcionamento"
-                value={formulario.horario_funcionamento}
-                onChange={alterarCampo}
-                editando={editando}
-                placeholder="Ex.: Segunda a sexta, das 8h às 17h"
-                required
-                maxLength={150}
-              />
-            </Secao>
-          </div>
+            <Campo
+              label="Horário de funcionamento"
+              icon={FiClock}
+              value={formulario.horario_funcionamento}
+              editing={editando}
+              required
+              placeholder="Ex.: Segunda a sexta, das 8h às 17h"
+              onChange={(e) =>
+                alterarCampo("horario_funcionamento", e.target.value)
+              }
+            />
+          </Secao>
 
-          {/* BOTÕES DE EDIÇÃO */}
+          {/* AÇÕES DE EDIÇÃO */}
           {editando && (
-            <div className="mt-6 flex flex-col-reverse gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs leading-5 text-slate-500">
-                Confira os dados antes de salvar as alterações.
+            <div className="flex flex-col-reverse gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs leading-relaxed text-gray-500">
+                Os campos de identificação são somente para consulta. As
+                alterações serão enviadas ao servidor ao salvar.
               </p>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
                   onClick={cancelarEdicao}
                   disabled={salvando}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className={classeBotaoSecundario}
                 >
-                  <FiX size={17} />
+                  <FiX size={16} />
                   Cancelar
                 </button>
 
                 <button
                   type="submit"
                   disabled={salvando}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1759ad] px-6 text-sm font-bold text-white shadow-sm transition hover:bg-[#104889] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={classeBotaoPrincipal}
                 >
                   {salvando ? (
                     <>
-                      <FiRefreshCw size={17} className="animate-spin" />
+                      <FiRefreshCw size={16} className="animate-spin" />
                       Salvando...
                     </>
                   ) : (
                     <>
-                      <FiSave size={17} />
+                      <FiSave size={16} />
                       Salvar alterações
                     </>
                   )}
@@ -759,20 +744,26 @@ function PerfilInstituicao() {
               </div>
             </div>
           )}
+
+          {/* RODAPÉ */}
+          {!editando && (
+            <div className="flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-gray-500">
+                Para atualizar os dados permitidos, selecione “Editar perfil”.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => navigate("/principal-inst")}
+                className={classeBotaoSecundario}
+              >
+                <FiArrowLeft size={16} />
+                Voltar ao painel
+              </button>
+            </div>
+          )}
         </form>
-
-        {/* RODAPÉ */}
-        <footer className="mt-8 flex flex-col gap-2 border-t border-slate-200 py-5 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-          <span>AndraRecursos · Gestão de Recursos Institucionais</span>
-
-          <span className="flex items-center gap-2">
-            <FiShield size={14} />
-            Área institucional protegida
-          </span>
-        </footer>
-      </div>
-    </main>
+      )}
+    </div>
   );
 }
-
-export default PerfilInstituicao;

@@ -1,6 +1,28 @@
 import { useState, useEffect } from "react";
 import { enderecoServidor } from "../utils";
 import LayoutInstituicao from "../components/LayoutInstituicao";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+import {
+  FiDownload,
+  FiEye,
+  FiX,
+  FiSearch,
+  FiRefreshCw,
+  FiChevronLeft,
+  FiChevronRight,
+  FiCalendar,
+  FiAlertCircle,
+  FiFileText,
+  FiArrowUpRight,
+  FiClipboard,
+  FiClock,
+  FiFlag,
+  FiHome,
+} from "react-icons/fi";
+
+const ROTA_HISTORICO = "/historico-solicitacoes";
 
 function obterToken() {
   const valor = localStorage.getItem("@AndraRecursos:usuario");
