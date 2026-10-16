@@ -887,6 +887,64 @@ router.delete(
   }
 );
 
+// ============================================
+// DELETE - EXCLUIR SOLICITAÇÃO
+// ============================================
+router.delete("instituicao/solicitacoes/:id_solicitacoes",
+  autenticarToken,
+  async(req, res) => {
+    const id = Number (req.params.id_solicitacoes);
+    const idInstituicao = req.usuario?.id_instituicao;
+
+     if (!idValido(id)) {
+      return res.status(400).json({
+        error: "ID inválido.",
+      });
+    }
+
+    if (!idInstituicao) {
+      return res.status(403).json({
+        error: "Instituição não identificada.",
+      });
+    }
+
+    try {
+      const resultado = await BD.query(
+        `
+          DELETE FROM solicitacoes
+          WHERE id_solicitacoes = $1
+            AND id_instituicao = $2
+          RETURNING id_solicitacoes
+        `,
+        [id, idInstituicao]
+      );
+
+      if (!resultado.rows.length) {
+        return res.status(404).json({
+          error:
+            "Solicitação não encontrada ou não pertence à sua instituição.",
+        });
+      }
+
+      return res.status(200).json({
+        message: "Solicitação excluída com sucesso.",
+      });
+    } catch (error) {
+      console.error(
+        "Erro ao excluir solicitação da instituição:",
+        error.message
+      );
+
+      return res.status(500).json({
+        error:
+          "Não foi possível excluir a solicitação. Verifique se existem registros vinculados.",
+      });
+    }
+  }
+)
+
+
+
 /* ============================================
    GET - LISTAR DOCUMENTOS DE UMA SOLICITAÇÃO
    Acesso exclusivo do administrador
