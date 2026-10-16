@@ -3,10 +3,10 @@ import jwt from "jsonwebtoken";
 import { BD } from "../../db.js";
 
 // ============================================
-// NORMALIZAÇÃO DO TIPO DE ACESSO
+// NORMALIZAR TIPO DE ACESSO
 // ============================================
 
-function obterTipoAcesso(usuario) {
+export function obterTipoAcesso(usuario) {
   const tipo = String(usuario?.tipo_acesso || "")
     .trim()
     .toLowerCase();
@@ -28,7 +28,7 @@ function obterTipoAcesso(usuario) {
 }
 
 // ============================================
-// AUTENTICAÇÃO PELO TOKEN JWT
+// AUTENTICAR TOKEN JWT
 // ============================================
 
 export function autenticarToken(req, res, next) {
@@ -45,7 +45,7 @@ export function autenticarToken(req, res, next) {
   }
 
   if (!process.env.JWT_SECRET) {
-    console.error("JWT_SECRET não está configurada.");
+    console.error("JWT_SECRET não configurada.");
 
     return res.status(500).json({
       message: "Erro na configuração da autenticação.",
@@ -68,14 +68,15 @@ export function autenticarToken(req, res, next) {
       });
     }
 
-    req.usuario = usuario;
-    req.usuario.tipo_acesso_normalizado =
-      obterTipoAcesso(usuario);
+    req.usuario = {
+      ...usuario,
+      tipo_acesso_normalizado: obterTipoAcesso(usuario),
+    };
 
     console.log("Usuário autenticado:", {
-      id: usuario.id,
-      id_instituicao: usuario.id_instituicao,
-      tipo_acesso: usuario.tipo_acesso,
+      id: req.usuario.id,
+      id_instituicao: req.usuario.id_instituicao,
+      tipo_acesso: req.usuario.tipo_acesso,
       tipo_acesso_normalizado:
         req.usuario.tipo_acesso_normalizado,
     });
@@ -146,6 +147,7 @@ export async function autenticarInstituicao(req, res, next) {
           cadastro_completo
         FROM instituicoes
         WHERE id_instituicao = $1
+        LIMIT 1
       `,
       [idInstituicao]
     );

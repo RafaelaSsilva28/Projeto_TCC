@@ -12,6 +12,7 @@ import {
 import {
   autenticarToken,
   autenticarAdministrador,
+  autenticarInstituicao,
 } from "../middlewares/Autenticacao.js";
 
 const router = Router();
@@ -22,7 +23,12 @@ const router = Router();
 
 function idValido(valor) {
   const numero = Number(valor);
+
   return Number.isSafeInteger(numero) && numero > 0;
+}
+
+function textoValido(valor) {
+  return typeof valor === "string" && valor.trim().length > 0;
 }
 
 const tiposPermitidos = [
@@ -37,20 +43,23 @@ const extensoesPorTipo = {
   "image/png": ".png",
 };
 
+const statusPermitidos = [
+  "pendente",
+  "em andamento",
+  "aprovada",
+  "recusada",
+];
+
 // ============================================
-// CONFIGURAÇÃO DO MULTER
-// Arquivos mantidos temporariamente na memória.
-// Não utiliza a pasta uploads da Vercel.
+// MULTER
 // ============================================
 
 const uploadDocumentos = multer({
   storage: multer.memoryStorage(),
-
   limits: {
     files: 10,
     fileSize: 10 * 1024 * 1024,
   },
-
   fileFilter: (req, file, callback) => {
     if (!tiposPermitidos.includes(file.mimetype)) {
       return callback(
@@ -58,7 +67,7 @@ const uploadDocumentos = multer({
       );
     }
 
-    callback(null, true);
+    return callback(null, true);
   },
 });
 
@@ -88,10 +97,7 @@ function receberDocumentos(req, res, next) {
 // SUPABASE STORAGE
 // ============================================
 
-async function enviarArquivoSupabase(
-  arquivo,
-  idInstituicao
-) {
+async function enviarArquivoSupabase(arquivo, idInstituicao) {
   const extensao = extensoesPorTipo[arquivo.mimetype];
 
   if (!extensao) {
@@ -105,13 +111,6 @@ async function enviarArquivoSupabase(
   const caminho =
     `solicitacoes/${idInstituicao}/${nomeArquivo}`;
 
-  console.log("Iniciando upload para o Supabase:", {
-    bucket: bucketDocumentos,
-    caminho,
-    tipo: arquivo.mimetype,
-    tamanhoBytes: arquivo.size,
-  });
-
   const { data, error } = await supabase.storage
     .from(bucketDocumentos)
     .upload(caminho, arquivo.buffer, {
@@ -122,24 +121,13 @@ async function enviarArquivoSupabase(
   if (error) {
     console.error("Falha no upload para o Supabase:", {
       message: error.message,
-      name: error.name,
-      status: error.status,
       statusCode: error.statusCode,
       bucket: bucketDocumentos,
       caminho,
     });
 
-    // O erro original fica registrado nos logs da Vercel.
-    // A resposta enviada ao cliente não expõe detalhes internos.
-    throw new Error(
-      `Falha no Supabase Storage: ${error.message}`
-    );
+    throw new Error("Falha ao enviar documento para o armazenamento.");
   }
-
-  console.log("Upload concluído no Supabase:", {
-    bucket: bucketDocumentos,
-    caminho: data?.path || caminho,
-  });
 
   return data?.path || caminho;
 }
@@ -154,9 +142,6 @@ async function removerArquivosSupabase(caminhos = []) {
   if (error) {
     console.error("Erro ao remover arquivos do Supabase:", {
       message: error.message,
-      name: error.name,
-      status: error.status,
-      statusCode: error.statusCode,
       bucket: bucketDocumentos,
       quantidade: caminhos.length,
     });
@@ -164,43 +149,87 @@ async function removerArquivosSupabase(caminhos = []) {
 }
 
 // ============================================
-// GET - LISTAR TODAS AS SOLICITAÇÕES
+// GET - LISTAR SOLICITAÇÕES
+// Administrador: todas.
+// Instituição: somente as próprias.
 // ============================================
 
 router.get(
   "/solicitacoes",
   autenticarToken,
-  autenticarAdministrador,
   async (req, res) => {
     try {
-      const resultado = await BD.query(`
-        SELECT
-          s.id_solicitacoes,
-          s.titulo,
-          s.descricao,
-          s.prioridade,
-          s.setor,
-          s.status,
-          s.id_instituicao,
-          TO_CHAR(
-            s.data_pedido,
-            'DD/MM/YYYY HH24:MI'
-          ) AS data_pedido,
-          i.nome AS nome_instituicao
-        FROM solicitacoes s
-        LEFT JOIN instituicoes i
-          ON s.id_instituicao = i.id_instituicao
-        ORDER BY
-          s.data_pedido DESC NULLS LAST,
-          s.id_solicitacoes DESC
-      `);
+      const tipoAcesso =
+        req.usuario?.tipo_acesso_normalizado;
 
-      return res.status(200).json(resultado.rows);
+      if (tipoAcesso === "administrador") {
+        const resultado = await BD.query(`
+          SELECT
+            s.id_solicitacoes,
+            s.titulo,
+            s.descricao,
+            s.prioridade,
+            s.setor,
+            s.status,
+            s.id_instituicao,
+            TO_CHAR(
+              s.data_pedido,
+              'DD/MM/YYYY HH24:MI'
+            ) AS data_pedido,
+            i.nome AS nome_instituicao
+          FROM solicitacoes s
+          LEFT JOIN instituicoes i
+            ON i.id_instituicao = s.id_instituicao
+          ORDER BY
+            s.data_pedido DESC NULLS LAST,
+            s.id_solicitacoes DESC
+        `);
+
+        return res.status(200).json(resultado.rows);
+      }
+
+      if (tipoAcesso === "instituicao") {
+        const idInstituicao = Number(
+          req.usuario?.id_instituicao
+        );
+
+        if (!idValido(idInstituicao)) {
+          return res.status(403).json({
+            message: "Instituição não identificada.",
+          });
+        }
+
+        const resultado = await BD.query(
+          `
+            SELECT
+              id_solicitacoes,
+              titulo,
+              descricao,
+              prioridade,
+              setor,
+              status,
+              id_instituicao,
+              data_pedido
+            FROM solicitacoes
+            WHERE id_instituicao = $1
+            ORDER BY
+              data_pedido DESC NULLS LAST,
+              id_solicitacoes DESC
+          `,
+          [idInstituicao]
+        );
+
+        return res.status(200).json(resultado.rows);
+      }
+
+      return res.status(403).json({
+        message: "Perfil sem permissão para consultar solicitações.",
+      });
     } catch (error) {
       console.error("Erro ao listar solicitações:", error.message);
 
       return res.status(500).json({
-        error: "Erro ao listar solicitações.",
+        message: "Erro ao listar solicitações.",
       });
     }
   }
@@ -208,23 +237,14 @@ router.get(
 
 // ============================================
 // GET - LISTAR SOLICITAÇÕES DA INSTITUIÇÃO
+// Mantém compatibilidade com o endpoint existente.
 // ============================================
 
 router.get(
   "/solicitacoes/instituicoes",
   autenticarToken,
+  autenticarInstituicao,
   async (req, res) => {
-    const idInstituicao = req.usuario?.id_instituicao;
-
-    if (
-      req.usuario?.tipo_acesso !== "instituicao" ||
-      !idValido(idInstituicao)
-    ) {
-      return res.status(403).json({
-        message: "Acesso exclusivo da instituição.",
-      });
-    }
-
     try {
       const resultado = await BD.query(
         `
@@ -235,6 +255,7 @@ router.get(
             prioridade,
             setor,
             status,
+            id_instituicao,
             data_pedido
           FROM solicitacoes
           WHERE id_instituicao = $1
@@ -242,7 +263,7 @@ router.get(
             data_pedido DESC NULLS LAST,
             id_solicitacoes DESC
         `,
-        [idInstituicao]
+        [req.instituicao.id_instituicao]
       );
 
       return res.status(200).json(resultado.rows);
@@ -261,6 +282,7 @@ router.get(
 
 // ============================================
 // GET - FILTRAR POR PRIORIDADE
+// Somente administrador.
 // ============================================
 
 router.get(
@@ -271,20 +293,21 @@ router.get(
     try {
       const resultado = await BD.query(
         `
-          SELECT *
-          FROM solicitacoes
-          WHERE LOWER(prioridade) = LOWER($1)
-          ORDER BY id_solicitacoes DESC
+          SELECT
+            s.*,
+            i.nome AS nome_instituicao
+          FROM solicitacoes s
+          LEFT JOIN instituicoes i
+            ON i.id_instituicao = s.id_instituicao
+          WHERE LOWER(s.prioridade) = LOWER($1)
+          ORDER BY s.data_pedido DESC NULLS LAST
         `,
         [req.params.prioridade]
       );
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
-      console.error(
-        "Erro ao filtrar por prioridade:",
-        error.message
-      );
+      console.error("Erro ao filtrar por prioridade:", error.message);
 
       return res.status(500).json({
         error: "Erro ao filtrar por prioridade.",
@@ -295,6 +318,7 @@ router.get(
 
 // ============================================
 // GET - FILTRAR POR SETOR
+// Somente administrador.
 // ============================================
 
 router.get(
@@ -305,20 +329,21 @@ router.get(
     try {
       const resultado = await BD.query(
         `
-          SELECT *
-          FROM solicitacoes
-          WHERE LOWER(setor) = LOWER($1)
-          ORDER BY id_solicitacoes DESC
+          SELECT
+            s.*,
+            i.nome AS nome_instituicao
+          FROM solicitacoes s
+          LEFT JOIN instituicoes i
+            ON i.id_instituicao = s.id_instituicao
+          WHERE LOWER(s.setor) = LOWER($1)
+          ORDER BY s.data_pedido DESC NULLS LAST
         `,
         [req.params.setor]
       );
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
-      console.error(
-        "Erro ao filtrar por setor:",
-        error.message
-      );
+      console.error("Erro ao filtrar por setor:", error.message);
 
       return res.status(500).json({
         error: "Erro ao filtrar por setor.",
@@ -329,6 +354,7 @@ router.get(
 
 // ============================================
 // GET - FILTRAR POR STATUS
+// Somente administrador.
 // ============================================
 
 router.get(
@@ -339,20 +365,21 @@ router.get(
     try {
       const resultado = await BD.query(
         `
-          SELECT *
-          FROM solicitacoes
-          WHERE LOWER(status) = LOWER($1)
-          ORDER BY id_solicitacoes DESC
+          SELECT
+            s.*,
+            i.nome AS nome_instituicao
+          FROM solicitacoes s
+          LEFT JOIN instituicoes i
+            ON i.id_instituicao = s.id_instituicao
+          WHERE LOWER(s.status) = LOWER($1)
+          ORDER BY s.data_pedido DESC NULLS LAST
         `,
         [req.params.status]
       );
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
-      console.error(
-        "Erro ao filtrar por status:",
-        error.message
-      );
+      console.error("Erro ao filtrar por status:", error.message);
 
       return res.status(500).json({
         error: "Erro ao filtrar por status.",
@@ -378,17 +405,27 @@ router.post(
       status,
       data_pedido,
       id_instituicao,
-    } = req.body;
+    } = req.body || {};
 
     if (
-      !titulo?.trim() ||
-      !descricao?.trim() ||
-      !prioridade?.trim() ||
-      !setor?.trim() ||
+      !textoValido(titulo) ||
+      !textoValido(descricao) ||
+      !textoValido(prioridade) ||
+      !textoValido(setor) ||
       !idValido(id_instituicao)
     ) {
       return res.status(400).json({
         error: "Preencha os dados obrigatórios.",
+      });
+    }
+
+    const statusFinal = String(status || "pendente")
+      .trim()
+      .toLowerCase();
+
+    if (!statusPermitidos.includes(statusFinal)) {
+      return res.status(400).json({
+        error: "Status inválido.",
       });
     }
 
@@ -412,9 +449,9 @@ router.post(
           descricao.trim(),
           prioridade.trim(),
           setor.trim(),
-          status || "pendente",
+          statusFinal,
           data_pedido || new Date(),
-          id_instituicao,
+          Number(id_instituicao),
         ]
       );
 
@@ -423,10 +460,7 @@ router.post(
         solicitacao: resultado.rows[0],
       });
     } catch (error) {
-      console.error(
-        "Erro ao cadastrar solicitação:",
-        error.message
-      );
+      console.error("Erro ao cadastrar solicitação:", error.message);
 
       return res.status(500).json({
         error: "Erro ao cadastrar solicitação.",
@@ -437,12 +471,13 @@ router.post(
 
 // ============================================
 // POST - CADASTRAR SOLICITAÇÃO DA INSTITUIÇÃO
-// COM DOCUMENTOS NO SUPABASE STORAGE
+// Inclui upload opcional de documentos.
 // ============================================
 
 router.post(
   "/solicitacoes/instituicoes",
   autenticarToken,
+  autenticarInstituicao,
   receberDocumentos,
   async (req, res) => {
     const {
@@ -452,46 +487,36 @@ router.post(
       setor,
       status,
       data_pedido,
-    } = req.body;
+    } = req.body || {};
 
     const arquivos = req.files || [];
-    const idInstituicao = req.usuario?.id_instituicao;
+    const idInstituicao = Number(
+      req.instituicao.id_instituicao
+    );
 
     if (
-      req.usuario?.tipo_acesso !== "instituicao" ||
-      !idValido(idInstituicao)
-    ) {
-      return res.status(403).json({
-        error: "Acesso exclusivo da instituição.",
-      });
-    }
-
-    if (
-      !titulo?.trim() ||
-      !descricao?.trim() ||
-      !prioridade?.trim() ||
-      !setor?.trim()
+      !textoValido(titulo) ||
+      !textoValido(descricao) ||
+      !textoValido(prioridade) ||
+      !textoValido(setor)
     ) {
       return res.status(400).json({
         error: "Preencha os dados obrigatórios.",
       });
     }
 
+    // A instituição não pode escolher um status privilegiado.
+    const statusFinal = "pendente";
+
     let cliente;
     let transacaoIniciada = false;
     const caminhosEnviados = [];
 
     try {
-      // 1. Conecta ao banco Neon.
-      console.log("Conectando ao banco para cadastrar solicitação.");
-
       cliente = await BD.connect();
 
       await cliente.query("BEGIN");
       transacaoIniciada = true;
-
-      // 2. Cadastra a solicitação no Neon.
-      console.log("Inserindo solicitação no banco.");
 
       const resultado = await cliente.query(
         `
@@ -512,7 +537,7 @@ router.post(
           descricao.trim(),
           prioridade.trim(),
           setor.trim(),
-          status || "pendente",
+          statusFinal,
           data_pedido || new Date(),
           idInstituicao,
         ]
@@ -521,22 +546,13 @@ router.post(
       const solicitacao = resultado.rows[0];
       const documentosCadastrados = [];
 
-      // 3. Envia documentos e salva seus metadados.
       for (const arquivo of arquivos) {
-        console.log("Processando documento:", {
-          nome: arquivo.originalname,
-          tipo: arquivo.mimetype,
-          tamanhoBytes: arquivo.size,
-        });
-
         const caminho = await enviarArquivoSupabase(
           arquivo,
           idInstituicao
         );
 
         caminhosEnviados.push(caminho);
-
-        console.log("Registrando metadados do documento no Neon.");
 
         const documento = await cliente.query(
           `
@@ -565,14 +581,8 @@ router.post(
         documentosCadastrados.push(documento.rows[0]);
       }
 
-      // 4. Confirma as alterações no banco.
       await cliente.query("COMMIT");
       transacaoIniciada = false;
-
-      console.log("Solicitação cadastrada com sucesso:", {
-        idSolicitacao: solicitacao.id_solicitacoes,
-        quantidadeDocumentos: documentosCadastrados.length,
-      });
 
       return res.status(201).json({
         message: "Solicitação cadastrada com sucesso.",
@@ -584,29 +594,20 @@ router.post(
       if (cliente && transacaoIniciada) {
         await cliente.query("ROLLBACK").catch((erroRollback) => {
           console.error(
-            "Erro ao desfazer transação no Neon:",
+            "Erro ao desfazer transação:",
             erroRollback.message
           );
         });
       }
 
-      // Remove do Storage os arquivos enviados caso o banco falhe.
       await removerArquivosSupabase(caminhosEnviados);
 
-      // Log detalhado para diagnóstico na Vercel.
-      console.error(
-        "Erro ao cadastrar solicitação da instituição:",
-        {
-          message: error.message,
-          name: error.name,
-          code: error.code,
-          detail: error.detail,
-          hint: error.hint,
-          status: error.status,
-          statusCode: error.statusCode,
-          stack: error.stack,
-        }
-      );
+      console.error("Erro ao cadastrar solicitação institucional:", {
+        message: error.message,
+        code: error.code,
+        detail: error.detail,
+        stack: error.stack,
+      });
 
       return res.status(500).json({
         error: "Erro ao cadastrar solicitação ou documentos.",
@@ -618,7 +619,8 @@ router.post(
 );
 
 // ============================================
-// PATCH - ATUALIZAR STATUS E HISTÓRICO
+// PATCH - ATUALIZAR STATUS E REGISTRAR HISTÓRICO
+// Somente administrador.
 // ============================================
 
 router.patch(
@@ -628,16 +630,9 @@ router.patch(
   async (req, res) => {
     const id = Number(req.params.id_solicitacoes);
 
-    const novoStatus = String(req.body.status || "")
+    const novoStatus = String(req.body?.status || "")
       .trim()
       .toLowerCase();
-
-    const statusPermitidos = [
-      "pendente",
-      "em andamento",
-      "aprovada",
-      "recusada",
-    ];
 
     if (!idValido(id)) {
       return res.status(400).json({
@@ -652,11 +647,13 @@ router.patch(
     }
 
     let cliente;
+    let transacaoIniciada = false;
 
     try {
       cliente = await BD.connect();
 
       await cliente.query("BEGIN");
+      transacaoIniciada = true;
 
       const consulta = await cliente.query(
         `
@@ -673,6 +670,7 @@ router.patch(
 
       if (!consulta.rows.length) {
         await cliente.query("ROLLBACK");
+        transacaoIniciada = false;
 
         return res.status(404).json({
           error: "Solicitação não encontrada.",
@@ -682,9 +680,10 @@ router.patch(
       const anterior = consulta.rows[0];
 
       if (
-        String(anterior.status).toLowerCase().trim() === novoStatus
+        String(anterior.status).trim().toLowerCase() === novoStatus
       ) {
         await cliente.query("ROLLBACK");
+        transacaoIniciada = false;
 
         return res.status(200).json({
           message: "A solicitação já possui esse status.",
@@ -722,20 +721,18 @@ router.patch(
       );
 
       await cliente.query("COMMIT");
+      transacaoIniciada = false;
 
       return res.status(200).json({
         message: "Status atualizado com sucesso.",
         solicitacao: atualizado.rows[0],
       });
     } catch (error) {
-      if (cliente) {
+      if (cliente && transacaoIniciada) {
         await cliente.query("ROLLBACK").catch(() => {});
       }
 
-      console.error(
-        "Erro ao atualizar solicitação:",
-        error.message
-      );
+      console.error("Erro ao atualizar solicitação:", error.message);
 
       return res.status(500).json({
         error: "Erro ao atualizar solicitação.",
@@ -748,6 +745,7 @@ router.patch(
 
 // ============================================
 // PUT - ATUALIZAR SOLICITAÇÃO COMPLETA
+// Somente administrador.
 // ============================================
 
 router.put(
@@ -771,19 +769,27 @@ router.put(
       status,
       data_pedido,
       id_instituicao,
-    } = req.body;
+    } = req.body || {};
 
     if (
-      !titulo?.trim() ||
-      !descricao?.trim() ||
-      !prioridade?.trim() ||
-      !setor?.trim() ||
-      !status?.trim() ||
+      !textoValido(titulo) ||
+      !textoValido(descricao) ||
+      !textoValido(prioridade) ||
+      !textoValido(setor) ||
+      !textoValido(status) ||
       !data_pedido ||
       !idValido(id_instituicao)
     ) {
       return res.status(400).json({
         error: "Informe todos os campos da solicitação.",
+      });
+    }
+
+    const statusFinal = status.trim().toLowerCase();
+
+    if (!statusPermitidos.includes(statusFinal)) {
+      return res.status(400).json({
+        error: "Status inválido.",
       });
     }
 
@@ -807,9 +813,9 @@ router.put(
           descricao.trim(),
           prioridade.trim(),
           setor.trim(),
-          status.trim(),
+          statusFinal,
           data_pedido,
-          id_instituicao,
+          Number(id_instituicao),
           id,
         ]
       );
@@ -825,10 +831,7 @@ router.put(
         solicitacao: resultado.rows[0],
       });
     } catch (error) {
-      console.error(
-        "Erro ao atualizar solicitação:",
-        error.message
-      );
+      console.error("Erro ao atualizar solicitação:", error.message);
 
       return res.status(500).json({
         error: "Erro ao atualizar solicitação.",
@@ -839,6 +842,7 @@ router.put(
 
 // ============================================
 // DELETE - EXCLUIR SOLICITAÇÃO
+// Somente administrador.
 // ============================================
 
 router.delete(
@@ -874,10 +878,7 @@ router.delete(
         message: "Solicitação excluída com sucesso.",
       });
     } catch (error) {
-      console.error(
-        "Erro ao excluir solicitação:",
-        error.message
-      );
+      console.error("Erro ao excluir solicitação:", error.message);
 
       return res.status(500).json({
         error:
@@ -888,23 +889,23 @@ router.delete(
 );
 
 // ============================================
-// DELETE - EXCLUIR SOLICITAÇÃO
+// DELETE - EXCLUIR SOLICITAÇÃO DA INSTITUIÇÃO
+// Somente a própria instituição.
 // ============================================
-router.delete("instituicao/solicitacoes/:id_solicitacoes",
-  autenticarToken,
-  async(req, res) => {
-    const id = Number (req.params.id_solicitacoes);
-    const idInstituicao = req.usuario?.id_instituicao;
 
-     if (!idValido(id)) {
+router.delete(
+  "/instituicao/solicitacoes/:id_solicitacoes",
+  autenticarToken,
+  autenticarInstituicao,
+  async (req, res) => {
+    const id = Number(req.params.id_solicitacoes);
+    const idInstituicao = Number(
+      req.instituicao.id_instituicao
+    );
+
+    if (!idValido(id)) {
       return res.status(400).json({
         error: "ID inválido.",
-      });
-    }
-
-    if (!idInstituicao) {
-      return res.status(403).json({
-        error: "Instituição não identificada.",
       });
     }
 
@@ -936,19 +937,16 @@ router.delete("instituicao/solicitacoes/:id_solicitacoes",
       );
 
       return res.status(500).json({
-        error:
-          "Não foi possível excluir a solicitação. Verifique se existem registros vinculados.",
+        error: "Não foi possível excluir a solicitação.",
       });
     }
   }
-)
+);
 
-
-
-/* ============================================
-   GET - LISTAR DOCUMENTOS DE UMA SOLICITAÇÃO
-   Acesso exclusivo do administrador
-============================================ */
+// ============================================
+// GET - LISTAR DOCUMENTOS DE UMA SOLICITAÇÃO
+// Somente administrador.
+// ============================================
 
 router.get(
   "/solicitacoes/:id_solicitacoes/documentos",
@@ -996,10 +994,10 @@ router.get(
   }
 );
 
-/* ============================================
-   GET - GERAR DOWNLOAD SEGURO DO DOCUMENTO
-   O arquivo permanece privado no Supabase
-============================================ */
+// ============================================
+// GET - DOWNLOAD SEGURO DE DOCUMENTO
+// Somente administrador.
+// ============================================
 
 router.get(
   "/documentos/:id_documento/download",
@@ -1082,6 +1080,5 @@ router.get(
     }
   }
 );
-
 
 export default router;
