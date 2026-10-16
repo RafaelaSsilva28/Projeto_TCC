@@ -1,12 +1,10 @@
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 import {
-    FiDownload,
-    FiExternalLink,
-    FiFile,
     FiFileText,
-    FiImage,
+    FiDownload,
     FiRefreshCw,
     FiAlertCircle,
     FiPaperclip,
@@ -16,69 +14,14 @@ import { enderecoServidor } from "../utils";
 
 const API = String(enderecoServidor).replace(/\/$/, "");
 
-function obterLinkSeguro(caminho) {
-    if (!caminho || typeof caminho !== "string") {
-        return null;
-    }
-
-    try {
-        const url = new URL(caminho);
-
-        if (!["https:", "http:"].includes(url.protocol)) {
-            return null;
-        }
-
-        return url.href;
-    } catch {
-        return null;
-    }
-}
-
-function obterTipo(documento) {
-    const valor = String(
-        documento.tipo || documento.nome_arquivo || ""
-    ).toLowerCase();
-
-    if (
-        valor.includes("image") ||
-        /\.(png|jpg|jpeg|webp|gif)$/i.test(valor)
-    ) {
-        return {
-            nome: "Imagem",
-            Icone: FiImage,
-            classe: "bg-blue-50 text-blue-600",
-        };
-    }
-
-    if (
-        valor.includes("pdf") ||
-        /\.pdf$/i.test(valor)
-    ) {
-        return {
-            nome: "PDF",
-            Icone: FiFileText,
-            classe: "bg-red-50 text-red-600",
-        };
-    }
-
-    return {
-        nome: "Documento",
-        Icone: FiFile,
-        classe: "bg-gray-100 text-gray-600",
-    };
-}
-
-export default function AnexosSolicitacao({
-    idSolicitacao,
-}) {
+export default function AnexosSolicitacao({ idSolicitacao }) {
     const [documentos, setDocumentos] = useState([]);
     const [carregando, setCarregando] = useState(true);
     const [erro, setErro] = useState("");
+    const [baixando, setBaixando] = useState(null);
 
-    useEffect(() => {
-        const controlador = new AbortController();
-
-        async function buscarAnexos() {
+    const carregarDocumentos = useCallback(
+        async (signal) => {
             setCarregando(true);
             setErro("");
 
@@ -88,19 +31,18 @@ export default function AnexosSolicitacao({
                 );
 
                 if (!token) {
-                    throw new Error("Sessão expirada.");
+                    throw new Error(
+                        "Sessão expirada. Faça login novamente."
+                    );
                 }
 
                 const resposta = await fetch(
-                    `${API}/documentos/solicitacao/${encodeURIComponent(
-                        idSolicitacao
-                    )}`,
+                    `${API}/solicitacoes/${idSolicitacao}/documentos`,
                     {
-                        method: "GET",
                         headers: {
                             Authorization: `Bearer ${token}`,
                         },
-                        signal: controlador.signal,
+                        signal,
                     }
                 );
 
@@ -110,132 +52,207 @@ export default function AnexosSolicitacao({
                     throw new Error(
                         dados?.error ||
                         dados?.message ||
-                        `Erro ${resposta.status} ao buscar documentos.`
+                        `Erro ${resposta.status} ao carregar documentos.`
                     );
                 }
 
-                if (!Array.isArray(dados)) {
+                const lista = Array.isArray(dados)
+                    ? dados
+                    : dados?.documentos ?? [];
+
+                if (!Array.isArray(lista)) {
                     throw new Error(
-                        "A API retornou um formato de documentos inválido."
+                        "A API retornou uma lista de documentos inválida."
                     );
                 }
 
-                if (!controlador.signal.aborted) {
-                    setDocumentos(dados);
-                }
+                setDocumentos(lista);
             } catch (error) {
-                if (
-                    error.name !== "AbortError" &&
-                    !controlador.signal.aborted
-                ) {
-                    setErro(error.message);
-                }
+                if (error.name === "AbortError") return;
+
+                setErro(error.message);
+                setDocumentos([]);
             } finally {
-                if (!controlador.signal.aborted) {
+                if (!signal?.aborted) {
                     setCarregando(false);
                 }
             }
-        }
+        },
+        [idSolicitacao]
+    );
 
-        if (idSolicitacao) {
-            buscarAnexos();
-        } else {
-            setDocumentos([]);
-            setCarregando(false);
-        }
+    useEffect(() => {
+        const controlador = new AbortController();
+
+        carregarDocumentos(controlador.signal);
 
         return () => controlador.abort();
-    }, [idSolicitacao]);
+    }, [carregarDocumentos]);
+
+    async function baixarDocumento(documento) {
+        if (baixando !== null) return;
+
+        setBaixando(documento.id_documento);
+
+        try {
+            const token = localStorage.getItem(
+                "@AndraRecursos:token"
+            );
+
+            if (!token) {
+                throw new Error(
+                    "Sessão expirada. Faça login novamente."
+                );
+            }
+
+            const resposta = await fetch(
+                `${API}/documentos/${documento.id_documento}/download`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            const dados = await resposta.json().catch(() => null);
+
+            if (!resposta.ok) {
+                throw new Error(
+                    dados?.error ||
+                    dados?.message ||
+                    `Erro ${resposta.status} ao baixar o documento.`
+                );
+            }
+
+            if (!dados?.url) {
+                throw new Error(
+                    "O servidor não retornou o link do arquivo."
+                );
+            }
+
+            // A URL assinada já contém a autorização temporária.
+            // Não é necessário enviar o token novamente ao Supabase.
+            const link = document.createElement("a");
+            link.href = dados.url;
+            link.download =
+                dados.nome_arquivo ||
+                documento.nome_arquivo ||
+                "documento";
+
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            toast.success("Download solicitado com sucesso!");
+        } catch (error) {
+            toast.error(
+                error.message || "Não foi possível baixar o documento."
+            );
+        } finally {
+            setBaixando(null);
+        }
+    }
 
     return (
-        <div className="mt-6">
-            <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-[#1759ad]">
-                <FiPaperclip size={17} />
-                Anexos Comprobatórios
-
-                {!carregando && !erro && (
-                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-[#1759ad]">
+        <section className="mt-6">
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1759ad]">
+                <FiPaperclip />
+                Documentos anexados
+                {!carregando && (
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
                         {documentos.length}
                     </span>
                 )}
             </h4>
 
             {carregando && (
-                <div className="flex items-center gap-2 rounded-lg bg-gray-50 p-4 text-sm text-gray-500">
+                <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                     <FiRefreshCw className="animate-spin" />
-                    Carregando anexos...
+                    Carregando documentos...
                 </div>
             )}
 
-            {erro && (
-                <div className="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-700">
-                    <FiAlertCircle className="shrink-0" />
-                    {erro}
+            {!carregando && erro && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <p className="flex items-start gap-2 text-sm text-red-700">
+                        <FiAlertCircle className="mt-0.5 shrink-0" />
+                        <span>{erro}</span>
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={() => carregarDocumentos()}
+                        className="mt-3 text-sm font-semibold text-red-700 underline"
+                    >
+                        Tentar novamente
+                    </button>
                 </div>
             )}
 
             {!carregando && !erro && documentos.length === 0 && (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
-                    <FiFile className="mx-auto mb-2 text-gray-400" size={23} />
-                    <p className="text-xs text-gray-500">
-                        Nenhum anexo disponível para esta solicitação.
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+                    <FiFileText className="mx-auto mb-2 text-2xl text-gray-400" />
+
+                    <p className="text-sm font-medium text-gray-600">
+                        Nenhum documento anexado.
+                    </p>
+
+                    <p className="mt-1 text-xs text-gray-400">
+                        Os arquivos enviados pela instituição aparecerão aqui.
                     </p>
                 </div>
             )}
 
             {!carregando && !erro && documentos.length > 0 && (
                 <div className="space-y-2">
-                    {documentos.map((documento) => {
-                        const tipo = obterTipo(documento);
-                        const Icone = tipo.Icone;
-                        const link = obterLinkSeguro(documento.caminho);
-
-                        return (
-                            <div
-                                key={documento.id_documento}
-                                className="flex items-center gap-3 rounded-lg border border-gray-200 bg-[#f8fafc] px-3 py-3 transition hover:border-blue-200 hover:shadow-sm"
-                            >
-                                <span
-                                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tipo.classe}`}
-                                >
-                                    <Icone size={19} />
+                    {documentos.map((documento) => (
+                        <div
+                            key={documento.id_documento}
+                            className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 transition hover:border-blue-200"
+                        >
+                            <div className="flex min-w-0 items-center gap-3">
+                                <span className="shrink-0 rounded-lg bg-blue-50 p-2 text-[#1759ad]">
+                                    <FiFileText size={20} />
                                 </span>
 
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-xs font-semibold text-[#082d56] sm:text-sm">
-                                        {documento.nome_arquivo ||
-                                            "Arquivo sem nome"}
+                                <div className="min-w-0">
+                                    <p
+                                        title={documento.nome_arquivo}
+                                        className="break-words text-sm font-medium text-[#082d56]"
+                                    >
+                                        {documento.nome_arquivo || "Documento sem nome"}
                                     </p>
 
-                                    <p className="mt-1 text-[11px] text-gray-500">
-                                        {tipo.nome}
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {documento.tipo || "Tipo não informado"}
                                     </p>
                                 </div>
-
-                                {link ? (
-                                    <a
-                                        href={link}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        aria-label={`Abrir ${documento.nome_arquivo}`}
-                                        title="Abrir documento"
-                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#1759ad] transition hover:bg-blue-100"
-                                    >
-                                        <FiExternalLink size={18} />
-                                    </a>
-                                ) : (
-                                    <span
-                                        title="O caminho do documento não é uma URL acessível."
-                                        className="flex h-9 w-9 shrink-0 items-center justify-center text-gray-300"
-                                    >
-                                        <FiDownload size={18} />
-                                    </span>
-                                )}
                             </div>
-                        );
-                    })}
+
+                            <button
+                                type="button"
+                                onClick={() => baixarDocumento(documento)}
+                                disabled={baixando !== null}
+                                title="Baixar documento"
+                                aria-label={`Baixar ${documento.nome_arquivo}`}
+                                className="flex shrink-0 items-center gap-2 rounded-lg bg-[#082d56] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#164675] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {baixando === documento.id_documento ? (
+                                    <FiRefreshCw className="animate-spin" />
+                                ) : (
+                                    <FiDownload />
+                                )}
+
+                                <span className="hidden sm:inline">
+                                    {baixando === documento.id_documento
+                                        ? "Preparando..."
+                                        : "Baixar"}
+                                </span>
+                            </button>
+                        </div>
+                    ))}
                 </div>
             )}
-        </div>
+        </section>
     );
 }

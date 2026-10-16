@@ -358,129 +358,120 @@ export default function DetalhesSolicitacaoAdmin({
     // AO ABRIR O DETALHAMENTO
     // ==========================================
 
-    async function verificarAbertura() {
-        const encontrada = await buscarSolicitacaoAtual();
+    
+async function verificarAbertura() {
+    const encontrada = await buscarSolicitacaoAtual();
 
-        if (
-            normalizarTexto(encontrada.status) !== "pendente"
-        ) {
-            return {
-                alterou: false,
-                solicitacao: encontrada,
-            };
-        }
-
-        // Usa a rota PATCH que já grava o histórico
-        // da mudança no Neon.
-        const resultado = await chamarAPI(
-            `/solicitacoes/${id}/status`,
-            {
-                method: "PATCH",
-                body: JSON.stringify({
-                    status: "em andamento",
-                }),
-            }
-        );
-
+    if (
+        normalizarTexto(encontrada.status) !== "pendente"
+    ) {
         return {
-            alterou:
-                normalizarTexto(resultado?.solicitacao?.status) ===
-                "em andamento" ||
-                Boolean(resultado?.solicitacao) === false,
-
-            solicitacao: {
-                ...encontrada,
-                status: "em andamento",
-            },
+            alterou: false,
+            solicitacao: encontrada,
         };
     }
+
+    await chamarAPI(
+        `/solicitacoes/${id}/status`,
+        {
+            method: "PATCH",
+            body: JSON.stringify({
+                status: "em andamento",
+            }),
+        }
+    );
+
+    return {
+        alterou: true,
+        solicitacao: {
+            ...encontrada,
+            status: "em andamento",
+        },
+    };
+}
+
 
     // ==========================================
     // EXECUTAR QUANDO ABRIR A SOLICITAÇÃO
     // ==========================================
 
-    useEffect(() => {
-        if (!Number.isInteger(id) || id <= 0) {
-            return;
-        }
+    
+useEffect(() => {
+    if (!Number.isInteger(id) || id <= 0) {
+        return;
+    }
 
-        let ativo = true;
+    let ativo = true;
 
-        async function iniciar() {
-            setCarregando(true);
-            setErro("");
+    async function iniciar() {
+        setCarregando(true);
+        setErro("");
 
-            try {
-                let promessa;
+        try {
+            let promessa;
 
-                if (
-                    verificacaoAbertura.current?.id === id
-                ) {
-                    promessa =
-                        verificacaoAbertura.current.promessa;
-                } else {
-                    promessa = verificarAbertura();
+            if (verificacaoAbertura.current?.id === id) {
+                promessa =
+                    verificacaoAbertura.current.promessa;
+            } else {
+                promessa = verificarAbertura();
 
-                    verificacaoAbertura.current = {
-                        id,
-                        promessa,
-                    };
-                }
+                verificacaoAbertura.current = {
+                    id,
+                    promessa,
+                };
+            }
 
-                const resultadoAbertura = await promessa;
+            const resultadoAbertura = await promessa;
 
-                if (!ativo) return;
+            if (!ativo) return;
 
-                // Consulta o banco novamente, trazendo
-                // tanto o status como as mensagens.
-                const [
-                    dadosSolicitacao,
-                    dadosComunicacao,
-                ] = await Promise.all([
-                    buscarSolicitacaoAtual(),
-                    buscarComunicacao(),
-                ]);
+            // Atualiza os dados locais imediatamente.
+            // Não consulta novamente a solicitação.
+            setAtual(resultadoAbertura.solicitacao);
 
-                if (!ativo) return;
+            // Busca apenas o histórico e as respostas.
+            const dadosComunicacao = await buscarComunicacao();
 
-                setAtual(dadosSolicitacao);
-                setEventos(dadosComunicacao);
+            if (!ativo) return;
 
-                if (resultadoAbertura.alterou) {
-                    toast.success(
-                        "Solicitação colocada em andamento!",
-                        {
-                            id: `abertura-${id}`,
-                        }
-                    );
+            setEventos(dadosComunicacao);
 
-                    // Atualiza a tabela e os indicadores.
-                    onAtualizar?.();
-                }
-            } catch (error) {
-                if (!ativo) return;
-
-                setErro(error.message);
-
-                toast.error(
-                    error.message ||
-                    "Não foi possível abrir a solicitação."
+            if (resultadoAbertura.alterou) {
+                toast.success(
+                    "Solicitação colocada em andamento!",
+                    {
+                        id: `abertura-${id}`,
+                    }
                 );
-            } finally {
-                if (ativo) {
-                    setCarregando(false);
-                }
+
+                onAtualizar?.();
+            }
+        } catch (error) {
+            if (!ativo) return;
+
+            setErro(error.message);
+
+            toast.error(
+                error.message ||
+                "Não foi possível abrir a solicitação."
+            );
+        } finally {
+            if (ativo) {
+                setCarregando(false);
             }
         }
+    }
 
-        iniciar();
+    iniciar();
 
-        return () => {
-            ativo = false;
-        };
+    return () => {
+        ativo = false;
+    };
 
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [id]);
+
 
     // ==========================================
     // ABRIR CONFIRMAÇÃO
