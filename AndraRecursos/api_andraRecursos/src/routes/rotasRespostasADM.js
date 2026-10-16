@@ -14,28 +14,32 @@ function idValido(valor) {
   return Number.isSafeInteger(numero) && numero > 0;
 }
 
-// GET - Listar respostas
+// GET - Listar respostas do administrador
 router.get(
   "/respostas-adm",
   autenticarToken,
   autenticarAdministrador,
   async (req, res) => {
     try {
-      const resultado = await BD.query(
-  `INSERT INTO respostas_adm (
-    mensagem,
-    data_resposta,
-    id_solicitacao,
-    id_administrador
-  )
-  VALUES ($1, CURRENT_TIMESTAMP, $2, $3)
-  RETURNING *`,
-  [mensagem, idSolicitacao, idAdministrador]
-);
+      const resultado = await BD.query(`
+        SELECT
+          id_resposta,
+          mensagem,
+          data_resposta,
+          id_solicitacao,
+          id_administrador
+        FROM respostas_adm
+        ORDER BY
+          data_resposta ASC NULLS LAST,
+          id_resposta ASC
+      `);
 
       return res.status(200).json(resultado.rows);
     } catch (error) {
-      console.error("Erro ao listar respostas:", error.message);
+      console.error(
+        "Erro ao listar respostas do administrador:",
+        error.message
+      );
 
       return res.status(500).json({
         error: "Erro ao listar respostas do administrador.",

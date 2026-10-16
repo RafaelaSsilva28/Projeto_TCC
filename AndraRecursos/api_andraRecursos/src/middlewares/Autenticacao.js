@@ -32,6 +32,7 @@ export function obterTipoAcesso(usuario) {
 // ============================================
 
 export function autenticarToken(req, res, next) {
+  
   const cabecalho = req.headers.authorization;
 
   const token = cabecalho?.startsWith("Bearer ")
