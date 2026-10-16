@@ -18,7 +18,7 @@ function obterId(req) {
 }
 
 // ==========================================
-// GET - CONFIGURAÇÕES DA INSTITUIÇÃO
+// GET - DADOS DA INSTITUIÇÃO
 // ==========================================
 router.get("/configuracoes-inst", async (req, res) => {
   const id = obterId(req);
@@ -30,30 +30,15 @@ router.get("/configuracoes-inst", async (req, res) => {
   }
 
   try {
-    await BD.query(
-      `
-            INSERT INTO configuracoes_instituicao (id_instituicao)
-            VALUES ($1)
-            ON CONFLICT (id_instituicao) DO NOTHING
-            `,
-      [id],
-    );
-
     const resultado = await BD.query(
       `
-            SELECT
-                c.id_instituicao,
-                i.nome,
-                i.email_institucional,
-                c.notificar_atualizacoes_solicitacoes,
-                c.notificar_respostas_administrador,
-                c.modo_escuro,
-                c.atualizado_em
-            FROM configuracoes_instituicao c
-            INNER JOIN instituicoes i
-                ON i.id_instituicao = c.id_instituicao
-            WHERE c.id_instituicao = $1
-            `,
+      SELECT
+        id_instituicao,
+        nome,
+        email_institucional
+      FROM instituicoes
+      WHERE id_instituicao = $1
+      `,
       [id],
     );
 
@@ -65,84 +50,10 @@ router.get("/configuracoes-inst", async (req, res) => {
 
     return res.status(200).json(resultado.rows[0]);
   } catch (error) {
-    console.error(
-      "Erro ao buscar configurações da instituição:",
-      error.message,
-    );
+    console.error("Erro ao buscar dados da instituição:", error.message);
 
     return res.status(500).json({
-      message: "Erro ao buscar configurações.",
-    });
-  }
-});
-
-// ==========================================
-// PATCH - SALVAR PREFERÊNCIAS
-// ==========================================
-router.patch("/configuracoes-inst", async (req, res) => {
-  const id = obterId(req);
-
-  if (!id) {
-    return res.status(403).json({
-      message: "Instituição não identificada.",
-    });
-  }
-
-  const {
-    notificar_atualizacoes_solicitacoes,
-    notificar_respostas_administrador,
-    modo_escuro,
-  } = req.body || {};
-
-  const valores = [
-    notificar_atualizacoes_solicitacoes,
-    notificar_respostas_administrador,
-    modo_escuro,
-  ];
-
-  if (valores.some((valor) => typeof valor !== "boolean")) {
-    return res.status(400).json({
-      message: "As preferências devem ser valores booleanos.",
-    });
-  }
-
-  try {
-    const resultado = await BD.query(
-      `
-            INSERT INTO configuracoes_instituicao (
-                id_instituicao,
-                notificar_atualizacoes_solicitacoes,
-                notificar_respostas_administrador,
-                modo_escuro,
-                atualizado_em
-            )
-            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-            ON CONFLICT (id_instituicao)
-            DO UPDATE SET
-                notificar_atualizacoes_solicitacoes =
-                    EXCLUDED.notificar_atualizacoes_solicitacoes,
-                notificar_respostas_administrador =
-                    EXCLUDED.notificar_respostas_administrador,
-                modo_escuro =
-                    EXCLUDED.modo_escuro,
-                atualizado_em = CURRENT_TIMESTAMP
-            RETURNING *
-            `,
-      [id, ...valores],
-    );
-
-    return res.status(200).json({
-      message: "Preferências salvas com sucesso!",
-      configuracoes: resultado.rows[0],
-    });
-  } catch (error) {
-    console.error(
-      "Erro ao salvar configurações da instituição:",
-      error.message,
-    );
-
-    return res.status(500).json({
-      message: "Erro ao salvar configurações.",
+      message: "Erro ao buscar dados da instituição.",
     });
   }
 });
@@ -189,10 +100,10 @@ router.patch("/configuracoes-inst/senha", async (req, res) => {
   try {
     const resultado = await BD.query(
       `
-            SELECT senha
-            FROM instituicoes
-            WHERE id_instituicao = $1
-            `,
+      SELECT senha
+      FROM instituicoes
+      WHERE id_instituicao = $1
+      `,
       [id],
     );
 
@@ -224,10 +135,10 @@ router.patch("/configuracoes-inst/senha", async (req, res) => {
 
     await BD.query(
       `
-            UPDATE instituicoes
-            SET senha = $1
-            WHERE id_instituicao = $2
-            `,
+      UPDATE instituicoes
+      SET senha = $1
+      WHERE id_instituicao = $2
+      `,
       [senhaCriptografada, id],
     );
 
