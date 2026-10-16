@@ -887,4 +887,143 @@ router.delete(
   }
 );
 
+/* ============================================
+   GET - LISTAR DOCUMENTOS DE UMA SOLICITAÇÃO
+   Acesso exclusivo do administrador
+============================================ */
+
+router.get(
+  "/solicitacoes/:id_solicitacoes/documentos",
+  autenticarToken,
+  autenticarAdministrador,
+  async (req, res) => {
+    const id = Number(req.params.id_solicitacoes);
+
+    if (!idValido(id)) {
+      return res.status(400).json({
+        error: "ID da solicitação inválido.",
+      });
+    }
+
+    try {
+      const resultado = await BD.query(
+        `
+          SELECT
+            d.id_documento,
+            d.nome_arquivo,
+            d.tipo,
+            d.id_solicitacao
+          FROM documentos d
+          INNER JOIN solicitacoes s
+            ON s.id_solicitacoes = d.id_solicitacao
+          WHERE s.id_solicitacoes = $1
+          ORDER BY d.id_documento ASC
+        `,
+        [id]
+      );
+
+      return res.status(200).json({
+        documentos: resultado.rows,
+      });
+    } catch (error) {
+      console.error(
+        "Erro ao listar documentos da solicitação:",
+        error.message
+      );
+
+      return res.status(500).json({
+        error: "Não foi possível listar os documentos.",
+      });
+    }
+  }
+);
+
+/* ============================================
+   GET - GERAR DOWNLOAD SEGURO DO DOCUMENTO
+   O arquivo permanece privado no Supabase
+============================================ */
+
+router.get(
+  "/documentos/:id_documento/download",
+  autenticarToken,
+  autenticarAdministrador,
+  async (req, res) => {
+    const idDocumento = Number(req.params.id_documento);
+
+    if (!idValido(idDocumento)) {
+      return res.status(400).json({
+        error: "ID do documento inválido.",
+      });
+    }
+
+    try {
+      const resultado = await BD.query(
+        `
+          SELECT
+            d.id_documento,
+            d.nome_arquivo,
+            d.caminho,
+            d.tipo
+          FROM documentos d
+          INNER JOIN solicitacoes s
+            ON s.id_solicitacoes = d.id_solicitacao
+          WHERE d.id_documento = $1
+          LIMIT 1
+        `,
+        [idDocumento]
+      );
+
+      if (!resultado.rows.length) {
+        return res.status(404).json({
+          error: "Documento não encontrado.",
+        });
+      }
+
+      const documento = resultado.rows[0];
+
+      if (!documento.caminho) {
+        return res.status(404).json({
+          error: "O documento não possui um caminho armazenado.",
+        });
+      }
+
+      const { data, error } = await supabase.storage
+        .from(bucketDocumentos)
+        .createSignedUrl(
+          documento.caminho,
+          60,
+          {
+            download: documento.nome_arquivo,
+          }
+        );
+
+      if (error || !data?.signedUrl) {
+        console.error(
+          "Erro ao gerar URL de download:",
+          error?.message
+        );
+
+        return res.status(502).json({
+          error: "Não foi possível preparar o download do documento.",
+        });
+      }
+
+      return res.status(200).json({
+        url: data.signedUrl,
+        nome_arquivo: documento.nome_arquivo,
+      });
+    } catch (error) {
+      console.error(
+        "Erro ao preparar download:",
+        error.message
+      );
+
+      return res.status(500).json({
+        error: "Erro ao preparar o download do documento.",
+      });
+    }
+  }
+);
+
+
 export default router;
