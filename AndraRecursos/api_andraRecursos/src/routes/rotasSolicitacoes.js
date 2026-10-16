@@ -892,7 +892,6 @@ router.delete(
 // DELETE - EXCLUIR SOLICITAÇÃO DA INSTITUIÇÃO
 // Somente a própria instituição.
 // ============================================
-
 router.delete(
   "/instituicao/solicitacoes/:id_solicitacoes",
   autenticarToken,
@@ -909,28 +908,59 @@ router.delete(
       });
     }
 
+    let cliente;
+
     try {
-      const resultado = await BD.query(
-        `
-          DELETE FROM solicitacoes
-          WHERE id_solicitacoes = $1
-            AND id_instituicao = $2
-          RETURNING id_solicitacoes
-        `,
+      cliente = await BD.connect();
+      await cliente.query("BEGIN");
+
+      const consulta = await cliente.query(
+        `SELECT id_solicitacoes
+         FROM solicitacoes
+         WHERE id_solicitacoes = $1
+           AND id_instituicao = $2
+         FOR UPDATE`,
         [id, idInstituicao]
       );
 
-      if (!resultado.rows.length) {
+      if (!consulta.rows.length) {
+        await cliente.query("ROLLBACK");
+
         return res.status(404).json({
           error:
             "Solicitação não encontrada ou não pertence à sua instituição.",
         });
       }
 
+      await cliente.query(
+        `DELETE FROM documentos
+         WHERE id_solicitacao = $1`,
+        [id]
+      );
+
+      await cliente.query(
+        `DELETE FROM historico_solicitacoes
+         WHERE id_solicitacao = $1`,
+        [id]
+      );
+
+      await cliente.query(
+        `DELETE FROM solicitacoes
+         WHERE id_solicitacoes = $1
+           AND id_instituicao = $2`,
+        [id, idInstituicao]
+      );
+
+      await cliente.query("COMMIT");
+
       return res.status(200).json({
         message: "Solicitação excluída com sucesso.",
       });
     } catch (error) {
+      if (cliente) {
+        await cliente.query("ROLLBACK").catch(() => {});
+      }
+
       console.error(
         "Erro ao excluir solicitação da instituição:",
         error.message
@@ -939,6 +969,8 @@ router.delete(
       return res.status(500).json({
         error: "Não foi possível excluir a solicitação.",
       });
+    } finally {
+      cliente?.release();
     }
   }
 );
