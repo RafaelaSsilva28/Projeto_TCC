@@ -69,51 +69,67 @@ export default function AnexosSolicitacaoInst({
     // CARREGAR DOCUMENTOS
     // ==========================================
 
-    const carregarDocumentos = useCallback(
-        async (signal) => {
-            setCarregando(true);
-            setErro("");
 
-            try {
-                const dados = await chamarAPI(
-                    `/solicitacoes/${idSolicitacao}/documentos`,
-                    { signal }
+const carregarDocumentos = useCallback(
+    async (signal) => {
+        const id = Number(idSolicitacao);
+
+        if (
+            idSolicitacao === null ||
+            idSolicitacao === undefined ||
+            String(idSolicitacao).trim() === "" ||
+            !Number.isSafeInteger(id) ||
+            id <= 0
+        ) {
+            setDocumentos([]);
+            setErro("Não foi possível identificar a solicitação.");
+            setCarregando(false);
+            return;
+        }
+
+        setCarregando(true);
+        setErro("");
+
+        try {
+            const dados = await chamarAPI(
+                `/solicitacoes/${id}/documentos`,
+                { signal }
+            );
+
+            const lista = Array.isArray(dados)
+                ? dados
+                : dados?.documentos ?? [];
+
+            if (!Array.isArray(lista)) {
+                throw new Error(
+                    "A API retornou uma lista de documentos inválida."
                 );
-
-                const lista = Array.isArray(dados)
-                    ? dados
-                    : dados?.documentos ?? [];
-
-                if (!Array.isArray(lista)) {
-                    throw new Error(
-                        "A API retornou uma lista de documentos inválida."
-                    );
-                }
-
-                setDocumentos(lista);
-            } catch (error) {
-                if (error.name === "AbortError") {
-                    return;
-                }
-
-                setErro(error.message);
-                setDocumentos([]);
-            } finally {
-                if (!signal?.aborted) {
-                    setCarregando(false);
-                }
             }
-        },
-        [idSolicitacao]
-    );
 
-    useEffect(() => {
-        const controlador = new AbortController();
+            setDocumentos(lista);
+        } catch (error) {
+            if (error.name === "AbortError") {
+                return;
+            }
 
-        carregarDocumentos(controlador.signal);
+            setErro(error.message);
+            setDocumentos([]);
+        } finally {
+            if (!signal?.aborted) {
+                setCarregando(false);
+            }
+        }
+    },
+    [idSolicitacao]
+);
 
-        return () => controlador.abort();
-    }, [carregarDocumentos]);
+useEffect(() => {
+    const controlador = new AbortController();
+
+    carregarDocumentos(controlador.signal);
+
+    return () => controlador.abort();
+}, [carregarDocumentos]);
 
     // ==========================================
     // OBTER LINK SEGURO DO DOCUMENTO

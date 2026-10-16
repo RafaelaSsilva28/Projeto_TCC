@@ -349,326 +349,317 @@ export default function ConfiguracoesInst() {
   }
 
   return (
-    <LayoutInstituicao>
-      <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-6xl">
-          {/* CABEÇALHO */}
-          <div className="mb-8">
-            <div className="mb-3 flex items-center gap-2 text-sm text-slate-500">
-              <FiMonitor size={16} />
-              <span>Instituição</span>
-              <span>/</span>
-              <span className="font-medium text-[#1755ad]">Configurações</span>
-            </div>
-
-            <h1 className="text-2xl font-bold tracking-tight text-[#082d56] sm:text-3xl">
-              Configurações
-            </h1>
-
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base">
-              Gerencie suas preferências, notificações e configurações de
-              segurança.
-            </p>
+    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        {/* CABEÇALHO */}
+        <div className="mb-8">
+          <div className="mb-3 flex items-center gap-2 text-sm text-slate-500">
+            <FiMonitor size={16} />
+            <span>Instituição</span>
+            <span>/</span>
+            <span className="font-medium text-[#1755ad]">Configurações</span>
           </div>
 
-          {/* MENSAGEM DE RETORNO */}
-          {mensagem.texto && (
-            <div
-              role="status"
-              className={`mb-6 flex items-start gap-3 rounded-xl border p-4 ${
-                mensagem.tipo === "sucesso"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : "border-red-200 bg-red-50 text-red-700"
-              }`}
+          <h1 className="text-2xl font-bold tracking-tight text-[#082d56] sm:text-3xl">
+            Configurações
+          </h1>
+
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base">
+            Gerencie suas preferências, notificações e configurações de
+            segurança.
+          </p>
+        </div>
+
+        {/* MENSAGEM DE RETORNO */}
+        {mensagem.texto && (
+          <div
+            role="status"
+            className={`mb-6 flex items-start gap-3 rounded-xl border p-4 ${
+              mensagem.tipo === "sucesso"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {mensagem.tipo === "sucesso" ? (
+              <FiCheckCircle className="mt-0.5 shrink-0" size={20} />
+            ) : (
+              <FiAlertCircle className="mt-0.5 shrink-0" size={20} />
+            )}
+
+            <p className="flex-1 text-sm font-medium">{mensagem.texto}</p>
+
+            <button
+              type="button"
+              onClick={() =>
+                setMensagem({
+                  tipo: "",
+                  texto: "",
+                })
+              }
+              aria-label="Fechar mensagem"
+              className="text-current opacity-70 hover:opacity-100"
             >
-              {mensagem.tipo === "sucesso" ? (
-                <FiCheckCircle className="mt-0.5 shrink-0" size={20} />
-              ) : (
-                <FiAlertCircle className="mt-0.5 shrink-0" size={20} />
-              )}
+              ✕
+            </button>
+          </div>
+        )}
 
-              <p className="flex-1 text-sm font-medium">{mensagem.texto}</p>
+        {carregando ? (
+          <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white">
+            <FiLoader size={30} className="animate-spin text-[#1755ad]" />
 
-              <button
-                type="button"
-                onClick={() =>
-                  setMensagem({
-                    tipo: "",
-                    texto: "",
-                  })
-                }
-                aria-label="Fechar mensagem"
-                className="text-current opacity-70 hover:opacity-100"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
-          {carregando ? (
-            <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white">
-              <FiLoader size={30} className="animate-spin text-[#1755ad]" />
-
-              <p className="mt-4 text-sm text-slate-500">
-                Carregando configurações...
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-              {/* COLUNA PRINCIPAL */}
-              <div className="space-y-6 lg:col-span-2">
-                {/* DADOS DA INSTITUIÇÃO */}
-                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
-                    <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
-                      <FiUser size={21} />
-                    </div>
-
-                    <div>
-                      <h2 className="font-bold text-[#082d56]">
-                        Dados da instituição
-                      </h2>
-
-                      <p className="mt-1 text-sm text-slate-500">
-                        Informações da conta autenticada.
-                      </p>
-                    </div>
+            <p className="mt-4 text-sm text-slate-500">
+              Carregando configurações...
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+            {/* COLUNA PRINCIPAL */}
+            <div className="space-y-6 lg:col-span-2">
+              {/* DADOS DA INSTITUIÇÃO */}
+              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+                  <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
+                    <FiUser size={21} />
                   </div>
 
-                  <div className="space-y-5 p-5 sm:p-6">
-                    <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
-                        Nome da instituição
-                      </label>
+                  <div>
+                    <h2 className="font-bold text-[#082d56]">
+                      Dados da instituição
+                    </h2>
 
-                      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <FiUser className="shrink-0 text-slate-400" size={18} />
-
-                        <span className="text-sm text-slate-700">
-                          {configuracoes.nome || "Não informado"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
-                        E-mail institucional
-                      </label>
-
-                      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <FiMail className="shrink-0 text-slate-400" size={18} />
-
-                        <span className="break-all text-sm text-slate-700">
-                          {configuracoes.email_institucional || "Não informado"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="text-xs leading-relaxed text-slate-400">
-                      Para alterar os dados cadastrais, entre na área de
-                      atendimento responsável pelo cadastro da instituição.
+                    <p className="mt-1 text-sm text-slate-500">
+                      Informações da conta autenticada.
                     </p>
                   </div>
-                </section>
+                </div>
 
-                {/* NOTIFICAÇÕES */}
-                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
-                    <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
-                      <FiBell size={21} />
-                    </div>
+                <div className="space-y-5 p-5 sm:p-6">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Nome da instituição
+                    </label>
 
-                    <div>
-                      <h2 className="font-bold text-[#082d56]">Notificações</h2>
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <FiUser className="shrink-0 text-slate-400" size={18} />
 
-                      <p className="mt-1 text-sm text-slate-500">
-                        Escolha quais avisos deseja receber.
-                      </p>
-                    </div>
-                  </div>
-
-                  <form
-                    onSubmit={salvarPreferencias}
-                    className="space-y-3 p-5 sm:p-6"
-                  >
-                    <OpcaoPreferencia
-                      titulo="Atualizações de solicitações"
-                      descricao="Receba avisos quando houver atualizações nos pedidos da instituição."
-                      campo="notificar_atualizacoes_solicitacoes"
-                      icone={<FiRefreshCw size={19} />}
-                    />
-
-                    <OpcaoPreferencia
-                      titulo="Respostas do administrador"
-                      descricao="Receba avisos quando a administração responder às suas solicitações."
-                      campo="notificar_respostas_administrador"
-                      icone={<FiBell size={19} />}
-                    />
-
-                    <div className="flex justify-end border-t border-slate-100 pt-5">
-                      <button
-                        type="submit"
-                        disabled={salvando}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                      >
-                        {salvando ? (
-                          <FiLoader className="animate-spin" size={18} />
-                        ) : (
-                          <FiSave size={18} />
-                        )}
-
-                        {salvando ? "Salvando..." : "Salvar preferências"}
-                      </button>
-                    </div>
-                  </form>
-                </section>
-
-                {/* APARÊNCIA */}
-                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
-                    <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
-                      <FiMonitor size={21} />
-                    </div>
-
-                    <div>
-                      <h2 className="font-bold text-[#082d56]">
-                        Aparência e acessibilidade
-                      </h2>
-
-                      <p className="mt-1 text-sm text-slate-500">
-                        Ajuste os efeitos visuais da interface.
-                      </p>
+                      <span className="text-sm text-slate-700">
+                        {configuracoes.nome || "Não informado"}
+                      </span>
                     </div>
                   </div>
 
-                  <form
-                    onSubmit={salvarPreferencias}
-                    className="space-y-4 p-5 sm:p-6"
-                  >
-                    <OpcaoPreferencia
-                      titulo="Reduzir animações"
-                      descricao="Prefira transições e movimentos reduzidos durante a navegação."
-                      campo="reduzir_animacoes"
-                      icone={<FiMonitor size={19} />}
-                    />
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      E-mail institucional
+                    </label>
 
-                    <div className="flex justify-end border-t border-slate-100 pt-5">
-                      <button
-                        type="submit"
-                        disabled={salvando}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                      >
-                        {salvando ? (
-                          <FiLoader className="animate-spin" size={18} />
-                        ) : (
-                          <FiSave size={18} />
-                        )}
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <FiMail className="shrink-0 text-slate-400" size={18} />
 
-                        {salvando ? "Salvando..." : "Salvar aparência"}
-                      </button>
-                    </div>
-                  </form>
-                </section>
-              </div>
-
-              {/* COLUNA LATERAL */}
-              <aside className="space-y-6">
-                <section className="overflow-hidden rounded-2xl bg-[#082d56] p-5 text-white shadow-sm sm:p-6">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
-                    <FiShield size={24} />
-                  </div>
-
-                  <h2 className="text-lg font-bold">Segurança da conta</h2>
-
-                  <p className="mt-2 text-sm leading-relaxed text-blue-100">
-                    Mantenha sua senha atualizada e não compartilhe suas
-                    credenciais com outras pessoas.
-                  </p>
-
-                  <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div className="flex items-center gap-2 text-sm font-semibold">
-                      <FiLock size={17} />
-                      Alteração de senha
-                    </div>
-
-                    <p className="mt-2 text-xs leading-relaxed text-blue-100">
-                      Utilize uma senha com pelo menos 8 caracteres.
-                    </p>
-                  </div>
-                </section>
-
-                {/* FORMULÁRIO DE SENHA */}
-                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                  <div className="mb-5 flex items-center gap-3">
-                    <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
-                      <FiLock size={21} />
-                    </div>
-
-                    <div>
-                      <h2 className="font-bold text-[#082d56]">
-                        Alterar senha
-                      </h2>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        Proteja seu acesso.
-                      </p>
+                      <span className="break-all text-sm text-slate-700">
+                        {configuracoes.email_institucional || "Não informado"}
+                      </span>
                     </div>
                   </div>
 
-                  <form onSubmit={alterarSenha} className="space-y-4">
-                    <CampoSenha
-                      campo="senhaAtual"
-                      titulo="Senha atual"
-                      placeholder="Digite sua senha atual"
-                      valor={senhas.senhaAtual}
-                    />
-
-                    <CampoSenha
-                      campo="novaSenha"
-                      titulo="Nova senha"
-                      placeholder="Mínimo de 8 caracteres"
-                      valor={senhas.novaSenha}
-                    />
-
-                    <CampoSenha
-                      campo="confirmarSenha"
-                      titulo="Confirmar nova senha"
-                      placeholder="Digite a nova senha novamente"
-                      valor={senhas.confirmarSenha}
-                    />
-
-                    <button
-                      type="submit"
-                      disabled={alterandoSenha}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1755ad] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {alterandoSenha ? (
-                        <FiLoader className="animate-spin" size={18} />
-                      ) : (
-                        <FiShield size={18} />
-                      )}
-
-                      {alterandoSenha
-                        ? "Alterando senha..."
-                        : "Atualizar senha"}
-                    </button>
-                  </form>
-                </section>
-
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs leading-relaxed text-slate-500">
-                    <FiShield
-                      className="mr-1 inline text-[#1755ad]"
-                      size={14}
-                    />
-                    Suas configurações são vinculadas à instituição autenticada.
+                  <p className="text-xs leading-relaxed text-slate-400">
+                    Para alterar os dados cadastrais, entre na área de
+                    atendimento responsável pelo cadastro da instituição.
                   </p>
                 </div>
-              </aside>
+              </section>
+
+              {/* NOTIFICAÇÕES */}
+              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+                  <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
+                    <FiBell size={21} />
+                  </div>
+
+                  <div>
+                    <h2 className="font-bold text-[#082d56]">Notificações</h2>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Escolha quais avisos deseja receber.
+                    </p>
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={salvarPreferencias}
+                  className="space-y-3 p-5 sm:p-6"
+                >
+                  <OpcaoPreferencia
+                    titulo="Atualizações de solicitações"
+                    descricao="Receba avisos quando houver atualizações nos pedidos da instituição."
+                    campo="notificar_atualizacoes_solicitacoes"
+                    icone={<FiRefreshCw size={19} />}
+                  />
+
+                  <OpcaoPreferencia
+                    titulo="Respostas do administrador"
+                    descricao="Receba avisos quando a administração responder às suas solicitações."
+                    campo="notificar_respostas_administrador"
+                    icone={<FiBell size={19} />}
+                  />
+
+                  <div className="flex justify-end border-t border-slate-100 pt-5">
+                    <button
+                      type="submit"
+                      disabled={salvando}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                    >
+                      {salvando ? (
+                        <FiLoader className="animate-spin" size={18} />
+                      ) : (
+                        <FiSave size={18} />
+                      )}
+
+                      {salvando ? "Salvando..." : "Salvar preferências"}
+                    </button>
+                  </div>
+                </form>
+              </section>
+
+              {/* APARÊNCIA */}
+              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+                  <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
+                    <FiMonitor size={21} />
+                  </div>
+
+                  <div>
+                    <h2 className="font-bold text-[#082d56]">
+                      Aparência e acessibilidade
+                    </h2>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Ajuste os efeitos visuais da interface.
+                    </p>
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={salvarPreferencias}
+                  className="space-y-4 p-5 sm:p-6"
+                >
+                  <OpcaoPreferencia
+                    titulo="Reduzir animações"
+                    descricao="Prefira transições e movimentos reduzidos durante a navegação."
+                    campo="reduzir_animacoes"
+                    icone={<FiMonitor size={19} />}
+                  />
+
+                  <div className="flex justify-end border-t border-slate-100 pt-5">
+                    <button
+                      type="submit"
+                      disabled={salvando}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                    >
+                      {salvando ? (
+                        <FiLoader className="animate-spin" size={18} />
+                      ) : (
+                        <FiSave size={18} />
+                      )}
+
+                      {salvando ? "Salvando..." : "Salvar aparência"}
+                    </button>
+                  </div>
+                </form>
+              </section>
             </div>
-          )}
-        </div>
+
+            {/* COLUNA LATERAL */}
+            <aside className="space-y-6">
+              <section className="overflow-hidden rounded-2xl bg-[#082d56] p-5 text-white shadow-sm sm:p-6">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
+                  <FiShield size={24} />
+                </div>
+
+                <h2 className="text-lg font-bold">Segurança da conta</h2>
+
+                <p className="mt-2 text-sm leading-relaxed text-blue-100">
+                  Mantenha sua senha atualizada e não compartilhe suas
+                  credenciais com outras pessoas.
+                </p>
+
+                <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <FiLock size={17} />
+                    Alteração de senha
+                  </div>
+
+                  <p className="mt-2 text-xs leading-relaxed text-blue-100">
+                    Utilize uma senha com pelo menos 8 caracteres.
+                  </p>
+                </div>
+              </section>
+
+              {/* FORMULÁRIO DE SENHA */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="rounded-xl bg-blue-50 p-3 text-[#1755ad]">
+                    <FiLock size={21} />
+                  </div>
+
+                  <div>
+                    <h2 className="font-bold text-[#082d56]">Alterar senha</h2>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Proteja seu acesso.
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={alterarSenha} className="space-y-4">
+                  <CampoSenha
+                    campo="senhaAtual"
+                    titulo="Senha atual"
+                    placeholder="Digite sua senha atual"
+                    valor={senhas.senhaAtual}
+                  />
+
+                  <CampoSenha
+                    campo="novaSenha"
+                    titulo="Nova senha"
+                    placeholder="Mínimo de 8 caracteres"
+                    valor={senhas.novaSenha}
+                  />
+
+                  <CampoSenha
+                    campo="confirmarSenha"
+                    titulo="Confirmar nova senha"
+                    placeholder="Digite a nova senha novamente"
+                    valor={senhas.confirmarSenha}
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={alterandoSenha}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1755ad] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#124477] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {alterandoSenha ? (
+                      <FiLoader className="animate-spin" size={18} />
+                    ) : (
+                      <FiShield size={18} />
+                    )}
+
+                    {alterandoSenha ? "Alterando senha..." : "Atualizar senha"}
+                  </button>
+                </form>
+              </section>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs leading-relaxed text-slate-500">
+                  <FiShield className="mr-1 inline text-[#1755ad]" size={14} />
+                  Suas configurações são vinculadas à instituição autenticada.
+                </p>
+              </div>
+            </aside>
+          </div>
+        )}
       </div>
-    </LayoutInstituicao>
+    </div>
   );
 }

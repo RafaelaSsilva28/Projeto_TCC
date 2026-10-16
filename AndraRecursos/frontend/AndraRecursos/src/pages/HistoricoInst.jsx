@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FiClipboard,
@@ -88,10 +87,7 @@ function formatarStatus(status) {
     };
   }
 
-  if (
-    valor.includes("conclu") ||
-    valor.includes("finaliz")
-  ) {
+  if (valor.includes("conclu") || valor.includes("finaliz")) {
     return {
       texto: "CONCLUÍDA",
       estilo: "bg-blue-100 text-blue-700",
@@ -150,15 +146,14 @@ export default function HistoricoInst() {
   const [pagina, setPagina] = useState(1);
   const [atualizar, setAtualizar] = useState(0);
 
-  const [solicitacaoSelecionada, setSolicitacaoSelecionada] =
-    useState(null);
+  const [solicitacaoSelecionada, setSolicitacaoSelecionada] = useState(null);
 
   // ==========================================
   // BUSCAR HISTÓRICO NA API
   // ==========================================
 
   const buscarHistorico = useCallback(async (signal) => {
-  const token = localStorage.getItem("@AndraRecursos:token");
+    const token = localStorage.getItem("@AndraRecursos:token");
 
     if (!token) {
       window.location.replace("/");
@@ -197,9 +192,7 @@ export default function HistoricoInst() {
       }
 
       if (!Array.isArray(dados)) {
-        throw new Error(
-          "A API retornou um formato de histórico inválido.",
-        );
+        throw new Error("A API retornou um formato de histórico inválido.");
       }
 
       if (!signal?.aborted) {
@@ -207,10 +200,7 @@ export default function HistoricoInst() {
       }
     } catch (error) {
       if (error.name !== "AbortError" && !signal?.aborted) {
-        console.error(
-          "Erro ao buscar histórico da instituição:",
-          error,
-        );
+        console.error("Erro ao buscar histórico da instituição:", error);
 
         setErro(error.message || "Erro ao carregar o histórico.");
       }
@@ -326,7 +316,6 @@ export default function HistoricoInst() {
       formatarStatus(item.status).texto === "EM ANDAMENTO",
   ).length;
 
-  
   // ==========================================
   // FUNÇÃO PARA EXCLUIR SOLICITAÇÃO
   // ==========================================
@@ -339,7 +328,7 @@ export default function HistoricoInst() {
     }
 
     const confirmar = window.confirm(
-      `Deseja excluir a solicitação #${id} inteira? Esta ação não poderá ser desfeita.`
+      `Deseja excluir a solicitação #${id} inteira? Esta ação não poderá ser desfeita.`,
     );
 
     if (!confirmar) return;
@@ -359,25 +348,29 @@ export default function HistoricoInst() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const resultado = await resposta.json().catch(() => ({}));
 
       if (!resposta.ok) {
+        console.error("Erro na exclusão:", {
+          status: resposta.status,
+          url: resposta.url,
+          resposta: resultado,
+        });
+
         throw new Error(
           resultado.error ||
-          resultado.message ||
-          "Não foi possível excluir a solicitação."
+            resultado.message ||
+            `Erro ${resposta.status} ao excluir a solicitação.`,
         );
       }
-
+      
       // Remove do histórico todos os registros
       // relacionados à solicitação excluída.
       setHistorico((listaAtual) =>
-        listaAtual.filter(
-          (item) => item.id_solicitacao !== id
-        )
+        listaAtual.filter((item) => item.id_solicitacao !== id),
       );
 
       setSolicitacaoSelecionada(null);
@@ -417,8 +410,7 @@ export default function HistoricoInst() {
 
       const contarStatus = (statusDesejado) =>
         historicoFiltrado.filter(
-          (item) =>
-            formatarStatus(item.status).texto === statusDesejado,
+          (item) => formatarStatus(item.status).texto === statusDesejado,
         ).length;
 
       // CABEÇALHO
@@ -428,11 +420,7 @@ export default function HistoricoInst() {
       doc.text("AndraRecursos", 14, 17);
 
       doc.setFontSize(14);
-      doc.text(
-        "Relatório do Histórico de Solicitações",
-        14,
-        26,
-      );
+      doc.text("Relatório do Histórico de Solicitações", 14, 26);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
@@ -440,11 +428,7 @@ export default function HistoricoInst() {
 
       doc.text(`Data de emissão: ${dataEmissao}`, 14, 33);
 
-      doc.text(
-        `Registros exportados: ${historicoFiltrado.length}`,
-        14,
-        39,
-      );
+      doc.text(`Registros exportados: ${historicoFiltrado.length}`, 14, 39);
 
       // RESUMO
       doc.setFont("helvetica", "bold");
@@ -521,8 +505,7 @@ export default function HistoricoInst() {
 
       doc.text(linhasFiltros, 14, inicioFiltros + 6);
 
-      const inicioTabela =
-        inicioFiltros + 10 + linhasFiltros.length * 4;
+      const inicioTabela = inicioFiltros + 10 + linhasFiltros.length * 4;
 
       // TABELA DOS REGISTROS FILTRADOS
       autoTable(doc, {
@@ -589,18 +572,11 @@ export default function HistoricoInst() {
           doc.setFontSize(8);
           doc.setTextColor(120, 130, 145);
 
-          doc.text(
-            "AndraRecursos - Área da Instituição",
-            10,
-            altura - 8,
-          );
+          doc.text("AndraRecursos - Área da Instituição", 10, altura - 8);
 
-          doc.text(
-            `Página ${numeroPagina}`,
-            largura - 10,
-            altura - 8,
-            { align: "right" },
-          );
+          doc.text(`Página ${numeroPagina}`, largura - 10, altura - 8, {
+            align: "right",
+          });
         },
       });
 
@@ -624,9 +600,7 @@ export default function HistoricoInst() {
       {/* CABEÇALHO */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-bold text-[#082d56]">
-            Histórico
-          </h1>
+          <h1 className="text-[28px] font-bold text-[#082d56]">Histórico</h1>
 
           <p className="mt-1 text-sm text-gray-500">
             Histórico de alterações das suas solicitações
@@ -649,9 +623,7 @@ export default function HistoricoInst() {
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-gray-500">
-                Registros no histórico
-              </p>
+              <p className="text-sm text-gray-500">Registros no histórico</p>
 
               <p className="mt-2 text-2xl font-bold text-[#082d56]">
                 {totalRegistros}
@@ -667,9 +639,7 @@ export default function HistoricoInst() {
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-gray-500">
-                Registros aprovados
-              </p>
+              <p className="text-sm text-gray-500">Registros aprovados</p>
 
               <p className="mt-2 text-2xl font-bold text-green-700">
                 {totalAprovados}
@@ -685,9 +655,7 @@ export default function HistoricoInst() {
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-gray-500">
-                Pendentes / em andamento
-              </p>
+              <p className="text-sm text-gray-500">Pendentes / em andamento</p>
 
               <p className="mt-2 text-2xl font-bold text-amber-600">
                 {totalPendentes}
@@ -786,8 +754,7 @@ export default function HistoricoInst() {
                 return (
                   <article
                     key={
-                      item.id_historico ??
-                      `${item.id_solicitacao}-${indice}`
+                      item.id_historico ?? `${item.id_solicitacao}-${indice}`
                     }
                     className="grid grid-cols-1 items-center gap-3 rounded-lg border border-[#dddddd] bg-[#f1f1f1] px-5 py-4 shadow-[0_2px_2px_rgba(0,0,0,0.15)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md md:grid-cols-[minmax(0,2fr)_145px_115px_130px]"
                   >
@@ -863,8 +830,7 @@ export default function HistoricoInst() {
             {historicoFiltrado.length > 0 && (
               <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-gray-100 pt-5 sm:flex-row">
                 <p className="text-xs text-gray-500">
-                  Exibindo{" "}
-                  {(paginaAtual - 1) * LIMITE_PAGINA + 1} a{" "}
+                  Exibindo {(paginaAtual - 1) * LIMITE_PAGINA + 1} a{" "}
                   {Math.min(
                     paginaAtual * LIMITE_PAGINA,
                     historicoFiltrado.length,
@@ -877,9 +843,7 @@ export default function HistoricoInst() {
                     type="button"
                     aria-label="Página anterior"
                     disabled={paginaAtual === 1}
-                    onClick={() =>
-                      setPagina((atual) => Math.max(1, atual - 1))
-                    }
+                    onClick={() => setPagina((atual) => Math.max(1, atual - 1))}
                     className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <FiChevronLeft size={18} />
@@ -894,9 +858,7 @@ export default function HistoricoInst() {
                     aria-label="Próxima página"
                     disabled={paginaAtual === totalPaginas}
                     onClick={() =>
-                      setPagina((atual) =>
-                        Math.min(totalPaginas, atual + 1),
-                      )
+                      setPagina((atual) => Math.min(totalPaginas, atual + 1))
                     }
                     className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -938,8 +900,7 @@ export default function HistoricoInst() {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-500">
-                  Solicitação #
-                  {solicitacaoSelecionada.id_solicitacao ?? "—"}
+                  Solicitação #{solicitacaoSelecionada.id_solicitacao ?? "—"}
                 </p>
               </div>
 
@@ -986,16 +947,10 @@ export default function HistoricoInst() {
 
                     <span
                       className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
-                        formatarStatus(
-                          solicitacaoSelecionada.status,
-                        ).estilo
+                        formatarStatus(solicitacaoSelecionada.status).estilo
                       }`}
                     >
-                      {
-                        formatarStatus(
-                          solicitacaoSelecionada.status,
-                        ).texto
-                      }
+                      {formatarStatus(solicitacaoSelecionada.status).texto}
                     </span>
                   </div>
                 </div>
@@ -1007,13 +962,10 @@ export default function HistoricoInst() {
                   </span>
 
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">
-                      Prioridade
-                    </p>
+                    <p className="mb-1 text-xs text-gray-500">Prioridade</p>
 
                     <p className="text-sm font-semibold capitalize text-[#082d56]">
-                      {solicitacaoSelecionada.prioridade ||
-                        "Não informada"}
+                      {solicitacaoSelecionada.prioridade || "Não informada"}
                     </p>
                   </div>
                 </div>
@@ -1030,9 +982,7 @@ export default function HistoricoInst() {
                     </p>
 
                     <p className="text-sm font-semibold text-[#082d56]">
-                      {formatarData(
-                        solicitacaoSelecionada.data_alteracao,
-                      )}
+                      {formatarData(solicitacaoSelecionada.data_alteracao)}
                     </p>
                   </div>
                 </div>
@@ -1041,10 +991,7 @@ export default function HistoricoInst() {
               {/* DESCRIÇÃO */}
               <div className="rounded-xl border border-[#e6edf5] bg-[#f7f9fc] p-4">
                 <div className="mb-2 flex items-center gap-2">
-                  <FiFileText
-                    size={16}
-                    className="text-[#47719e]"
-                  />
+                  <FiFileText size={16} className="text-[#47719e]" />
 
                   <p className="text-xs font-semibold text-[#47719e]">
                     Descrição da movimentação
@@ -1058,7 +1005,6 @@ export default function HistoricoInst() {
               </div>
             </div>
 
-
             {/* CABEÇALHO DE BOTÕES */}
             {/* BOTÃO FECHAR  */}
             <div className="border-t border-gray-100 bg-[#fcfcfd] px-6 py-5">
@@ -1071,24 +1017,18 @@ export default function HistoricoInst() {
               </button>
 
               {/* EXCLUIR SOLICITAÇÃO CASO DESEJADO - - - BOTÃO EXCLUIR */}
-              <button 
-              type="button"
-              onClick={() => excluirSolicitacao(solicitacaoSelecionada)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-            > Excluir 
-            </button>
+              <button
+                type="button"
+                onClick={() => excluirSolicitacao(solicitacaoSelecionada)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+              >
+                {" "}
+                Excluir
+              </button>
             </div>
-
-            
-
-            
-
-
-
           </section>
         </div>
       )}
     </div>
   );
 }
-
