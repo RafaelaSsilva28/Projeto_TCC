@@ -32,19 +32,33 @@ function visualizarStatus(valor) {
     const status = normalizarTexto(valor);
 
     if (["aprovada", "aprovado"].includes(status)) {
-        return { texto: "APROVADA", classe: "bg-green-100 text-green-700" };
+        return {
+            texto: "APROVADA",
+            classe: "bg-green-100 text-green-700",
+        };
     }
 
-    if (["recusada", "recusado", "rejeitada"].includes(status)) {
-        return { texto: "RECUSADA", classe: "bg-red-100 text-red-700" };
+    if (
+        ["recusada", "recusado", "rejeitada", "rejeitado"].includes(status)
+    ) {
+        return {
+            texto: "RECUSADA",
+            classe: "bg-red-100 text-red-700",
+        };
     }
 
     if (status === "em andamento") {
-        return { texto: "EM ANDAMENTO", classe: "bg-blue-100 text-blue-700" };
+        return {
+            texto: "EM ANDAMENTO",
+            classe: "bg-blue-100 text-blue-700",
+        };
     }
 
     if (status === "pendente") {
-        return { texto: "PENDENTE", classe: "bg-amber-100 text-amber-700" };
+        return {
+            texto: "PENDENTE",
+            classe: "bg-amber-100 text-amber-700",
+        };
     }
 
     return {
@@ -58,7 +72,9 @@ function formatarData(valor) {
 
     const texto = String(valor);
 
-    if (/^\d{2}\/\d{2}\/\d{4}/.test(texto)) return texto;
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(texto)) {
+        return texto;
+    }
 
     if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
         const [ano, mes, dia] = texto.split("-");
@@ -67,7 +83,9 @@ function formatarData(valor) {
 
     const data = new Date(valor);
 
-    if (Number.isNaN(data.getTime())) return texto;
+    if (Number.isNaN(data.getTime())) {
+        return texto;
+    }
 
     return new Intl.DateTimeFormat("pt-BR", {
         timeZone: "America/Sao_Paulo",
@@ -79,13 +97,32 @@ function formatarData(valor) {
     }).format(data);
 }
 
+function normalizarListaRespostas(dados) {
+    if (Array.isArray(dados)) return dados;
+
+    if (Array.isArray(dados?.respostas)) {
+        return dados.respostas;
+    }
+
+    if (Array.isArray(dados?.dados)) {
+        return dados.dados;
+    }
+
+    return [];
+}
+
 export default function DetalhesSolicitacaoInstituicao({
     solicitacao,
     idSolicitacao,
     onClose,
     onAtualizar,
 }) {
-    const id = Number(idSolicitacao ?? solicitacao?.id);
+    const id = Number(
+        idSolicitacao ??
+        solicitacao?.id_solicitacoes ??
+        solicitacao?.id_solicitacao ??
+        solicitacao?.id
+    );
 
     const [atual, setAtual] = useState(solicitacao ?? null);
     const [resposta, setResposta] = useState("");
@@ -98,14 +135,18 @@ export default function DetalhesSolicitacaoInstituicao({
         const token = localStorage.getItem("@AndraRecursos:token");
 
         if (!token) {
-            throw new Error("Sessão expirada. Faça login novamente.");
+            throw new Error(
+                "Sessão expirada. Faça login novamente."
+            );
         }
 
         const retorno = await fetch(`${API}${caminho}`, {
             ...opcoes,
             headers: {
                 Authorization: `Bearer ${token}`,
-                ...(opcoes.body ? { "Content-Type": "application/json" } : {}),
+                ...(opcoes.body
+                    ? { "Content-Type": "application/json" }
+                    : {}),
                 ...opcoes.headers,
             },
         });
@@ -123,23 +164,38 @@ export default function DetalhesSolicitacaoInstituicao({
         return dados;
     }
 
+    // ==========================================
+    // CARREGAR SOLICITAÇÃO E MENSAGENS DOS DOIS LADOS
+    // ==========================================
+
     async function carregarDetalhes() {
         setCarregando(true);
         setErro("");
 
         try {
-            const [dadosSolicitacoes, dadosRespostas] = await Promise.all([
+            const [
+                dadosSolicitacoes,
+                dadosRespostasInstituicao,
+                dadosRespostasAdmin,
+            ] = await Promise.all([
                 chamarAPI("/solicitacoes"),
-                chamarAPI(`/respostas-instituicao/solicitacao/${id}`),
+
+                chamarAPI(
+                    `/respostas-instituicao/solicitacao/${id}`
+                ),
+
+                chamarAPI(
+                    `/respostas-adm/solicitacao/${id}`
+                ),
             ]);
 
-            const lista = Array.isArray(dadosSolicitacoes)
+            const listaSolicitacoes = Array.isArray(dadosSolicitacoes)
                 ? dadosSolicitacoes
                 : dadosSolicitacoes?.solicitacoes ??
-                dadosSolicitacoes?.dados ??
-                [];
+                  dadosSolicitacoes?.dados ??
+                  [];
 
-            const encontrada = lista.find(
+            const encontrada = listaSolicitacoes.find(
                 (item) =>
                     Number(
                         item.id_solicitacoes ??
@@ -149,33 +205,82 @@ export default function DetalhesSolicitacaoInstituicao({
             );
 
             if (!encontrada) {
-                throw new Error("Solicitação não encontrada.");
+                throw new Error(
+                    "Solicitação não encontrada."
+                );
             }
 
             setAtual({
+                ...encontrada,
                 id,
-                titulo: encontrada.titulo ?? "Solicitação sem título",
+                titulo:
+                    encontrada.titulo ??
+                    "Solicitação sem título",
                 descricao: encontrada.descricao ?? "",
-                prioridade: encontrada.prioridade ?? "Não informada",
-                setor: encontrada.setor ?? "Não informado",
-                status: encontrada.status ?? "Não informado",
-                data: encontrada.data_pedido ?? encontrada.data ?? null,
+                prioridade:
+                    encontrada.prioridade ??
+                    "Não informada",
+                setor:
+                    encontrada.setor ??
+                    "Não informado",
+                status:
+                    encontrada.status ??
+                    "Não informado",
+                data:
+                    encontrada.data_pedido ??
+                    encontrada.data ??
+                    null,
             });
 
-            const listaRespostas = Array.isArray(dadosRespostas)
-                ? dadosRespostas
-                : dadosRespostas?.respostas ?? [];
+            const respostasInstituicao =
+                normalizarListaRespostas(
+                    dadosRespostasInstituicao
+                );
 
-            const mensagens = listaRespostas.map((item) => ({
-                chave: `resposta-${item.id_resposta}`,
-                autor: "INSTITUIÇÃO",
-                mensagem: item.mensagem,
-                data: item.data_resposta,
-            }));
+            const respostasAdmin =
+                normalizarListaRespostas(
+                    dadosRespostasAdmin
+                );
+
+            const mensagensInstituicao =
+                respostasInstituicao.map((item, indice) => ({
+                    chave: `instituicao-${item.id_resposta ?? indice}`,
+                    autor: "INSTITUIÇÃO",
+                    mensagem: item.mensagem ?? "",
+                    data: item.data_resposta ?? null,
+                    origem: "instituicao",
+                }));
+
+            const mensagensAdmin = respostasAdmin.map(
+                (item, indice) => ({
+                    chave: `admin-${item.id_resposta ?? indice}`,
+                    autor: "ADMINISTRADOR",
+                    mensagem: item.mensagem ?? "",
+                    data: item.data_resposta ?? null,
+                    origem: "admin",
+                })
+            );
+
+            const mensagens = [
+                ...mensagensInstituicao,
+                ...mensagensAdmin,
+            ];
 
             mensagens.sort((a, b) => {
-                const dataA = new Date(a.data).getTime();
-                const dataB = new Date(b.data).getTime();
+                const dataA = a.data
+                    ? new Date(a.data).getTime()
+                    : NaN;
+
+                const dataB = b.data
+                    ? new Date(b.data).getTime()
+                    : NaN;
+
+                if (
+                    !Number.isFinite(dataA) &&
+                    !Number.isFinite(dataB)
+                ) {
+                    return 0;
+                }
 
                 if (!Number.isFinite(dataA)) return 1;
                 if (!Number.isFinite(dataB)) return -1;
@@ -185,11 +290,18 @@ export default function DetalhesSolicitacaoInstituicao({
 
             setEventos(mensagens);
         } catch (error) {
-            setErro(error.message);
+            setErro(
+                error.message ||
+                "Não foi possível carregar os detalhes."
+            );
         } finally {
             setCarregando(false);
         }
     }
+
+    // ==========================================
+    // CARREGAR AO ABRIR O MODAL
+    // ==========================================
 
     useEffect(() => {
         if (!Number.isSafeInteger(id) || id <= 0) {
@@ -200,20 +312,32 @@ export default function DetalhesSolicitacaoInstituicao({
 
         carregarDetalhes();
 
-        // A abertura inicial do modal deve disparar uma única consulta.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
+
+    // ==========================================
+    // ENVIAR RESPOSTA DA INSTITUIÇÃO
+    // ==========================================
 
     async function enviarResposta() {
         const mensagem = resposta.trim();
 
         if (!mensagem) {
-            toast.error("Digite uma mensagem antes de enviar.");
+            toast.error(
+                "Digite uma mensagem antes de enviar."
+            );
             return;
         }
 
         if (mensagem.length > 2000) {
-            toast.error("A mensagem deve ter no máximo 2000 caracteres.");
+            toast.error(
+                "A mensagem deve ter no máximo 2000 caracteres."
+            );
+            return;
+        }
+
+        if (!Number.isSafeInteger(id) || id <= 0) {
+            toast.error("ID da solicitação inválido.");
             return;
         }
 
@@ -235,11 +359,21 @@ export default function DetalhesSolicitacaoInstituicao({
 
             await carregarDetalhes();
 
-            toast.success("Resposta enviada com sucesso!");
+            toast.success(
+                "Resposta enviada com sucesso!"
+            );
+
             onAtualizar?.();
         } catch (error) {
-            setErro(error.message);
-            toast.error(error.message || "Não foi possível enviar a resposta.");
+            setErro(
+                error.message ||
+                "Não foi possível enviar a resposta."
+            );
+
+            toast.error(
+                error.message ||
+                "Não foi possível enviar a resposta."
+            );
         } finally {
             setSalvando(false);
         }
@@ -278,7 +412,9 @@ export default function DetalhesSolicitacaoInstituicao({
                                     #{id}
                                 </span>
 
-                                <span className={`rounded-full px-3 py-1 text-[10px] font-bold ${situacao.classe}`}>
+                                <span
+                                    className={`rounded-full px-3 py-1 text-[10px] font-bold ${situacao.classe}`}
+                                >
                                     {situacao.texto}
                                 </span>
                             </div>
@@ -287,7 +423,8 @@ export default function DetalhesSolicitacaoInstituicao({
                                 id="titulo-solicitacao-instituicao"
                                 className="text-lg font-bold text-[#082d56] sm:text-xl"
                             >
-                                {atual?.titulo ?? "Carregando solicitação..."}
+                                {atual?.titulo ??
+                                    "Carregando solicitação..."}
                             </h2>
                         </div>
                     </div>
@@ -322,8 +459,10 @@ export default function DetalhesSolicitacaoInstituicao({
                                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                     <div>
                                         <p className="mb-1 flex items-center gap-2 text-xs text-gray-500">
-                                            <FiHome /> Solicitação
+                                            <FiHome />
+                                            Solicitação
                                         </p>
+
                                         <p className="text-sm font-semibold text-[#082d56]">
                                             #{id}
                                         </p>
@@ -331,8 +470,10 @@ export default function DetalhesSolicitacaoInstituicao({
 
                                     <div>
                                         <p className="mb-1 flex items-center gap-2 text-xs text-gray-500">
-                                            <FiCalendar /> Data de emissão
+                                            <FiCalendar />
+                                            Data de emissão
                                         </p>
+
                                         <p className="text-sm font-semibold text-[#082d56]">
                                             {formatarData(atual?.data)}
                                         </p>
@@ -340,10 +481,13 @@ export default function DetalhesSolicitacaoInstituicao({
 
                                     <div>
                                         <p className="mb-1 flex items-center gap-2 text-xs text-gray-500">
-                                            <FiFlag /> Prioridade
+                                            <FiFlag />
+                                            Prioridade
                                         </p>
+
                                         <p className="text-sm font-semibold capitalize text-[#082d56]">
-                                            {atual?.prioridade ?? "Não informada"}
+                                            {atual?.prioridade ??
+                                                "Não informada"}
                                         </p>
                                     </div>
 
@@ -351,8 +495,10 @@ export default function DetalhesSolicitacaoInstituicao({
                                         <p className="mb-1 text-xs text-gray-500">
                                             Setor responsável
                                         </p>
+
                                         <p className="text-sm font-semibold text-[#082d56]">
-                                            {atual?.setor ?? "Não informado"}
+                                            {atual?.setor ??
+                                                "Não informado"}
                                         </p>
                                     </div>
                                 </div>
@@ -364,12 +510,15 @@ export default function DetalhesSolicitacaoInstituicao({
 
                                     <div className="min-h-32 rounded-lg border border-gray-200 bg-[#f7f7f7] p-4">
                                         <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-                                            {atual?.descricao || "Nenhuma descrição registrada."}
+                                            {atual?.descricao ||
+                                                "Nenhuma descrição registrada."}
                                         </p>
                                     </div>
                                 </div>
 
-                                <AnexosSolicitacao idSolicitacao={id} />
+                                <AnexosSolicitacao
+                                    idSolicitacao={id}
+                                />
                             </>
                         )}
                     </div>
@@ -378,52 +527,74 @@ export default function DetalhesSolicitacaoInstituicao({
                     <div className="flex min-h-0 flex-col p-5 sm:p-6">
                         <h3 className="mb-5 flex items-center gap-2 text-sm font-bold text-[#1759ad]">
                             <FiMessageCircle />
-                            Minhas respostas
+                            Comunicação com a Administração
                         </h3>
 
                         <div className="max-h-72 min-h-32 space-y-4 overflow-y-auto pr-2">
                             {carregando ? (
                                 <div className="flex items-center gap-2 text-sm text-gray-500">
                                     <FiRefreshCw className="animate-spin" />
-                                    Carregando respostas...
+                                    Carregando mensagens...
                                 </div>
-                            ) : eventos.length ? (
-                                eventos.map((evento) => (
-                                    <div
-                                        key={evento.chave}
-                                        className="relative border-l-2 border-green-300 pl-4"
-                                    >
-                                        <span className="absolute -left-[6px] top-1 h-2.5 w-2.5 rounded-full bg-green-600" />
+                            ) : eventos.length > 0 ? (
+                                eventos.map((evento) => {
+                                    const mensagemAdmin =
+                                        evento.origem === "admin";
 
-                                        <div className="flex flex-wrap items-center justify-between gap-1">
-                                            <p className="text-xs font-bold text-green-700">
-                                                {evento.autor}
+                                    return (
+                                        <div
+                                            key={evento.chave}
+                                            className={`relative border-l-2 pl-4 ${
+                                                mensagemAdmin
+                                                    ? "border-blue-300"
+                                                    : "border-green-300"
+                                            }`}
+                                        >
+                                            <span
+                                                className={`absolute -left-[6px] top-1 h-2.5 w-2.5 rounded-full ${
+                                                    mensagemAdmin
+                                                        ? "bg-blue-600"
+                                                        : "bg-green-600"
+                                                }`}
+                                            />
+
+                                            <div className="flex flex-wrap items-center justify-between gap-1">
+                                                <p
+                                                    className={`text-xs font-bold ${
+                                                        mensagemAdmin
+                                                            ? "text-blue-700"
+                                                            : "text-green-700"
+                                                    }`}
+                                                >
+                                                    {evento.autor}
+                                                </p>
+
+                                                <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                                                    <FiClock />
+                                                    {formatarData(evento.data)}
+                                                </span>
+                                            </div>
+
+                                            <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">
+                                                {evento.mensagem}
                                             </p>
-
-                                            <span className="flex items-center gap-1 text-[11px] text-gray-400">
-                                                <FiClock />
-                                                {formatarData(evento.data)}
-                                            </span>
                                         </div>
-
-                                        <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">
-                                            {evento.mensagem}
-                                        </p>
-                                    </div>
-                                ))
+                                    );
+                                })
                             ) : (
                                 <p className="text-sm text-gray-500">
-                                    Você ainda não enviou respostas para esta solicitação.
+                                    Nenhuma mensagem registrada para esta solicitação.
                                 </p>
                             )}
                         </div>
 
+                        {/* ENVIAR RESPOSTA */}
                         <div className="mt-6 border-t border-gray-100 pt-5">
                             <label
                                 htmlFor="mensagem-instituicao"
                                 className="mb-2 block text-sm font-semibold text-[#082d56]"
                             >
-                                Enviar resposta
+                                Enviar mensagem para a administração
                             </label>
 
                             <textarea
@@ -431,7 +602,9 @@ export default function DetalhesSolicitacaoInstituicao({
                                 rows={4}
                                 maxLength={2000}
                                 value={resposta}
-                                onChange={(e) => setResposta(e.target.value)}
+                                onChange={(e) =>
+                                    setResposta(e.target.value)
+                                }
                                 disabled={salvando || carregando}
                                 placeholder="Digite sua mensagem para a administração..."
                                 className="w-full resize-none rounded-lg border border-gray-300 p-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
@@ -458,7 +631,9 @@ export default function DetalhesSolicitacaoInstituicao({
                                     <FiSend />
                                 )}
 
-                                {salvando ? "Enviando..." : "Enviar resposta"}
+                                {salvando
+                                    ? "Enviando..."
+                                    : "Enviar mensagem"}
                             </button>
                         </div>
                     </div>

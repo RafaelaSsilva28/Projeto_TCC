@@ -1,6 +1,6 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import {
     FiSearch,
     FiRefreshCw,
@@ -14,15 +14,22 @@ import {
     FiFileText,
     FiMessageCircle,
 } from "react-icons/fi";
+
 import toast from "react-hot-toast";
 
 import { enderecoServidor } from "../utils";
 import DetalhesSolicitacaoInstituicao from "../components/DetalhesSolicitacaoInstituicao";
 
 const API = String(enderecoServidor).replace(/\/$/, "");
+
 const TOKEN_KEY = "@AndraRecursos:token";
 const USUARIO_KEY = "@AndraRecursos:usuario";
+
 const POR_PAGINA = 8;
+
+// ============================================
+// AUTENTICAÇÃO
+// ============================================
 
 function obterToken() {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -36,7 +43,9 @@ function obterToken() {
             localStorage.getItem(USUARIO_KEY) || "null"
         );
 
-        if (typeof usuario === "string") return usuario;
+        if (typeof usuario === "string") {
+            return usuario;
+        }
 
         return (
             usuario?.token ||
@@ -49,12 +58,48 @@ function obterToken() {
     }
 }
 
+// ============================================
+// IDENTIFICADOR DA SOLICITAÇÃO
+// ============================================
+
+function obterIdSolicitacao(item) {
+    const possiveisIds = [
+        item?.id_solicitacoes,
+        item?.id_solicitacao,
+        item?.id,
+    ];
+
+    for (const valor of possiveisIds) {
+        if (
+            valor !== null &&
+            valor !== undefined &&
+            String(valor).trim() !== ""
+        ) {
+            const id = Number(valor);
+
+            if (Number.isSafeInteger(id) && id > 0) {
+                return id;
+            }
+        }
+    }
+
+    return null;
+}
+
+// ============================================
+// FORMATAÇÃO
+// ============================================
+
 function formatarData(valor) {
-    if (!valor) return "Não informada";
+    if (!valor) {
+        return "Não informada";
+    }
 
     const data = new Date(valor);
 
-    if (Number.isNaN(data.getTime())) return String(valor);
+    if (Number.isNaN(data.getTime())) {
+        return String(valor);
+    }
 
     return new Intl.DateTimeFormat("pt-BR", {
         timeZone: "America/Sao_Paulo",
@@ -64,22 +109,40 @@ function formatarData(valor) {
     }).format(data);
 }
 
-function normalizarStatus(status) {
-    const valor = String(status || "").toLowerCase().trim();
+// ============================================
+// STATUS
+// ============================================
 
-    if (["concluida", "concluída", "concluido", "concluído"].includes(valor)) {
+function normalizarStatus(status) {
+    const valor = String(status || "")
+        .toLowerCase()
+        .trim();
+
+    if (
+        ["concluida", "concluída", "concluido", "concluído"]
+            .includes(valor)
+    ) {
         return "Concluída";
     }
 
-    if (["em andamento", "em_andamento", "andamento"].includes(valor)) {
+    if (
+        ["em andamento", "em_andamento", "andamento"]
+            .includes(valor)
+    ) {
         return "Em andamento";
     }
 
-    if (["pendente", "aberta", "aberto", "nova"].includes(valor)) {
+    if (
+        ["pendente", "aberta", "aberto", "nova"]
+            .includes(valor)
+    ) {
         return "Pendente";
     }
 
-    if (["cancelada", "cancelado"].includes(valor)) {
+    if (
+        ["cancelada", "cancelado"]
+            .includes(valor)
+    ) {
         return "Cancelada";
     }
 
@@ -90,30 +153,49 @@ function classeStatus(status) {
     switch (normalizarStatus(status)) {
         case "Concluída":
             return "bg-emerald-50 text-emerald-700 ring-emerald-600/20";
+
         case "Em andamento":
             return "bg-blue-50 text-blue-700 ring-blue-600/20";
+
         case "Pendente":
             return "bg-amber-50 text-amber-700 ring-amber-600/20";
+
         case "Cancelada":
             return "bg-red-50 text-red-700 ring-red-600/20";
+
         default:
             return "bg-slate-100 text-slate-600 ring-slate-500/20";
     }
 }
 
-function classePrioridade(prioridade) {
-    const valor = String(prioridade || "").toLowerCase();
+// ============================================
+// PRIORIDADE
+// ============================================
 
-    if (valor.includes("alta") || valor.includes("urgente")) {
+function classePrioridade(prioridade) {
+    const valor = String(prioridade || "")
+        .toLowerCase();
+
+    if (
+        valor.includes("alta") ||
+        valor.includes("urgente")
+    ) {
         return "bg-red-50 text-red-700";
     }
 
-    if (valor.includes("média") || valor.includes("media")) {
+    if (
+        valor.includes("média") ||
+        valor.includes("media")
+    ) {
         return "bg-amber-50 text-amber-700";
     }
 
     return "bg-slate-100 text-slate-600";
 }
+
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
 
 export default function SolicitacoesInstituicao() {
     const navigate = useNavigate();
@@ -126,15 +208,25 @@ export default function SolicitacoesInstituicao() {
     const [busca, setBusca] = useState("");
     const [filtroStatus, setFiltroStatus] = useState("Todas");
     const [pagina, setPagina] = useState(1);
-    const [solicitacaoSelecionada, setSolicitacaoSelecionada] =
-        useState(null);
+
+    const [
+        solicitacaoSelecionada,
+        setSolicitacaoSelecionada,
+    ] = useState(null);
+
+    // ============================================
+    // REQUISIÇÕES À API
+    // ============================================
 
     const requisicao = useCallback(async (caminho) => {
         const token = obterToken();
 
         if (!token) {
             navigate("/", { replace: true });
-            throw new Error("Sua sessão expirou. Entre novamente.");
+
+            throw new Error(
+                "Sua sessão expirou. Entre novamente."
+            );
         }
 
         const resposta = await fetch(`${API}${caminho}`, {
@@ -148,76 +240,115 @@ export default function SolicitacoesInstituicao() {
         if (resposta.status === 401) {
             localStorage.removeItem(TOKEN_KEY);
             localStorage.removeItem(USUARIO_KEY);
+
             navigate("/", { replace: true });
-            throw new Error("Sua sessão expirou. Entre novamente.");
+
+            throw new Error(
+                "Sua sessão expirou. Entre novamente."
+            );
         }
 
         if (!resposta.ok) {
             throw new Error(
                 dados?.error ||
                 dados?.message ||
-                `Erro ao consultar solicitações (${resposta.status}).`
+                `Erro na requisição (${resposta.status}).`
             );
         }
 
         return dados;
     }, [navigate]);
 
-    const carregarSolicitacoes = useCallback(async (silencioso = false) => {
-        if (silencioso) {
-            setAtualizando(true);
-        } else {
-            setCarregando(true);
-        }
+    // ============================================
+    // CARREGAR SOLICITAÇÕES
+    // ============================================
 
-        setErro("");
-
-        try {
-            const dados = await requisicao("/solicitacoes");
-
-            const lista = Array.isArray(dados)
-                ? dados
-                : Array.isArray(dados?.solicitacoes)
-                    ? dados.solicitacoes
-                    : Array.isArray(dados?.dados)
-                        ? dados.dados
-                        : null;
-
-            if (!lista) {
-                throw new Error(
-                    "A API não retornou uma lista válida de solicitações."
-                );
+    const carregarSolicitacoes = useCallback(
+        async (silencioso = false) => {
+            if (silencioso) {
+                setAtualizando(true);
+            } else {
+                setCarregando(true);
             }
 
-            setSolicitacoes(lista);
-        } catch (error) {
-            setErro(error.message || "Não foi possível carregar as solicitações.");
+            setErro("");
 
-            if (!silencioso) {
-                toast.error(
-                    error.message || "Erro ao carregar as solicitações."
+            try {
+                const dados = await requisicao("/solicitacoes");
+
+                const lista = Array.isArray(dados)
+                    ? dados
+                    : Array.isArray(dados?.solicitacoes)
+                        ? dados.solicitacoes
+                        : Array.isArray(dados?.dados)
+                            ? dados.dados
+                            : null;
+
+                if (!lista) {
+                    throw new Error(
+                        "A API não retornou uma lista válida de solicitações."
+                    );
+                }
+
+                // Identifica registros sem ID para facilitar o diagnóstico.
+                const listaValida = lista.filter((item) => {
+                    const id = obterIdSolicitacao(item);
+
+                    if (id === null) {
+                        console.error(
+                            "Solicitação retornada sem ID válido:",
+                            item
+                        );
+
+                        return false;
+                    }
+
+                    return true;
+                });
+
+                setSolicitacoes(listaValida);
+            } catch (error) {
+                setErro(
+                    error.message ||
+                    "Não foi possível carregar as solicitações."
                 );
+
+                if (!silencioso) {
+                    toast.error(
+                        error.message ||
+                        "Erro ao carregar as solicitações."
+                    );
+                }
+            } finally {
+                setCarregando(false);
+                setAtualizando(false);
             }
-        } finally {
-            setCarregando(false);
-            setAtualizando(false);
-        }
-    }, [requisicao]);
+        },
+        [requisicao]
+    );
 
     useEffect(() => {
         carregarSolicitacoes();
     }, [carregarSolicitacoes]);
 
+    // ============================================
+    // PESQUISA E FILTROS
+    // ============================================
+
     const solicitacoesFiltradas = useMemo(() => {
         const termo = busca.toLowerCase().trim();
 
         return solicitacoes.filter((item) => {
-            const titulo = String(item.titulo || "").toLowerCase();
-            const descricao = String(item.descricao || "").toLowerCase();
-            const setor = String(item.setor || "").toLowerCase();
-            const id = String(
-                item.id_solicitacoes ?? item.id_solicitacao ?? ""
-            );
+            const titulo = String(item.titulo || "")
+                .toLowerCase();
+
+            const descricao = String(item.descricao || "")
+                .toLowerCase();
+
+            const setor = String(item.setor || "")
+                .toLowerCase();
+
+            const id = String(obterIdSolicitacao(item));
 
             const correspondeBusca =
                 !termo ||
@@ -229,7 +360,8 @@ export default function SolicitacoesInstituicao() {
             const status = normalizarStatus(item.status);
 
             const correspondeStatus =
-                filtroStatus === "Todas" || status === filtroStatus;
+                filtroStatus === "Todas" ||
+                status === filtroStatus;
 
             return correspondeBusca && correspondeStatus;
         });
@@ -239,9 +371,15 @@ export default function SolicitacoesInstituicao() {
         setPagina(1);
     }, [busca, filtroStatus]);
 
+    // ============================================
+    // PAGINAÇÃO
+    // ============================================
+
     const totalPaginas = Math.max(
         1,
-        Math.ceil(solicitacoesFiltradas.length / POR_PAGINA)
+        Math.ceil(
+            solicitacoesFiltradas.length / POR_PAGINA
+        )
     );
 
     const paginaAtual = Math.min(pagina, totalPaginas);
@@ -250,6 +388,10 @@ export default function SolicitacoesInstituicao() {
         (paginaAtual - 1) * POR_PAGINA,
         paginaAtual * POR_PAGINA
     );
+
+    // ============================================
+    // INDICADORES
+    // ============================================
 
     const pendentes = solicitacoes.filter(
         (item) => normalizarStatus(item.status) === "Pendente"
@@ -263,8 +405,35 @@ export default function SolicitacoesInstituicao() {
         (item) => normalizarStatus(item.status) === "Concluída"
     ).length;
 
+    // ============================================
+    // DETALHES
+    // ============================================
+
     function abrirDetalhes(item) {
-        setSolicitacaoSelecionada(item);
+        const id = obterIdSolicitacao(item);
+
+        if (id === null) {
+            console.error(
+                "Não foi possível abrir a solicitação. ID inválido:",
+                item
+            );
+
+            toast.error(
+                "Não foi possível identificar esta solicitação."
+            );
+
+            return;
+        }
+
+        // Mantém o ID normalizado no objeto enviado ao modal.
+        const solicitacao = {
+            ...item,
+            id_solicitacoes: id,
+            id_solicitacao: id,
+            id,
+        };
+
+        setSolicitacaoSelecionada(solicitacao);
     }
 
     function fecharDetalhes() {
@@ -272,9 +441,15 @@ export default function SolicitacoesInstituicao() {
         carregarSolicitacoes(true);
     }
 
+    // ============================================
+    // RENDERIZAÇÃO
+    // ============================================
+
     return (
         <div className="mx-auto w-full max-w-7xl space-y-6">
+
             {/* TÍTULO */}
+
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
                     <p className="text-sm font-semibold text-[#1755ad]">
@@ -298,26 +473,34 @@ export default function SolicitacoesInstituicao() {
                 >
                     <FiRefreshCw
                         size={17}
-                        className={atualizando ? "animate-spin" : ""}
+                        className={
+                            atualizando ? "animate-spin" : ""
+                        }
                     />
+
                     Atualizar
                 </button>
             </div>
 
             {/* INDICADORES */}
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-slate-500">
                             Total de solicitações
                         </span>
+
                         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#1755ad]">
                             <FiFileText size={21} />
                         </span>
                     </div>
+
                     <p className="mt-4 text-3xl font-extrabold text-[#082d56]">
                         {solicitacoes.length}
                     </p>
+
                     <p className="mt-1 text-xs text-slate-500">
                         Solicitações cadastradas
                     </p>
@@ -328,13 +511,16 @@ export default function SolicitacoesInstituicao() {
                         <span className="text-sm font-semibold text-slate-500">
                             Pendentes
                         </span>
+
                         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
                             <FiFlag size={21} />
                         </span>
                     </div>
+
                     <p className="mt-4 text-3xl font-extrabold text-amber-600">
                         {pendentes}
                     </p>
+
                     <p className="mt-1 text-xs text-slate-500">
                         Aguardando andamento
                     </p>
@@ -345,13 +531,16 @@ export default function SolicitacoesInstituicao() {
                         <span className="text-sm font-semibold text-slate-500">
                             Em andamento
                         </span>
+
                         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                             <FiLayers size={21} />
                         </span>
                     </div>
+
                     <p className="mt-4 text-3xl font-extrabold text-indigo-600">
                         {emAndamento}
                     </p>
+
                     <p className="mt-1 text-xs text-slate-500">
                         Em tratamento
                     </p>
@@ -362,27 +551,35 @@ export default function SolicitacoesInstituicao() {
                         <span className="text-sm font-semibold text-slate-500">
                             Concluídas
                         </span>
+
                         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                             <FiMessageCircle size={21} />
                         </span>
                     </div>
+
                     <p className="mt-4 text-3xl font-extrabold text-emerald-600">
                         {concluidas}
                     </p>
+
                     <p className="mt-1 text-xs text-slate-500">
                         Solicitações finalizadas
                     </p>
                 </div>
+
             </div>
 
             {/* LISTA */}
+
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
                 <div className="border-b border-slate-100 p-5 sm:p-6">
+
                     <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
                         <div>
                             <h2 className="text-lg font-bold text-[#082d56]">
                                 Solicitações da instituição
                             </h2>
+
                             <p className="mt-1 text-sm text-slate-500">
                                 Pesquise, filtre e abra uma solicitação para consultar os detalhes.
                             </p>
@@ -394,15 +591,19 @@ export default function SolicitacoesInstituicao() {
                     </div>
 
                     <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px]">
+
                         <div className="relative">
                             <FiSearch
                                 size={18}
                                 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
                             />
+
                             <input
                                 type="search"
                                 value={busca}
-                                onChange={(evento) => setBusca(evento.target.value)}
+                                onChange={(evento) =>
+                                    setBusca(evento.target.value)
+                                }
                                 placeholder="Buscar por título, descrição, setor ou número..."
                                 className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#1755ad] focus:bg-white focus:ring-4 focus:ring-blue-100"
                             />
@@ -410,36 +611,65 @@ export default function SolicitacoesInstituicao() {
 
                         <select
                             value={filtroStatus}
-                            onChange={(evento) => setFiltroStatus(evento.target.value)}
+                            onChange={(evento) =>
+                                setFiltroStatus(evento.target.value)
+                            }
                             className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none focus:border-[#1755ad] focus:ring-4 focus:ring-blue-100"
                         >
-                            <option value="Todas">Todos os status</option>
-                            <option value="Pendente">Pendente</option>
-                            <option value="Em andamento">Em andamento</option>
-                            <option value="Concluída">Concluída</option>
-                            <option value="Cancelada">Cancelada</option>
+                            <option value="Todas">
+                                Todos os status
+                            </option>
+
+                            <option value="Pendente">
+                                Pendente
+                            </option>
+
+                            <option value="Em andamento">
+                                Em andamento
+                            </option>
+
+                            <option value="Concluída">
+                                Concluída
+                            </option>
+
+                            <option value="Cancelada">
+                                Cancelada
+                            </option>
                         </select>
+
                     </div>
                 </div>
 
+                {/* CARREGAMENTO */}
+
                 {carregando ? (
+
                     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                        <FiRefreshCw className="animate-spin text-[#1755ad]" size={30} />
+                        <FiRefreshCw
+                            className="animate-spin text-[#1755ad]"
+                            size={30}
+                        />
+
                         <p className="mt-4 text-sm font-semibold text-slate-600">
                             Carregando solicitações...
                         </p>
                     </div>
+
                 ) : erro && solicitacoes.length === 0 ? (
+
                     <div className="px-6 py-14 text-center">
                         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-500">
                             <FiAlertCircle size={25} />
                         </span>
+
                         <h3 className="mt-4 font-bold text-slate-800">
                             Não foi possível carregar as solicitações
                         </h3>
+
                         <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
                             {erro}
                         </p>
+
                         <button
                             type="button"
                             onClick={() => carregarSolicitacoes()}
@@ -449,27 +679,38 @@ export default function SolicitacoesInstituicao() {
                             Tentar novamente
                         </button>
                     </div>
+
                 ) : solicitacoesFiltradas.length === 0 ? (
+
                     <div className="px-6 py-16 text-center">
                         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-[#1755ad]">
                             <FiFileText size={25} />
                         </span>
+
                         <h3 className="mt-4 font-bold text-slate-800">
                             Nenhuma solicitação encontrada
                         </h3>
+
                         <p className="mt-2 text-sm text-slate-500">
                             {busca || filtroStatus !== "Todas"
                                 ? "Tente alterar a pesquisa ou o filtro de status."
                                 : "Ainda não há solicitações para exibir."}
                         </p>
                     </div>
+
                 ) : (
+
                     <>
+
                         <div className="divide-y divide-slate-100">
+
                             {solicitacoesPagina.map((item) => {
-                                const id =
-                                    item.id_solicitacoes ??
-                                    item.id_solicitacao;
+                                const id = obterIdSolicitacao(item);
+
+                                // Proteção adicional para o identificador.
+                                if (id === null) {
+                                    return null;
+                                }
 
                                 return (
                                     <article
@@ -477,21 +718,29 @@ export default function SolicitacoesInstituicao() {
                                         className="p-5 transition hover:bg-slate-50/70 sm:p-6"
                                     >
                                         <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
+
                                             <div className="min-w-0 flex-1">
+
                                                 <div className="flex flex-wrap items-center gap-2">
+
                                                     <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
                                                         Solicitação #{id}
                                                     </span>
 
-                                                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${classeStatus(item.status)}`}>
+                                                    <span
+                                                        className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${classeStatus(item.status)}`}
+                                                    >
                                                         {normalizarStatus(item.status)}
                                                     </span>
 
                                                     {item.prioridade && (
-                                                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${classePrioridade(item.prioridade)}`}>
+                                                        <span
+                                                            className={`rounded-full px-2.5 py-1 text-xs font-bold ${classePrioridade(item.prioridade)}`}
+                                                        >
                                                             {item.prioridade}
                                                         </span>
                                                     )}
+
                                                 </div>
 
                                                 <h3 className="mt-3 break-words text-base font-bold text-[#082d56] sm:text-lg">
@@ -503,6 +752,7 @@ export default function SolicitacoesInstituicao() {
                                                 </p>
 
                                                 <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-500">
+
                                                     <span className="inline-flex items-center gap-1.5">
                                                         <FiLayers size={14} />
                                                         Setor: {item.setor || "Não informado"}
@@ -512,6 +762,7 @@ export default function SolicitacoesInstituicao() {
                                                         <FiCalendar size={14} />
                                                         Data: {formatarData(item.data_pedido)}
                                                     </span>
+
                                                 </div>
                                             </div>
 
@@ -523,35 +774,53 @@ export default function SolicitacoesInstituicao() {
                                                 <FiEye size={17} />
                                                 Ver detalhes
                                             </button>
+
                                         </div>
                                     </article>
                                 );
                             })}
+
                         </div>
 
                         {/* PAGINAÇÃO */}
+
                         <div className="flex flex-col justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center">
+
                             <p className="text-xs text-slate-500">
                                 Exibindo{" "}
+
                                 <strong>
-                                    {(paginaAtual - 1) * POR_PAGINA + 1}
+                                    {solicitacoesFiltradas.length > 0
+                                        ? (paginaAtual - 1) * POR_PAGINA + 1
+                                        : 0}
                                 </strong>{" "}
+
                                 a{" "}
+
                                 <strong>
                                     {Math.min(
                                         paginaAtual * POR_PAGINA,
                                         solicitacoesFiltradas.length
                                     )}
                                 </strong>{" "}
+
                                 de{" "}
-                                <strong>{solicitacoesFiltradas.length}</strong>
+
+                                <strong>
+                                    {solicitacoesFiltradas.length}
+                                </strong>
                             </p>
 
                             <div className="flex items-center justify-between gap-2 sm:justify-end">
+
                                 <button
                                     type="button"
                                     disabled={paginaAtual <= 1}
-                                    onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                                    onClick={() =>
+                                        setPagina((p) =>
+                                            Math.max(1, p - 1)
+                                        )
+                                    }
                                     className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                     <FiChevronLeft size={17} />
@@ -566,18 +835,24 @@ export default function SolicitacoesInstituicao() {
                                     type="button"
                                     disabled={paginaAtual >= totalPaginas}
                                     onClick={() =>
-                                        setPagina((p) => Math.min(totalPaginas, p + 1))
+                                        setPagina((p) =>
+                                            Math.min(totalPaginas, p + 1)
+                                        )
                                     }
                                     className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                     Próxima
                                     <FiChevronRight size={17} />
                                 </button>
+
                             </div>
                         </div>
+
                     </>
                 )}
             </section>
+
+            {/* MODAL DE DETALHES */}
 
             {solicitacaoSelecionada && (
                 <DetalhesSolicitacaoInstituicao
@@ -585,6 +860,7 @@ export default function SolicitacoesInstituicao() {
                     onClose={fecharDetalhes}
                 />
             )}
+
         </div>
     );
 }

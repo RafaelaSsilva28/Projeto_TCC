@@ -266,65 +266,83 @@ export default function DetalhesSolicitacaoAdmin({
     // BUSCAR HISTÓRICO DE COMUNICAÇÃO
     // ==========================================
 
-    async function buscarComunicacao() {
-        const [
-            dadosHistorico,
-            dadosRespostas,
-        ] = await Promise.all([
-            chamarAPI(
-                `/historico-solicitacoes/solicitacao/${id}`
-            ),
+    
+async function buscarComunicacao() {
+    const [
+        dadosHistorico,
+        dadosRespostasAdmin,
+        dadosRespostasInstituicao,
+    ] = await Promise.all([
+        chamarAPI(
+            `/historico-solicitacoes/solicitacao/${id}`
+        ),
+        chamarAPI(
+            `/respostas-adm/solicitacao/${id}`
+        ),
+        chamarAPI(
+            `/respostas-instituicao/solicitacao/${id}`
+        ),
+    ]);
 
-            chamarAPI(
-                `/respostas-adm/solicitacao/${id}`
-            ),
-        ]);
+    const historico = Array.isArray(dadosHistorico)
+        ? dadosHistorico
+        : dadosHistorico?.historico ?? [];
 
-        const movimentacoes = (
-            Array.isArray(dadosHistorico)
-                ? dadosHistorico
-                : []
-        ).map((item) => ({
-            chave: `historico-${item.id_historico}`,
-            tipo: "movimentacao",
-            autor: "SISTEMA / MOVIMENTAÇÃO",
-            mensagem: item.descricao,
-            data: item.data_alteracao,
-        }));
+    const respostasAdmin = Array.isArray(dadosRespostasAdmin)
+        ? dadosRespostasAdmin
+        : dadosRespostasAdmin?.respostas ?? [];
 
-        const mensagens = (
-            Array.isArray(dadosRespostas)
-                ? dadosRespostas
-                : []
-        ).map((item) => ({
-            chave: `resposta-${item.id_resposta}`,
-            tipo: "resposta",
-            autor: "ADMINISTRADOR",
+    const respostasInstituicao = Array.isArray(
+        dadosRespostasInstituicao
+    )
+        ? dadosRespostasInstituicao
+        : dadosRespostasInstituicao?.respostas ?? [];
+
+    const movimentacoes = historico.map((item) => ({
+        chave: `historico-${item.id_historico}`,
+        tipo: "movimentacao",
+        autor: "SISTEMA / MOVIMENTAÇÃO",
+        mensagem: item.descricao,
+        data: item.data_alteracao,
+    }));
+
+    const mensagensAdmin = respostasAdmin.map((item) => ({
+        chave: `admin-${item.id_resposta}`,
+        tipo: "resposta",
+        autor: "ADMINISTRADOR",
+        mensagem: item.mensagem,
+        data: item.data_resposta,
+    }));
+
+    const mensagensInstituicao = respostasInstituicao.map(
+        (item) => ({
+            chave: `instituicao-${item.id_resposta}`,
+            tipo: "resposta-instituicao",
+            autor: "INSTITUIÇÃO",
             mensagem: item.mensagem,
             data: item.data_resposta,
-        }));
+        })
+    );
 
-        // Mais antigos primeiro.
-        return [
-            ...movimentacoes,
-            ...mensagens,
-        ].sort((a, b) => {
-            const dataA = new Date(a.data).getTime();
-            const dataB = new Date(b.data).getTime();
+    return [
+        ...movimentacoes,
+        ...mensagensAdmin,
+        ...mensagensInstituicao,
+    ].sort((a, b) => {
+        const dataA = new Date(a.data).getTime();
+        const dataB = new Date(b.data).getTime();
 
-            if (
-                !Number.isFinite(dataA) &&
-                !Number.isFinite(dataB)
-            ) {
-                return 0;
-            }
+        if (!Number.isFinite(dataA) && !Number.isFinite(dataB)) {
+            return 0;
+        }
 
-            if (!Number.isFinite(dataA)) return 1;
-            if (!Number.isFinite(dataB)) return -1;
+        if (!Number.isFinite(dataA)) return 1;
+        if (!Number.isFinite(dataB)) return -1;
 
-            return dataA - dataB;
-        });
-    }
+        return dataA - dataB;
+    });
+}
+
 
     // ==========================================
     // ATUALIZAR CONTEÚDO DO MODAL
