@@ -342,7 +342,7 @@ export default function HistoricoInst() {
       }
 
       const resposta = await fetch(
-        `${enderecoServidor}/solicitacoes/instituicao/solicitacoes/${id}`,
+        `${enderecoServidor}/instituicao/solicitacoes/${id}`,
         {
           method: "DELETE",
           headers: {
@@ -366,7 +366,7 @@ export default function HistoricoInst() {
             `Erro ${resposta.status} ao excluir a solicitação.`,
         );
       }
-      
+
       // Remove do histórico todos os registros
       // relacionados à solicitação excluída.
       setHistorico((listaAtual) =>
@@ -380,7 +380,7 @@ export default function HistoricoInst() {
       console.error("Erro ao excluir solicitação:", erro);
       alert(erro.message || "Erro ao excluir a solicitação.");
     }
-  }
+  };
 
   // ==========================================
   // EXPORTAR RELATÓRIO PDF

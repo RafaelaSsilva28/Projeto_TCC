@@ -13,9 +13,39 @@ import {
 
 import { enderecoServidor } from "../utils";
 
-const API = String(enderecoServidor).replace(/\/$/, "");
-
+const API = String(enderecoServidor).replace(/\/+$/, "");
 const CHAVE_TOKEN = "@AndraRecursos:token";
+
+// ============================================
+// NORMALIZAR ID DA SOLICITAÇÃO
+// Aceita tanto um ID quanto um objeto de solicitação
+// ============================================
+
+function obterIdSolicitacao(valor) {
+    const candidato =
+        valor && typeof valor === "object"
+            ? (
+                valor.id_solicitacoes ??
+                valor.id_solicitacao ??
+                valor.idSolicitacao ??
+                valor.id
+            )
+            : valor;
+
+    if (
+        candidato === null ||
+        candidato === undefined ||
+        String(candidato).trim() === ""
+    ) {
+        return null;
+    }
+
+    const numero = Number(candidato);
+
+    return Number.isSafeInteger(numero) && numero > 0
+        ? numero
+        : null;
+}
 
 // ============================================
 // COMPONENTE DE ANEXOS DA SOLICITAÇÃO
@@ -29,6 +59,8 @@ export default function AnexosSolicitacaoInst({
     const [erro, setErro] = useState("");
     const [processando, setProcessando] = useState(null);
 
+    const id = obterIdSolicitacao(idSolicitacao);
+
     // ==========================================
     // REQUISIÇÕES AUTENTICADAS
     // ==========================================
@@ -38,25 +70,43 @@ export default function AnexosSolicitacaoInst({
 
         if (!token) {
             throw new Error(
-                "Sessão expirada. Faça login novamente."
+                "Sua sessão expirou. Entre novamente no sistema."
             );
         }
 
         const resposta = await fetch(`${API}${caminho}`, {
             ...opcoes,
             headers: {
-                Authorization: `Bearer ${token}`,
                 ...opcoes.headers,
+                Authorization: `Bearer ${token}`,
             },
         });
 
         const dados = await resposta.json().catch(() => null);
 
         if (!resposta.ok) {
+            if (resposta.status === 401) {
+                throw new Error(
+                    "Sua sessão expirou ou o token é inválido. Entre novamente."
+                );
+            }
+
+            if (resposta.status === 403) {
+                throw new Error(
+                    "Acesso negado pelo servidor. O backend precisa autorizar a instituição a consultar os documentos da própria solicitação."
+                );
+            }
+
+            if (resposta.status === 404) {
+                throw new Error(
+                    "A rota ou o documento não foi encontrado. Verifique as rotas do backend."
+                );
+            }
+
             throw new Error(
                 dados?.error ||
                 dados?.message ||
-                `Erro ${resposta.status} na API.`
+                `Erro ${resposta.status} ao consultar o servidor.`
             );
         }
 
@@ -64,80 +114,65 @@ export default function AnexosSolicitacaoInst({
     }, []);
 
     // ==========================================
-    // VALIDAR ID DA SOLICITAÇÃO
-    // ==========================================
-
-    const idValido =
-        idSolicitacao !== null &&
-        idSolicitacao !== undefined &&
-        String(idSolicitacao).trim() !== "" &&
-        Number.isSafeInteger(Number(idSolicitacao)) &&
-        Number(idSolicitacao) > 0;
-
-    const id = idValido ? Number(idSolicitacao) : null;
-
-    // ==========================================
     // CARREGAR DOCUMENTOS
     // ==========================================
 
-    const carregarDocumentos = useCallback(
-        async (signal) => {
-            if (
-                id === null ||
-                !Number.isSafeInteger(id) ||
-                id <= 0
-            ) {
+    const carregarDocumentos = useCallback(async (signal) => {
+        if (id === null) {
+            setDocumentos([]);
+            setErro(
+                "O ID da solicitação não foi informado corretamente. Verifique como o componente recebe a propriedade idSolicitacao."
+            );
+            setCarregando(false);
+            return;
+        }
+
+        setCarregando(true);
+        setErro("");
+
+        try {
+            // Rota existente no backend:
+            // GET /documentos/solicitacao/:id_solicitacoes
+
+            const dados = await chamarAPI(
+                `/documentos/solicitacao/${id}`,
+                { signal }
+            );
+
+            const lista = Array.isArray(dados)
+                ? dados
+                : dados?.documentos;
+
+            if (!Array.isArray(lista)) {
+                throw new Error(
+                    "O servidor não retornou uma lista válida de documentos."
+                );
+            }
+
+            if (signal?.aborted) return;
+
+            setDocumentos(lista);
+        } catch (error) {
+            if (error.name === "AbortError") return;
+
+            console.error(
+                "Erro ao carregar documentos da solicitação:",
+                error
+            );
+
+            if (!signal?.aborted) {
                 setDocumentos([]);
                 setErro(
-                    "Não foi possível identificar a solicitação. Verifique o ID enviado pelo componente."
+                    error.message ||
+                    "Não foi possível carregar os documentos."
                 );
+            }
+        } finally {
+            if (!signal?.aborted) {
                 setCarregando(false);
-                return;
             }
-
-            setCarregando(true);
-            setErro("");
-
-            try {
-                // Rota existente no backend:
-                // GET /documentos/solicitacao/:id_solicitacoes
-
-                const dados = await chamarAPI(
-                    `/documentos/solicitacao/${id}`,
-                    { signal }
-                );
-
-                const lista = Array.isArray(dados)
-                    ? dados
-                    : dados?.documentos;
-
-                if (!Array.isArray(lista)) {
-                    throw new Error(
-                        "A API retornou uma lista de documentos inválida."
-                    );
-                }
-
-                setDocumentos(lista);
-            } catch (error) {
-                if (error.name === "AbortError") {
-                    return;
-                }
-
-                console.error(
-                    "Erro ao carregar documentos da solicitação:",
-                    error
-                );
-
-                setDocumentos([]);
-                setErro(error.message || "Não foi possível carregar os documentos.");
-            } finally {
-                if (!signal?.aborted) {
-                    setCarregando(false);
-                }
-            }
-        },
-        [id, chamarAPI]
-    );
+        }
+    }, [id, chamarAPI]);
 
     // ==========================================
     // CARREGAMENTO AUTOMÁTICO
@@ -152,10 +187,10 @@ export default function AnexosSolicitacaoInst({
     }, [carregarDocumentos]);
 
     // ==========================================
-    // OBTER LINK SEGURO DO DOCUMENTO
+    // OBTER LINK DO DOCUMENTO
     // ==========================================
 
-    async function obterUrlDocumento(documento) {
+    const obterUrlDocumento = useCallback(async (documento) => {
         const idDocumento = Number(documento?.id_documento);
 
         if (
@@ -163,9 +198,13 @@ export default function AnexosSolicitacaoInst({
             idDocumento <= 0
         ) {
             throw new Error(
-                "O identificador do documento é inválido."
+                "O identificador deste documento é inválido."
             );
         }
+
+        // Esta rota precisa autorizar a instituição proprietária
+        // do documento. Se for exclusiva do administrador,
+        // o backend deverá ser corrigido.
 
         const dados = await chamarAPI(
             `/documentos/${idDocumento}/download`
@@ -173,11 +212,19 @@ export default function AnexosSolicitacaoInst({
 
         if (!dados?.url) {
             throw new Error(
-                "O servidor não retornou o link do arquivo."
+                "O servidor não retornou o link para acessar o arquivo."
             );
         }
 
-        const url = new URL(dados.url);
+        let url;
+
+        try {
+            url = new URL(dados.url);
+        } catch {
+            throw new Error(
+                "O servidor retornou um endereço de arquivo inválido."
+            );
+        }
 
         if (
             !["https:", "http:"].includes(url.protocol) ||
@@ -185,35 +232,37 @@ export default function AnexosSolicitacaoInst({
             url.password
         ) {
             throw new Error(
-                "O servidor retornou um link inválido."
+                "O endereço retornado pelo servidor não é válido."
             );
         }
 
-        return { ...dados, url: url.href };
-    }
+        return {
+            ...dados,
+            url: url.href,
+        };
+    }, [chamarAPI]);
 
     // ==========================================
     // VISUALIZAR DOCUMENTO
     // ==========================================
 
-    async function abrirDocumento(documento) {
+    const abrirDocumento = async (documento) => {
         if (processando !== null) return;
 
-        setProcessando(documento.id_documento);
+        const chave = documento?.id_documento;
+
+        setProcessando(chave);
 
         try {
             const dados = await obterUrlDocumento(documento);
 
-            const link = document.createElement("a");
-
-            link.href = dados.url;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
-
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            window.open(
+                dados.url,
+                "_blank",
+                "noopener,noreferrer"
+            );
         } catch (error) {
+            console.error("Erro ao abrir documento:", error);
             toast.error(
                 error.message ||
                 "Não foi possível abrir o documento."
@@ -221,16 +270,18 @@ export default function AnexosSolicitacaoInst({
         } finally {
             setProcessando(null);
         }
-    }
+    };
 
     // ==========================================
     // BAIXAR DOCUMENTO
     // ==========================================
 
-    async function baixarDocumento(documento) {
+    const baixarDocumento = async (documento) => {
         if (processando !== null) return;
 
-        setProcessando(documento.id_documento);
+        const chave = documento?.id_documento;
+
+        setProcessando(chave);
 
         try {
             const dados = await obterUrlDocumento(documento);
@@ -249,8 +300,9 @@ export default function AnexosSolicitacaoInst({
             link.click();
             link.remove();
 
-            toast.success("Download solicitado com sucesso!");
+            toast.success("Solicitação de download enviada.");
         } catch (error) {
+            console.error("Erro ao baixar documento:", error);
             toast.error(
                 error.message ||
                 "Não foi possível baixar o documento."
@@ -258,7 +310,7 @@ export default function AnexosSolicitacaoInst({
         } finally {
             setProcessando(null);
         }
-    }
+    };
 
     // ==========================================
     // INTERFACE
@@ -283,7 +335,6 @@ export default function AnexosSolicitacaoInst({
             {carregando && (
                 <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                     <FiRefreshCw className="animate-spin" />
-
                     Carregando documentos...
                 </div>
             )}
@@ -294,17 +345,18 @@ export default function AnexosSolicitacaoInst({
                 <div className="rounded-lg border border-red-200 bg-red-50 p-4">
                     <p className="flex items-start gap-2 text-sm text-red-700">
                         <FiAlertCircle className="mt-0.5 shrink-0" />
-
                         <span>{erro}</span>
                     </p>
 
-                    <button
-                        type="button"
-                        onClick={() => carregarDocumentos()}
-                        className="mt-3 text-sm font-semibold text-red-700 underline"
-                    >
-                        Tentar novamente
-                    </button>
+                    {id !== null && (
+                        <button
+                            type="button"
+                            onClick={() => carregarDocumentos()}
+                            className="mt-3 text-sm font-semibold text-red-700 underline"
+                        >
+                            Tentar novamente
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -332,13 +384,13 @@ export default function AnexosSolicitacaoInst({
                 !erro &&
                 documentos.length > 0 && (
                     <div className="space-y-3">
-                        {documentos.map((documento) => {
-                            const ocupado =
-                                processando === documento.id_documento;
+                        {documentos.map((documento, indice) => {
+                            const chave = documento.id_documento;
+                            const ocupado = processando === chave;
 
                             return (
                                 <article
-                                    key={documento.id_documento}
+                                    key={chave ?? indice}
                                     className="rounded-xl border border-gray-200 bg-white p-4 transition hover:border-blue-200 hover:shadow-sm"
                                 >
                                     <div className="flex min-w-0 items-start gap-3">
@@ -348,7 +400,7 @@ export default function AnexosSolicitacaoInst({
 
                                         <div className="min-w-0 flex-1">
                                             <p
-                                                title={documento.nome_arquivo}
+                                                title={documento.nome_arquivo || ""}
                                                 className="break-words text-sm font-semibold text-[#082d56]"
                                             >
                                                 {documento.nome_arquivo ||
@@ -357,6 +409,8 @@ export default function AnexosSolicitacaoInst({
 
                                             <p className="mt-1 text-xs text-gray-500">
                                                 {documento.tipo ||
+                                                    documento.tipo_documento ||
+                                                    documento.mime_type ||
                                                     "Tipo não informado"}
                                             </p>
                                         </div>
@@ -365,9 +419,7 @@ export default function AnexosSolicitacaoInst({
                                     <div className="mt-4 grid grid-cols-2 gap-2">
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                abrirDocumento(documento)
-                                            }
+                                            onClick={() => abrirDocumento(documento)}
                                             disabled={processando !== null}
                                             className="flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-[#1759ad] transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
@@ -382,9 +434,7 @@ export default function AnexosSolicitacaoInst({
 
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                baixarDocumento(documento)
-                                            }
+                                            onClick={() => baixarDocumento(documento)}
                                             disabled={processando !== null}
                                             className="flex items-center justify-center gap-2 rounded-lg bg-[#082d56] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#164675] disabled:cursor-not-allowed disabled:opacity-50"
                                         >
