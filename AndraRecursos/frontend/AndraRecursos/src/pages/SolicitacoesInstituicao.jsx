@@ -1,5 +1,6 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import {
     FiSearch,
@@ -173,8 +174,7 @@ function classeStatus(status) {
 // ============================================
 
 function classePrioridade(prioridade) {
-    const valor = String(prioridade || "")
-        .toLowerCase();
+    const valor = String(prioridade || "").toLowerCase();
 
     if (
         valor.includes("alta") ||
@@ -199,6 +199,7 @@ function classePrioridade(prioridade) {
 
 export default function SolicitacoesInstituicao() {
     const navigate = useNavigate();
+    const { id: idSolicitacaoUrl } = useParams();
 
     const [solicitacoes, setSolicitacoes] = useState([]);
     const [carregando, setCarregando] = useState(true);
@@ -237,14 +238,17 @@ export default function SolicitacoesInstituicao() {
 
         const dados = await resposta.json().catch(() => null);
 
-        if (resposta.status === 401) {
+        if (
+            resposta.status === 401 ||
+            resposta.status === 403
+        ) {
             localStorage.removeItem(TOKEN_KEY);
             localStorage.removeItem(USUARIO_KEY);
 
             navigate("/", { replace: true });
 
             throw new Error(
-                "Sua sessão expirou. Entre novamente."
+                "Sua sessão expirou ou você não possui autorização."
             );
         }
 
@@ -290,7 +294,6 @@ export default function SolicitacoesInstituicao() {
                     );
                 }
 
-                // Identifica registros sem ID para facilitar o diagnóstico.
                 const listaValida = lista.filter((item) => {
                     const id = obterIdSolicitacao(item);
 
@@ -330,6 +333,74 @@ export default function SolicitacoesInstituicao() {
     useEffect(() => {
         carregarSolicitacoes();
     }, [carregarSolicitacoes]);
+
+    // ============================================
+    // ABRIR MODAL AUTOMATICAMENTE PELA URL
+    // ============================================
+
+    useEffect(() => {
+        // Sem ID na URL, a página funciona normalmente.
+        if (!idSolicitacaoUrl) {
+            return;
+        }
+
+        // Aguarda a API concluir o carregamento.
+        if (carregando || atualizando) {
+            return;
+        }
+
+        // Não tenta localizar o registro quando a API falha.
+        if (erro) {
+            return;
+        }
+
+        const idUrl = Number(idSolicitacaoUrl);
+
+        if (
+            !Number.isSafeInteger(idUrl) ||
+            idUrl <= 0
+        ) {
+            toast.error(
+                "O identificador da solicitação é inválido."
+            );
+
+            navigate("/instituicao/solicitacoes", {
+                replace: true,
+            });
+
+            return;
+        }
+
+        const solicitacao = solicitacoes.find(
+            (item) => obterIdSolicitacao(item) === idUrl
+        );
+
+        if (!solicitacao) {
+            toast.error(
+                "A solicitação não foi encontrada na lista da instituição."
+            );
+
+            navigate("/instituicao/solicitacoes", {
+                replace: true,
+            });
+
+            return;
+        }
+
+        setSolicitacaoSelecionada({
+            ...solicitacao,
+            id_solicitacoes: idUrl,
+            id_solicitacao: idUrl,
+            id: idUrl,
+        });
+    }, [
+        idSolicitacaoUrl,
+        carregando,
+        atualizando,
+        erro,
+        solicitacoes,
+        navigate,
+    ]);
 
     // ============================================
     // PESQUISA E FILTROS
@@ -425,7 +496,6 @@ export default function SolicitacoesInstituicao() {
             return;
         }
 
-        // Mantém o ID normalizado no objeto enviado ao modal.
         const solicitacao = {
             ...item,
             id_solicitacoes: id,
@@ -438,6 +508,15 @@ export default function SolicitacoesInstituicao() {
 
     function fecharDetalhes() {
         setSolicitacaoSelecionada(null);
+
+        // Se chegou pelo link de uma notificação,
+        // retorna à lista sem o ID na URL.
+        if (idSolicitacaoUrl) {
+            navigate("/instituicao/solicitacoes", {
+                replace: true,
+            });
+        }
+
         carregarSolicitacoes(true);
     }
 
@@ -680,6 +759,27 @@ export default function SolicitacoesInstituicao() {
                         </button>
                     </div>
 
+                ) : erro ? (
+
+                    <div className="px-6 py-10 text-center">
+                        <FiAlertCircle
+                            className="mx-auto text-red-500"
+                            size={26}
+                        />
+
+                        <p className="mt-3 text-sm text-red-700">
+                            {erro}
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={() => carregarSolicitacoes()}
+                            className="mt-4 rounded-xl bg-[#1755ad] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#10468f]"
+                        >
+                            Tentar novamente
+                        </button>
+                    </div>
+
                 ) : solicitacoesFiltradas.length === 0 ? (
 
                     <div className="px-6 py-16 text-center">
@@ -707,7 +807,6 @@ export default function SolicitacoesInstituicao() {
                             {solicitacoesPagina.map((item) => {
                                 const id = obterIdSolicitacao(item);
 
-                                // Proteção adicional para o identificador.
                                 if (id === null) {
                                     return null;
                                 }

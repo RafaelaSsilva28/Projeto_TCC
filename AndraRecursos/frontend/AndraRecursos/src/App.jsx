@@ -240,6 +240,10 @@ function App() {
               </LayoutInstituicao>
             }
           />
+          <Route
+    path="/instituicao/solicitacoes/:id"
+    element={ <LayoutInstituicao><SolicitacoesInstituicao /></LayoutInstituicao>}
+/>
 
           {/* HISTÓRICO INSTITUCIONAL */}
           <Route
