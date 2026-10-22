@@ -1,9 +1,11 @@
+
 import { Router } from "express";
 import { BD } from "../../db.js";
 
 import {
     autenticarToken,
     autenticarAdministrador,
+    autenticarInstituicao,
 } from "../middlewares/Autenticacao.js";
 
 const router = Router();
@@ -13,11 +15,17 @@ const router = Router();
 // =============================================
 
 function obterIdAdministrador(req) {
-    return Number(req.usuario?.id_administrador);
+    return Number(
+        req.usuario?.id_administrador ??
+        req.administrador?.id_administrador
+    );
 }
 
 function obterIdInstituicao(req) {
-    return Number(req.usuario?.id_instituicao);
+    return Number(
+        req.instituicao?.id_instituicao ??
+        req.usuario?.id_instituicao
+    );
 }
 
 function validarId(valor) {
@@ -27,6 +35,7 @@ function validarId(valor) {
 
 // =============================================
 // GET - LISTAR NOTIFICAÇÕES DO ADMINISTRADOR
+// GET /notificacoes
 // =============================================
 
 router.get(
@@ -87,11 +96,13 @@ router.get(
 
 // =============================================
 // GET - LISTAR NOTIFICAÇÕES DA INSTITUIÇÃO
+// GET /notificacoes/instituicao
 // =============================================
 
 router.get(
     "/notificacoes/instituicao",
     autenticarToken,
+    autenticarInstituicao,
     async (req, res) => {
         const idInstituicao = obterIdInstituicao(req);
 
@@ -141,6 +152,7 @@ router.get(
 
 // =============================================
 // GET - RESUMO DAS NOTIFICAÇÕES DO ADMINISTRADOR
+// GET /notificacoes/resumo
 // =============================================
 
 router.get(
@@ -190,6 +202,7 @@ router.get(
 
 // =============================================
 // POST - CRIAR NOTIFICAÇÃO PARA O ADMINISTRADOR
+// POST /notificacoes
 // =============================================
 
 router.post(
@@ -199,7 +212,10 @@ router.post(
     async (req, res) => {
         const idAdministrador = obterIdAdministrador(req);
 
-        const mensagem = String(req.body?.mensagem ?? "").trim();
+        const mensagem = String(
+            req.body?.mensagem ?? ""
+        ).trim();
+
         const tipo = String(
             req.body?.tipo_informacao ?? ""
         ).trim();
@@ -215,11 +231,7 @@ router.post(
             });
         }
 
-        if (
-            !mensagem ||
-            !tipo ||
-            mensagem.length > 2000
-        ) {
+        if (!mensagem || !tipo || mensagem.length > 2000) {
             return res.status(400).json({
                 error: "Mensagem ou tipo de informação inválidos.",
             });
@@ -327,7 +339,8 @@ router.patch(
             );
 
             return res.status(200).json({
-                message: "Todas as notificações foram marcadas como lidas.",
+                message:
+                    "Todas as notificações foram marcadas como lidas.",
                 alteradas: resultado.rowCount,
             });
         } catch (error) {
@@ -353,7 +366,9 @@ router.patch(
     autenticarAdministrador,
     async (req, res) => {
         const idAdministrador = obterIdAdministrador(req);
-        const idNotificacao = Number(req.params.id_notificacao);
+        const idNotificacao = Number(
+            req.params.id_notificacao
+        );
 
         if (
             !validarId(idAdministrador) ||
@@ -402,7 +417,6 @@ router.patch(
 
 // =============================================
 // DELETE - EXCLUIR TODAS (ADMINISTRADOR)
-// Esta rota precisa vir antes da rota com :id_notificacao.
 // =============================================
 
 router.delete(
@@ -456,7 +470,9 @@ router.delete(
     autenticarAdministrador,
     async (req, res) => {
         const idAdministrador = obterIdAdministrador(req);
-        const idNotificacao = Number(req.params.id_notificacao);
+        const idNotificacao = Number(
+            req.params.id_notificacao
+        );
 
         if (
             !validarId(idAdministrador) ||
@@ -509,6 +525,7 @@ router.delete(
 router.patch(
     "/notificacoes/instituicao/marcar-todas-lidas",
     autenticarToken,
+    autenticarInstituicao,
     async (req, res) => {
         const idInstituicao = obterIdInstituicao(req);
 
@@ -533,7 +550,8 @@ router.patch(
             );
 
             return res.status(200).json({
-                message: "Todas as notificações foram marcadas como lidas.",
+                message:
+                    "Todas as notificações foram marcadas como lidas.",
                 alteradas: resultado.rowCount,
             });
         } catch (error) {
@@ -556,9 +574,12 @@ router.patch(
 router.patch(
     "/notificacoes/instituicao/:id_notificacao/lida",
     autenticarToken,
+    autenticarInstituicao,
     async (req, res) => {
         const idInstituicao = obterIdInstituicao(req);
-        const idNotificacao = Number(req.params.id_notificacao);
+        const idNotificacao = Number(
+            req.params.id_notificacao
+        );
 
         if (
             !validarId(idInstituicao) ||
@@ -608,12 +629,12 @@ router.patch(
 
 // =============================================
 // DELETE - EXCLUIR TODAS (INSTITUIÇÃO)
-// Esta rota precisa vir antes da rota com :id_notificacao.
 // =============================================
 
 router.delete(
     "/notificacoes/instituicao/todas",
     autenticarToken,
+    autenticarInstituicao,
     async (req, res) => {
         const idInstituicao = obterIdInstituicao(req);
 
@@ -660,9 +681,12 @@ router.delete(
 router.delete(
     "/notificacoes/instituicao/:id_notificacao",
     autenticarToken,
+    autenticarInstituicao,
     async (req, res) => {
         const idInstituicao = obterIdInstituicao(req);
-        const idNotificacao = Number(req.params.id_notificacao);
+        const idNotificacao = Number(
+            req.params.id_notificacao
+        );
 
         if (
             !validarId(idInstituicao) ||
