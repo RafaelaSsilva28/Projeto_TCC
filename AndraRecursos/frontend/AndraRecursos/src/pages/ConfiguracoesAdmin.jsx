@@ -763,33 +763,36 @@ export default function ConfiguracoesAdmin() {
           </section>
 
           {/* ORIENTAÇÕES DE SEGURANÇA */}
-          <section className="flex h-full flex-col overflow-hidden rounded-2xl bg-[#082d56] p-5 text-white shadow-sm sm:p-6 dark:border dark:border-slate-700 dark:bg-slate-800">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
-              <FiShield size={24} />
+          {/* ORIENTAÇÕES DE SEGURANÇA */}
+          <section className="flex h-full flex-col overflow-hidden rounded-2xl bg-[#082d56] p-6 sm:p-8 text-white shadow-sm dark:border dark:border-slate-700 dark:bg-slate-800">
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white/10">
+              <FiShield size={28} />
             </div>
 
-            <h2 className="text-lg font-bold">Proteção da conta</h2>
+            <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+              Proteção da conta
+            </h2>
 
-            <p className="mt-2 text-sm leading-relaxed text-blue-100">
+            <p className="mt-3 text-base leading-7 text-blue-100">
               Mantenha suas credenciais protegidas e não compartilhe sua senha
               com outras pessoas.
             </p>
 
-            <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <FiLock size={17} />
+            <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-center gap-3 text-base font-semibold">
+                <FiLock size={20} />
                 Requisitos de senha
               </div>
 
-              <p className="mt-2 text-xs leading-relaxed text-blue-100">
+              <p className="mt-3 text-sm leading-6 text-blue-100">
                 A senha deve ter pelo menos 8 caracteres e não pode ultrapassar
                 72 caracteres.
               </p>
             </div>
 
             <div className="mt-auto pt-6">
-              <div className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 p-4 text-sm leading-relaxed text-blue-100">
-                <FiShield className="mt-0.5 shrink-0" size={16} />
+              <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-5 text-sm leading-6 text-blue-100">
+                <FiShield className="mt-0.5 shrink-0" size={18} />
                 As configurações de segurança são vinculadas à conta autenticada
                 do administrador.
               </div>
