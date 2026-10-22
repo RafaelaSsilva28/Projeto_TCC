@@ -10,8 +10,6 @@ import {
   FiAlertCircle,
   FiLoader,
   FiMonitor,
-  FiMoon,
-  FiSun,
 } from "react-icons/fi";
 
 import { enderecoServidor } from "../utils";
@@ -125,29 +123,6 @@ function lerIdentidadeLocal() {
 }
 
 // ==========================================
-// TEMA LOCAL
-// ==========================================
-const CHAVE_TEMA = "@AndraRecursos:modo_escuro";
-
-function lerTemaLocal() {
-  try {
-    return localStorage.getItem(CHAVE_TEMA) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function aplicarTema(escuro) {
-  document.documentElement.classList.toggle("dark", escuro);
-
-  try {
-    localStorage.setItem(CHAVE_TEMA, String(escuro));
-  } catch {
-    // O tema continua aplicado durante a sessão atual.
-  }
-}
-
-// ==========================================
 // CAMPO DE SENHA
 // ==========================================
 function CampoSenha({
@@ -197,50 +172,6 @@ function CampoSenha({
 }
 
 // ==========================================
-// OPÇÃO DE TEMA
-// ==========================================
-function OpcaoTema({ escuro, onAlternar }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 p-4 transition hover:border-blue-100 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-700/40">
-      <div className="flex min-w-0 items-start gap-3">
-        <div className="mt-0.5 rounded-lg bg-blue-50 p-2.5 text-[#1755ad] dark:bg-slate-700 dark:text-blue-300">
-          {escuro ? <FiMoon size={19} /> : <FiSun size={19} />}
-        </div>
-
-        <div>
-          <p className="text-sm font-semibold text-[#082d56] dark:text-white">
-            {escuro ? "Tema escuro" : "Tema claro"}
-          </p>
-
-          <p className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-            {escuro
-              ? "O tema escuro está ativado. Desative para voltar ao tema claro."
-              : "O tema claro está ativado. Ative para utilizar cores escuras."}
-          </p>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        role="switch"
-        aria-checked={escuro}
-        aria-label="Alternar entre tema claro e escuro"
-        onClick={() => onAlternar(!escuro)}
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          escuro ? "bg-[#1755ad]" : "bg-slate-300"
-        }`}
-      >
-        <span
-          className={`pointer-events-none absolute left-1 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white shadow-sm transition-transform ${
-            escuro ? "translate-x-5" : "translate-x-0"
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
-
-// ==========================================
 // PÁGINA
 // ==========================================
 export default function ConfiguracoesInst() {
@@ -248,8 +179,6 @@ export default function ConfiguracoesInst() {
     nome: "",
     email_institucional: "",
   });
-
-  const [temaEscuro, setTemaEscuro] = useState(lerTemaLocal);
 
   const [senhas, setSenhas] = useState({
     senhaAtual: "",
@@ -270,11 +199,6 @@ export default function ConfiguracoesInst() {
     tipo: "",
     texto: "",
   });
-
-  // ---------- APLICAR TEMA ----------
-  useEffect(() => {
-    aplicarTema(temaEscuro);
-  }, [temaEscuro]);
 
   // ---------- CARREGAR DADOS ----------
   async function carregarConfiguracoes() {
@@ -316,11 +240,6 @@ export default function ConfiguracoesInst() {
   useEffect(() => {
     carregarConfiguracoes();
   }, []);
-
-  // ---------- TEMA ----------
-  function alternarTema(valor) {
-    setTemaEscuro(valor);
-  }
 
   // ---------- SENHA ----------
   function alterarCampoSenha(campo, valor) {
@@ -447,8 +366,7 @@ export default function ConfiguracoesInst() {
           </h1>
 
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base dark:text-slate-400">
-            Gerencie os dados da instituição, a aparência e a segurança da sua
-            conta.
+            Gerencie os dados da instituição e a segurança da sua conta.
           </p>
         </div>
 
@@ -549,61 +467,10 @@ export default function ConfiguracoesInst() {
                   </p>
                 </div>
               </section>
-
-              {/* APARÊNCIA */}
-              <section className={classeCartao}>
-                <div className={classeCabecalhoCartao}>
-                  <div className={classeIconeCartao}>
-                    {temaEscuro ? <FiMoon size={21} /> : <FiSun size={21} />}
-                  </div>
-
-                  <div>
-                    <h2 className="font-bold text-[#082d56] dark:text-white">
-                      Aparência
-                    </h2>
-
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                      Escolha entre o tema claro e o tema escuro.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-4 p-5 sm:p-6">
-                  <OpcaoTema escuro={temaEscuro} onAlternar={alternarTema} />
-
-                  <p className="text-xs leading-relaxed text-slate-400 dark:text-slate-500">
-                    Sua preferência é salva automaticamente neste navegador.
-                  </p>
-                </div>
-              </section>
             </div>
 
             {/* COLUNA LATERAL */}
             <aside className="space-y-6">
-              <section className="overflow-hidden rounded-2xl bg-[#082d56] p-5 text-white shadow-sm sm:p-6 dark:border dark:border-slate-700 dark:bg-slate-800">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
-                  <FiShield size={24} />
-                </div>
-
-                <h2 className="text-lg font-bold">Segurança da conta</h2>
-
-                <p className="mt-2 text-sm leading-relaxed text-blue-100">
-                  Mantenha sua senha atualizada e não compartilhe suas
-                  credenciais com outras pessoas.
-                </p>
-
-                <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <FiLock size={17} />
-                    Alteração de senha
-                  </div>
-
-                  <p className="mt-2 text-xs leading-relaxed text-blue-100">
-                    Utilize uma senha com pelo menos 8 caracteres.
-                  </p>
-                </div>
-              </section>
-
               {/* FORMULÁRIO DE SENHA */}
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-800">
                 <div className="mb-5 flex items-center gap-3">
@@ -679,6 +546,30 @@ export default function ConfiguracoesInst() {
                     {alterandoSenha ? "Alterando senha..." : "Atualizar senha"}
                   </button>
                 </form>
+              </section>
+
+              <section className="overflow-hidden rounded-2xl bg-[#082d56] p-5 text-white shadow-sm sm:p-6 dark:border dark:border-slate-700 dark:bg-slate-800">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
+                  <FiShield size={24} />
+                </div>
+
+                <h2 className="text-lg font-bold">Segurança da conta</h2>
+
+                <p className="mt-2 text-sm leading-relaxed text-blue-100">
+                  Mantenha sua senha atualizada e não compartilhe suas
+                  credenciais com outras pessoas.
+                </p>
+
+                <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <FiLock size={17} />
+                    Alteração de senha
+                  </div>
+
+                  <p className="mt-2 text-xs leading-relaxed text-blue-100">
+                    Utilize uma senha com pelo menos 8 caracteres.
+                  </p>
+                </div>
               </section>
 
               <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">

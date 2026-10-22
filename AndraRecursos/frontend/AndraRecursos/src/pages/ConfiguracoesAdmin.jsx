@@ -13,29 +13,11 @@ import {
   FiRefreshCw,
   FiUser,
   FiMail,
-  FiMoon,
-  FiSun,
 } from "react-icons/fi";
 
 import { enderecoServidor } from "../utils";
 
 const API = String(enderecoServidor).replace(/\/$/, "");
-const CHAVE_TEMA = "@AndraRecursos:modo_escuro";
-
-// =============================================
-// TEMA LOCAL
-// =============================================
-
-function lerTemaLocal() {
-  return localStorage.getItem(CHAVE_TEMA) === "true";
-}
-
-function aplicarTema(escuro) {
-  document.documentElement.classList.toggle("dark", escuro);
-
-  localStorage.setItem(CHAVE_TEMA, String(escuro));
-}
-
 // =============================================
 // CONEXÃO COM A API
 // =============================================
@@ -68,39 +50,6 @@ async function requisicao(caminho, opcoes = {}) {
 }
 
 // =============================================
-// OPÇÃO DE TEMA
-// =============================================
-
-function OpcaoConfiguracao({ titulo, descricao, valor, aoAlterar }) {
-  return (
-    <label className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-[#f8fafc] p-4 transition hover:border-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500">
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-[#082d56] dark:text-gray-100">
-          {titulo}
-        </span>
-
-        <span className="mt-1 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-          {descricao}
-        </span>
-      </span>
-
-      <span className="relative shrink-0">
-        <input
-          type="checkbox"
-          checked={valor}
-          onChange={(evento) => aoAlterar(evento.target.checked)}
-          className="peer sr-only"
-        />
-
-        <span className="block h-7 w-12 rounded-full bg-gray-300 transition peer-checked:bg-[#1759ad] peer-focus-visible:ring-4 peer-focus-visible:ring-blue-200 dark:bg-gray-600" />
-
-        <span className="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
-      </span>
-    </label>
-  );
-}
-
-// =============================================
 // PÁGINA DE CONFIGURAÇÕES
 // =============================================
 
@@ -116,8 +65,6 @@ export default function ConfiguracoesAdmin() {
     email: "",
   });
 
-  const [temaEscuro, setTemaEscuro] = useState(lerTemaLocal);
-
   const [senhas, setSenhas] = useState({
     senhaAtual: "",
     novaSenha: "",
@@ -125,14 +72,6 @@ export default function ConfiguracoesAdmin() {
   });
 
   const [mostrarSenha, setMostrarSenha] = useState(false);
-
-  // ==========================================
-  // APLICAR TEMA
-  // ==========================================
-
-  useEffect(() => {
-    aplicarTema(temaEscuro);
-  }, [temaEscuro]);
 
   // ==========================================
   // CARREGAR DADOS DO ADMINISTRADOR
@@ -171,14 +110,6 @@ export default function ConfiguracoesAdmin() {
       ativo = false;
     };
   }, []);
-
-  // ==========================================
-  // ALTERAR TEMA
-  // ==========================================
-
-  function alterarTema(valor) {
-    setTemaEscuro(valor);
-  }
 
   // ==========================================
   // ALTERAR SENHA DO ADMINISTRADOR
@@ -446,7 +377,7 @@ export default function ConfiguracoesAdmin() {
             <div className="space-y-6">
               <div className="flex items-start gap-3">
                 <div className="rounded-lg bg-blue-100 p-3 text-[#1759ad] dark:bg-blue-950 dark:text-blue-200">
-                  {temaEscuro ? <FiMoon size={21} /> : <FiSun size={21} />}
+                  <FiMonitor size={21} />
                 </div>
 
                 <div>
@@ -455,21 +386,13 @@ export default function ConfiguracoesAdmin() {
                   </h2>
 
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Personalize o tema da sua experiência no AndraRecursos.
+                    A identidade visual do AndraRecursos é padronizada para
+                    manter a consistência entre as páginas.
                   </p>
                 </div>
               </div>
 
               <div className="border-t border-gray-100 dark:border-gray-700" />
-
-              <OpcaoConfiguracao
-                titulo={
-                  temaEscuro ? "Tema escuro ativado" : "Tema claro ativado"
-                }
-                descricao="Alterne entre o tema claro e o escuro. Sua preferência fica salva neste navegador."
-                valor={temaEscuro}
-                aoAlterar={alterarTema}
-              />
 
               <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
                 <p className="text-sm font-semibold text-[#082d56] dark:text-blue-100">
