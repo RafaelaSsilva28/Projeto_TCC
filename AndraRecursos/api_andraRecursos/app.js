@@ -134,7 +134,21 @@ app.post("/health", (req, res) => {
 // ======================================
 // ROTAS DA API
 // ======================================
+// ======================================
+// DIAGNÓSTICO DO LOGIN INSTITUCIONAL
+// ======================================
 
+app.use("/login-instituicao", (req, res, next) => {
+    console.log("[DIAGNÓSTICO LOGIN]", {
+        metodo: req.method,
+        caminho: req.originalUrl,
+        authorizationPresente: Boolean(
+            req.headers.authorization
+        ),
+    });
+
+    next();
+});
 // --------------------------------------
 // ADMINISTRADORES
 // --------------------------------------

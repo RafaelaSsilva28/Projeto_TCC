@@ -29,20 +29,20 @@ const camposInstitucionais = [
 ];
 
 const selecaoInstituicao = `
-  id_instituicao,
-  nome,
-  email_institucional,
-  cep,
-  telefone,
-  horario_funcionamento,
-  status_instituicao,
-  gestor,
-  secretaria_vinculada,
-  numero,
-  logradouro,
-  bairro,
-  tipo_acesso,
-  cadastro_completo
+    id_instituicao,
+    nome,
+    email_institucional,
+    cep,
+    telefone,
+    horario_funcionamento,
+    status_instituicao,
+    gestor,
+    secretaria_vinculada,
+    numero,
+    logradouro,
+    bairro,
+    tipo_acesso,
+    cadastro_completo
 `;
 
 // =============================================
@@ -95,13 +95,13 @@ function validarObrigatorios(body) {
 // =============================================
 // LOGIN INSTITUCIONAL
 // POST /login-instituicao
+//
+// ROTA PÚBLICA: NÃO EXIGE TOKEN JWT
 // =============================================
+
 router.post("/login-instituicao", async (req, res) => {
     console.log("[LOGIN INSTITUCIONAL] ROTA ALCANÇADA");
 
-    // Mantenha aqui o restante do código atual.
-});
-router.post("/login-instituicao", async (req, res) => {
     const { email_institucional, senha } = req.body || {};
 
     if (
@@ -111,31 +111,67 @@ router.post("/login-instituicao", async (req, res) => {
         !senha
     ) {
         return res.status(400).json({
-            message: "E-mail e senha são obrigatórios.",
+            message: "E-mail institucional e senha são obrigatórios.",
+            mensagem: "E-mail institucional e senha são obrigatórios.",
+        });
+    }
+
+    const email = email_institucional.trim().toLowerCase();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({
+            message: "Informe um e-mail institucional válido.",
+            mensagem: "Informe um e-mail institucional válido.",
         });
     }
 
     try {
+        // Confere se a chave JWT está configurada.
+        if (!process.env.JWT_SECRET) {
+            console.error(
+                "[LOGIN INSTITUCIONAL] JWT_SECRET não configurada."
+            );
+
+            return res.status(500).json({
+                message: "Configuração de autenticação indisponível.",
+                mensagem: "Configuração de autenticação indisponível.",
+            });
+        }
+
+        // Busca a instituição pelo e-mail institucional.
         const resultado = await BD.query(
             `SELECT
-        id_instituicao,
-        nome,
-        email_institucional,
-        senha,
-        cadastro_completo
-       FROM instituicoes
-       WHERE LOWER(email_institucional) = LOWER($1)`,
-            [email_institucional.trim()]
+                id_instituicao,
+                nome,
+                email_institucional,
+                senha,
+                tipo_acesso,
+                cadastro_completo,
+                status_instituicao,
+                gestor,
+                secretaria_vinculada,
+                cep,
+                telefone,
+                horario_funcionamento,
+                numero,
+                logradouro,
+                bairro
+             FROM instituicoes
+             WHERE LOWER(TRIM(email_institucional)) = $1
+             LIMIT 1`,
+            [email]
         );
 
         if (resultado.rows.length === 0) {
             return res.status(401).json({
                 message: "E-mail ou senha inválidos.",
+                mensagem: "E-mail ou senha inválidos.",
             });
         }
 
         const instituicao = resultado.rows[0];
 
+        // Confere a senha com o hash armazenado no banco.
         const senhaCorreta = await bcrypt.compare(
             senha,
             instituicao.senha
@@ -144,44 +180,65 @@ router.post("/login-instituicao", async (req, res) => {
         if (!senhaCorreta) {
             return res.status(401).json({
                 message: "E-mail ou senha inválidos.",
+                mensagem: "E-mail ou senha inválidos.",
             });
         }
 
-        if (!process.env.JWT_SECRET) {
-            throw new Error("JWT_SECRET não configurada.");
-        }
-
+        // Cria o token institucional.
         const token = jwt.sign(
             {
                 id_instituicao: instituicao.id_instituicao,
                 tipo_acesso: "instituicao",
+                cadastro_completo:
+                    instituicao.cadastro_completo === true,
             },
             process.env.JWT_SECRET,
-            { expiresIn: "8h" }
+            {
+                expiresIn: "8h",
+            }
+        );
+
+        // Não enviar o hash da senha para o frontend.
+        const dadosInstituicao = {
+            id: instituicao.id_instituicao,
+            id_instituicao: instituicao.id_instituicao,
+            nome: instituicao.nome,
+            email_institucional: instituicao.email_institucional,
+            tipo_acesso: instituicao.tipo_acesso || "instituicao",
+            cadastro_completo:
+                instituicao.cadastro_completo === true,
+            status_instituicao: instituicao.status_instituicao,
+            gestor: instituicao.gestor,
+            secretaria_vinculada: instituicao.secretaria_vinculada,
+            cep: instituicao.cep,
+            telefone: instituicao.telefone,
+            horario_funcionamento: instituicao.horario_funcionamento,
+            numero: instituicao.numero,
+            logradouro: instituicao.logradouro,
+            bairro: instituicao.bairro,
+        };
+
+        console.log(
+            "[LOGIN INSTITUCIONAL] Login validado para a instituição:",
+            instituicao.id_instituicao
         );
 
         return res.status(200).json({
-            message: "Login realizado com sucesso!",
+            message: "Login institucional realizado com sucesso!",
+            mensagem: "Login institucional realizado com sucesso!",
+            sucesso: true,
             token,
-            cadastro_completo: instituicao.cadastro_completo,
-            instituicao: {
-                id: instituicao.id_instituicao,
-                nome: instituicao.nome,
-                email_institucional:
-                    instituicao.email_institucional,
-                cadastro_completo:
-                    instituicao.cadastro_completo,
-            },
+            instituicao: dadosInstituicao,
         });
-
     } catch (error) {
         console.error(
-            "Erro no login institucional:",
+            "[LOGIN INSTITUCIONAL] Erro:",
             error.message
         );
 
         return res.status(500).json({
-            message: "Erro interno ao realizar login.",
+            message: "Erro interno ao realizar login institucional.",
+            mensagem: "Erro interno ao realizar login institucional.",
         });
     }
 });
@@ -199,12 +256,11 @@ router.get(
         try {
             const resultado = await BD.query(
                 `SELECT ${selecaoInstituicao}
-         FROM instituicoes
-         ORDER BY id_instituicao`
+                 FROM instituicoes
+                 ORDER BY id_instituicao`
             );
 
             return res.status(200).json(resultado.rows);
-
         } catch (error) {
             console.error(
                 "Erro ao listar instituições:",
@@ -266,18 +322,18 @@ router.post(
 
             const resultado = await BD.query(
                 `INSERT INTO instituicoes (
-          nome,
-          email_institucional,
-          senha,
-          tipo_acesso,
-          cadastro_completo
-        )
-        VALUES ($1, $2, $3, $4, FALSE)
-        RETURNING
-          id_instituicao,
-          nome,
-          email_institucional,
-          cadastro_completo`,
+                    nome,
+                    email_institucional,
+                    senha,
+                    tipo_acesso,
+                    cadastro_completo
+                )
+                VALUES ($1, $2, $3, $4, FALSE)
+                RETURNING
+                    id_instituicao,
+                    nome,
+                    email_institucional,
+                    cadastro_completo`,
                 [
                     nome.trim(),
                     email,
@@ -290,7 +346,6 @@ router.post(
                 message: "Instituição cadastrada com sucesso!",
                 instituicao: resultado.rows[0],
             });
-
         } catch (error) {
             if (error.code === "23505") {
                 return res.status(409).json({
@@ -323,8 +378,8 @@ router.get(
         try {
             const resultado = await BD.query(
                 `SELECT ${selecaoInstituicao}
-         FROM instituicoes
-         WHERE id_instituicao = $1`,
+                 FROM instituicoes
+                 WHERE id_instituicao = $1`,
                 [req.instituicao.id_instituicao]
             );
 
@@ -335,7 +390,6 @@ router.get(
             }
 
             return res.status(200).json(resultado.rows[0]);
-
         } catch (error) {
             console.error(
                 "Erro ao consultar instituição:",
@@ -359,11 +413,9 @@ router.put(
     autenticarToken,
     autenticarInstituicao,
     async (req, res) => {
-        // Impede refazer o cadastro inicial.
         if (req.instituicao.cadastro_completo === true) {
             return res.status(409).json({
-                message:
-                    "O cadastro inicial já foi concluído.",
+                message: "O cadastro inicial já foi concluído.",
             });
         }
 
@@ -378,26 +430,24 @@ router.put(
         const d = validacao.dados;
 
         try {
-            // Atualiza os dados e marca o cadastro
-            // como completo na mesma operação.
             const resultado = await BD.query(
                 `UPDATE instituicoes
-         SET
-           gestor = $1,
-           secretaria_vinculada = $2,
-           logradouro = $3,
-           cep = $4,
-           numero = $5,
-           bairro = $6,
-           telefone = $7,
-           horario_funcionamento = $8,
-           status_instituicao = $9,
-           cadastro_completo = TRUE
-         WHERE id_instituicao = $10
-           AND cadastro_completo = FALSE
-           AND NULLIF(TRIM(nome), '') IS NOT NULL
-           AND NULLIF(TRIM(email_institucional), '') IS NOT NULL
-         RETURNING ${selecaoInstituicao}`,
+                 SET
+                    gestor = $1,
+                    secretaria_vinculada = $2,
+                    logradouro = $3,
+                    cep = $4,
+                    numero = $5,
+                    bairro = $6,
+                    telefone = $7,
+                    horario_funcionamento = $8,
+                    status_instituicao = $9,
+                    cadastro_completo = TRUE
+                 WHERE id_instituicao = $10
+                   AND cadastro_completo = FALSE
+                   AND NULLIF(TRIM(nome), '') IS NOT NULL
+                   AND NULLIF(TRIM(email_institucional), '') IS NOT NULL
+                 RETURNING ${selecaoInstituicao}`,
                 [
                     d.gestor,
                     d.secretaria_vinculada,
@@ -425,7 +475,6 @@ router.put(
                 cadastro_completo: true,
                 instituicao: resultado.rows[0],
             });
-
         } catch (error) {
             console.error(
                 "Erro ao finalizar cadastro:",
@@ -514,7 +563,6 @@ router.patch(
             }
 
             valores.push(valor);
-
             atualizacoes.push(
                 `${campo} = $${valores.length}`
             );
@@ -532,9 +580,9 @@ router.patch(
         try {
             const resultado = await BD.query(
                 `UPDATE instituicoes
-         SET ${atualizacoes.join(", ")}
-         WHERE id_instituicao = $${valores.length}
-         RETURNING ${selecaoInstituicao}`,
+                 SET ${atualizacoes.join(", ")}
+                 WHERE id_instituicao = $${valores.length}
+                 RETURNING ${selecaoInstituicao}`,
                 valores
             );
 
@@ -548,7 +596,6 @@ router.patch(
                 message: "Dados atualizados com sucesso!",
                 instituicao: resultado.rows[0],
             });
-
         } catch (error) {
             console.error(
                 "Erro ao atualizar dados:",
@@ -600,10 +647,6 @@ router.put(
         for (const campo of camposPermitidos) {
             const valorOriginal = req.body?.[campo];
 
-            if (valorOriginal === undefined) {
-                continue;
-            }
-
             if (
                 valorOriginal !== null &&
                 typeof valorOriginal !== "string"
@@ -651,13 +694,11 @@ router.put(
             }
 
             valores.push(valor);
-
             atualizacoes.push(
                 `${campo} = $${valores.length}`
             );
         }
 
-        // Senha é opcional na atualização.
         if (req.body?.senha !== undefined) {
             if (
                 typeof req.body.senha !== "string" ||
@@ -676,11 +717,9 @@ router.put(
                 );
 
                 valores.push(hash);
-
                 atualizacoes.push(
                     `senha = $${valores.length}`
                 );
-
             } catch (error) {
                 console.error(
                     "Erro ao criptografar senha:",
@@ -705,9 +744,9 @@ router.put(
         try {
             const resultado = await BD.query(
                 `UPDATE instituicoes
-         SET ${atualizacoes.join(", ")}
-         WHERE id_instituicao = $${valores.length}
-         RETURNING ${selecaoInstituicao}`,
+                 SET ${atualizacoes.join(", ")}
+                 WHERE id_instituicao = $${valores.length}
+                 RETURNING ${selecaoInstituicao}`,
                 valores
             );
 
@@ -722,7 +761,6 @@ router.put(
                     "Instituição atualizada com sucesso!",
                 instituicao: resultado.rows[0],
             });
-
         } catch (error) {
             if (error.code === "23505") {
                 return res.status(409).json({
@@ -764,8 +802,8 @@ router.delete(
         try {
             const resultado = await BD.query(
                 `DELETE FROM instituicoes
-         WHERE id_instituicao = $1
-         RETURNING id_instituicao`,
+                 WHERE id_instituicao = $1
+                 RETURNING id_instituicao`,
                 [id]
             );
 
@@ -779,7 +817,6 @@ router.delete(
                 message:
                     "Instituição excluída com sucesso!",
             });
-
         } catch (error) {
             console.error(
                 "Erro ao excluir instituição:",
