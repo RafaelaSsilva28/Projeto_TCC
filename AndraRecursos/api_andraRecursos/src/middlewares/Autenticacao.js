@@ -75,12 +75,12 @@ export function autenticarToken(req, res, next) {
     };
 
     console.log("Usuário autenticado:", {
-      id: req.usuario.id,
-      id_instituicao: req.usuario.id_instituicao,
-      tipo_acesso: req.usuario.tipo_acesso,
-      tipo_acesso_normalizado:
-        req.usuario.tipo_acesso_normalizado,
-    });
+  id_administrador: req.usuario.id_administrador,
+  id_instituicao: req.usuario.id_instituicao,
+  tipo_acesso: req.usuario.tipo_acesso,
+  tipo_acesso_normalizado:
+    req.usuario.tipo_acesso_normalizado,
+});
 
     return next();
   } catch (error) {

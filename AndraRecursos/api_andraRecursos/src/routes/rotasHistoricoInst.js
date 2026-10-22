@@ -7,7 +7,7 @@ import {
 
 const router = Router();
 
-// GET - Listar todas as solicitações da instituição logada
+// GET - Listar histórico de solicitações da instituição logada
 router.get(
   "/historico-instituicao",
   autenticarToken,
@@ -19,34 +19,17 @@ router.get(
       const comando = `
         SELECT
           h.id_historico,
-          s.id_solicitacoes AS id_solicitacao,
-          COALESCE(
-            h.descricao,
-            s.descricao,
-            ''
-          ) AS descricao,
-          COALESCE(
-            h.status,
-            s.status::text,
-            'Pendente'
-          ) AS status,
-          COALESCE(
-            h.prioridade,
-            s.prioridade::text,
-            'Não informada'
-          ) AS prioridade,
-          TO_CHAR(
-            COALESCE(h.data_alteracao, s.data_solicitacao),
-            'DD/MM/YYYY'
-          ) AS data_alteracao,
+          h.id_solicitacao,
+          h.descricao,
+          h.status,
+          h.prioridade,
+          TO_CHAR(h.data_alteracao, 'DD/MM/YYYY') AS data_alteracao,
           s.titulo AS titulo_solicitacao
-        FROM solicitacoes s
-        LEFT JOIN historico_solicitacoes h
+        FROM historico_solicitacoes h
+        INNER JOIN solicitacoes s
           ON h.id_solicitacao = s.id_solicitacoes
         WHERE s.id_instituicao = $1
-        ORDER BY
-          COALESCE(h.data_alteracao, s.data_solicitacao) DESC NULLS LAST,
-          s.id_solicitacoes DESC
+        ORDER BY h.data_alteracao DESC
       `;
 
       const historico = await BD.query(comando, [id_instituicao]);
