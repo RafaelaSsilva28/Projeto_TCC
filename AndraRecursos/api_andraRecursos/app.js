@@ -149,20 +149,6 @@ app.use("/login-instituicao", (req, res, next) => {
 
     next();
 });
-// --------------------------------------
-// ADMINISTRADORES
-// --------------------------------------
-
-app.use(rotasAdministradores);
-
-// --------------------------------------
-// PERFIL DO ADMINISTRADOR
-// --------------------------------------
-
-// A autenticação e a autorização de administrador
-// devem ser verificadas dentro da própria rota.
-
-app.use(rotasPerfilAdministrador);
 
 // --------------------------------------
 // INSTITUIÇÕES
@@ -179,6 +165,21 @@ app.use(rotasPerfilAdministrador);
 // DELETE /instituicoes/:id_instituicao
 
 app.use(rotasInstituicoes);
+
+// --------------------------------------
+// ADMINISTRADORES
+// --------------------------------------
+
+app.use(rotasAdministradores);
+
+// --------------------------------------
+// PERFIL DO ADMINISTRADOR
+// --------------------------------------
+
+// A autenticação e a autorização de administrador
+// devem ser verificadas dentro da própria rota.
+
+app.use(rotasPerfilAdministrador);
 
 // --------------------------------------
 // SOLICITAÇÕES
