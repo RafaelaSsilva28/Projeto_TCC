@@ -150,21 +150,7 @@ app.use("/login-instituicao", (req, res, next) => {
     next();
 });
 
-// --------------------------------------
-// INSTITUIÇÕES
-// --------------------------------------
 
-// Inclui:
-// POST  /login-instituicao
-// GET   /instituicoes
-// POST  /instituicoes
-// GET   /instituicoes/me
-// PUT   /instituicoes/completar-cadastro
-// PATCH /instituicoes/me
-// PUT   /instituicoes/:id_instituicao
-// DELETE /instituicoes/:id_instituicao
-
-app.use(rotasInstituicoes);
 
 // --------------------------------------
 // ADMINISTRADORES
@@ -180,6 +166,22 @@ app.use(rotasAdministradores);
 // devem ser verificadas dentro da própria rota.
 
 app.use(rotasPerfilAdministrador);
+
+// --------------------------------------
+// INSTITUIÇÕES
+// --------------------------------------
+
+// Inclui:
+// POST  /login-instituicao
+// GET   /instituicoes
+// POST  /instituicoes
+// GET   /instituicoes/me
+// PUT   /instituicoes/completar-cadastro
+// PATCH /instituicoes/me
+// PUT   /instituicoes/:id_instituicao
+// DELETE /instituicoes/:id_instituicao
+
+app.use(rotasInstituicoes);
 
 // --------------------------------------
 // SOLICITAÇÕES
