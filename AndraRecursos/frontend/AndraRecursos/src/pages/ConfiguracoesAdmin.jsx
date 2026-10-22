@@ -762,7 +762,7 @@ export default function ConfiguracoesAdmin() {
             </div>
           </section>
 
-          {/* ORIENTAÇÕES DE SEGURANÇA */}
+
           {/* ORIENTAÇÕES DE SEGURANÇA */}
           <section className="flex h-full flex-col overflow-hidden rounded-2xl bg-[#082d56] p-6 sm:p-8 text-white shadow-sm dark:border dark:border-slate-700 dark:bg-slate-800">
             <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white/10">

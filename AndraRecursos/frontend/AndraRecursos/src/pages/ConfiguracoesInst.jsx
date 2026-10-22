@@ -549,27 +549,39 @@ export default function ConfiguracoesInst() {
             </section>
 
             {/* SEGURANÇA DA CONTA */}
-            <section className="w-full overflow-hidden rounded-2xl bg-[#082d56] p-5 text-white shadow-sm sm:p-6 dark:border dark:border-slate-700 dark:bg-slate-800">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
-                <FiShield size={24} />
+            <section className="col-span-full flex w-full flex-col overflow-hidden rounded-2xl bg-[#082d56] p-6 text-white shadow-sm sm:p-8 dark:border dark:border-slate-700 dark:bg-slate-800">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white/10">
+                <FiShield size={28} />
               </div>
 
-              <h2 className="text-lg font-bold">Segurança da conta</h2>
+              <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+                Segurança da conta
+              </h2>
 
-              <p className="mt-2 text-sm leading-relaxed text-blue-100">
+              <p className="mt-3 max-w-4xl text-base leading-7 text-blue-100">
                 Mantenha sua senha atualizada e não compartilhe suas credenciais
                 com outras pessoas.
               </p>
 
-              <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <FiLock size={17} />
-                  Alteração de senha
+              <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                  <div className="flex items-center gap-3 text-base font-semibold sm:text-lg">
+                    <FiLock size={21} />
+                    Alteração de senha
+                  </div>
+
+                  <p className="mt-3 text-sm leading-6 text-blue-100 sm:text-base">
+                    Utilize uma senha com pelo menos 8 caracteres.
+                  </p>
                 </div>
 
-                <p className="mt-2 text-xs leading-relaxed text-blue-100">
-                  Utilize uma senha com pelo menos 8 caracteres.
-                </p>
+                <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-5 sm:p-6">
+                  <FiShield className="mt-0.5 shrink-0" size={20} />
+
+                  <p className="text-sm leading-6 text-blue-100 sm:text-base">
+                    Seus dados são vinculados à instituição autenticada.
+                  </p>
+                </div>
               </div>
             </section>
           </div>
