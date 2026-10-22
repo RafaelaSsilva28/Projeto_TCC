@@ -11,48 +11,56 @@ const router = Router();
 
 router.use(autenticarToken, autenticarAdministrador);
 
+// ============================================
+// LOGS DA ROTA
+// ============================================
 router.use((req, res, next) => {
-  console.log("[PERFIL ADMINISTRADOR]", {
-    caminho: req.originalUrl,
-    metodo: req.method,
-    tipoAcesso: req.usuario?.tipo_acesso,
-    tipoAcessoNormalizado:
-      req.usuario?.tipo_acesso_normalizado,
-    idAdministrador: req.usuario?.id_administrador,
-  });
+    console.log("[PERFIL ADMINISTRADOR]", {
+        caminho: req.originalUrl,
+        metodo: req.method,
+        tipoAcesso: req.usuario?.tipo_acesso,
+        idAdministrador: req.usuario?.id_administrador,
+    });
 
-  next();
+    next();
 });
 
+// ============================================
+// IDENTIFICAR ADMINISTRADOR
+// ============================================
 function obterId(req) {
     const id = Number(req.usuario?.id_administrador);
+
     return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
+// ============================================
+// CONSULTA DO PERFIL
+// ============================================
 const CONSULTA = `
-  SELECT
-    a.id_administrador,
-    a.nome,
-    a.email,
-    a.foto_perfil,
-    d.razao_social,
-    d.cnpj,
-    d.gabinete,
-    d.telefone,
-    d.endereco
-  FROM administradores a
-  LEFT JOIN dados_institucionais_administrador d
-    ON d.id_administrador = a.id_administrador
-  WHERE a.id_administrador = $1
+    SELECT
+        a.id_administrador,
+        a.nome,
+        a.email,
+        a.foto_perfil,
+        d.razao_social,
+        d.cnpj,
+        d.gabinete,
+        d.telefone,
+        d.endereco
+    FROM administradores a
+    LEFT JOIN dados_institucionais_administrador d
+        ON d.id_administrador = a.id_administrador
+    WHERE a.id_administrador = $1
 `;
 
-async function buscarPerfil(id) {
-    const resultado = await BD.query(CONSULTA, [id]);
+async function buscarPerfil(id, executor = BD) {
+    const resultado = await executor.query(CONSULTA, [id]);
     return resultado.rows[0] || null;
 }
 
 // ============================================
-// GET - PERFIL
+// GET - CONSULTAR PERFIL
 // ============================================
 router.get("/perfil-administrador", async (req, res) => {
     const id = obterId(req);
@@ -72,9 +80,14 @@ router.get("/perfil-administrador", async (req, res) => {
             });
         }
 
-        return res.json(perfil);
+        return res.json({
+            administrador: perfil,
+        });
     } catch (error) {
-        console.error("Erro ao consultar perfil:", error.message);
+        console.error(
+            "Erro ao consultar perfil:",
+            error.message
+        );
 
         return res.status(500).json({
             message: "Erro ao consultar perfil.",
@@ -83,7 +96,8 @@ router.get("/perfil-administrador", async (req, res) => {
 });
 
 // ============================================
-// PATCH - NOME + DADOS INSTITUCIONAIS
+// PATCH - ATUALIZAR DADOS PESSOAIS
+// E/OU INSTITUCIONAIS
 // ============================================
 router.patch("/perfil-administrador", async (req, res) => {
     const id = obterId(req);
@@ -94,67 +108,147 @@ router.patch("/perfil-administrador", async (req, res) => {
         });
     }
 
-    const {
-        nome,
-        razao_social,
-        cnpj,
-        gabinete,
-        telefone,
-        endereco,
-    } = req.body || {};
+    const corpo = req.body || {};
 
-    const campos = [
-        ["nome", nome, 150],
-        ["razao_social", razao_social, 200],
-        ["cnpj", cnpj, 18],
-        ["gabinete", gabinete, 150],
-        ["telefone", telefone, 25],
-        ["endereco", endereco, 300],
+    const camposPessoais = ["nome", "email"];
+
+    const camposInstitucionais = [
+        "razao_social",
+        "cnpj",
+        "gabinete",
+        "telefone",
+        "endereco",
     ];
 
+    const camposPermitidos = [
+        ...camposPessoais,
+        ...camposInstitucionais,
+    ];
+
+    const recebidos = Object.keys(corpo);
+
     if (
-        campos.some(
-            ([, valor, limite]) =>
-                typeof valor !== "string" ||
-                !valor.trim() ||
-                valor.trim().length > limite
-        )
+        recebidos.length === 0 ||
+        recebidos.some((campo) => !camposPermitidos.includes(campo))
     ) {
         return res.status(400).json({
-            message: "Preencha corretamente todos os campos.",
+            message: "Envie pelo menos um campo válido para atualizar.",
         });
     }
 
-    const cnpjLimpo = cnpj.replace(/\D/g, "");
+    const pessoaisEnviados = camposPessoais.filter(
+        (campo) => Object.prototype.hasOwnProperty.call(corpo, campo)
+    );
 
-    if (cnpjLimpo.length !== 14) {
-        return res.status(400).json({
-            message: "O CNPJ deve conter 14 dígitos.",
-        });
+    const institucionaisEnviados = camposInstitucionais.filter(
+        (campo) => Object.prototype.hasOwnProperty.call(corpo, campo)
+    );
+
+    const valores = {};
+
+    // ========================================
+    // VALIDAR CAMPOS PESSOAIS RECEBIDOS
+    // ========================================
+    for (const campo of pessoaisEnviados) {
+        if (typeof corpo[campo] !== "string") {
+            return res.status(400).json({
+                message: `O campo ${campo} deve ser um texto válido.`,
+            });
+        }
+
+        valores[campo] = corpo[campo].trim();
     }
 
-    const cliente = await BD.connect().catch(() => null);
+    if (Object.prototype.hasOwnProperty.call(valores, "nome")) {
+        if (!valores.nome) {
+            return res.status(400).json({
+                message: "Informe o nome do administrador.",
+            });
+        }
 
-    if (!cliente) {
-        return res.status(500).json({
-            message: "Não foi possível iniciar a atualização.",
-        });
+        if (valores.nome.length > 150) {
+            return res.status(400).json({
+                message: "O nome deve ter no máximo 150 caracteres.",
+            });
+        }
     }
+
+    if (Object.prototype.hasOwnProperty.call(valores, "email")) {
+        if (
+            !valores.email ||
+            valores.email.length > 200 ||
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valores.email)
+        ) {
+            return res.status(400).json({
+                message: "Informe um endereço de e-mail válido.",
+            });
+        }
+    }
+
+    // ========================================
+    // VALIDAR CAMPOS INSTITUCIONAIS RECEBIDOS
+    // ========================================
+    if (institucionaisEnviados.length > 0) {
+        const limites = {
+            razao_social: 200,
+            cnpj: 18,
+            gabinete: 150,
+            telefone: 25,
+            endereco: 300,
+        };
+
+        for (const campo of institucionaisEnviados) {
+            if (typeof corpo[campo] !== "string") {
+                return res.status(400).json({
+                    message: `O campo ${campo} deve ser um texto válido.`,
+                });
+            }
+
+            valores[campo] = corpo[campo].trim();
+
+            if (!valores[campo]) {
+                return res.status(400).json({
+                    message: "Preencha todos os campos institucionais.",
+                });
+            }
+
+            if (valores[campo].length > limites[campo]) {
+                return res.status(400).json({
+                    message: `O campo ${campo} ultrapassou o limite de caracteres.`,
+                });
+            }
+        }
+
+        // A tela institucional envia os cinco campos juntos.
+        // Quando uma requisição parcial for utilizada, os campos
+        // não enviados serão preservados a partir do banco.
+        const cnpj = valores.cnpj;
+
+        if (cnpj !== undefined && cnpj.replace(/\D/g, "").length !== 14) {
+            return res.status(400).json({
+                message: "O CNPJ deve conter 14 dígitos.",
+            });
+        }
+    }
+
+    let cliente;
 
     try {
+        cliente = await BD.connect();
         await cliente.query("BEGIN");
 
-        const atualizacao = await cliente.query(
+        // Confirma que o administrador existe.
+        const atual = await cliente.query(
             `
-      UPDATE administradores
-      SET nome = $1
-      WHERE id_administrador = $2
-      RETURNING id_administrador
-      `,
-            [nome.trim(), id]
+                SELECT id_administrador, email
+                FROM administradores
+                WHERE id_administrador = $1
+                FOR UPDATE
+            `,
+            [id]
         );
 
-        if (!atualizacao.rows.length) {
+        if (!atual.rows.length) {
             await cliente.query("ROLLBACK");
 
             return res.status(404).json({
@@ -162,35 +256,132 @@ router.patch("/perfil-administrador", async (req, res) => {
             });
         }
 
-        await cliente.query(
-            `
-      INSERT INTO dados_institucionais_administrador (
-        id_administrador,
-        razao_social,
-        cnpj,
-        gabinete,
-        telefone,
-        endereco
-      )
-      VALUES ($1, $2, $3, $4, $5, $6)
-      ON CONFLICT (id_administrador)
-      DO UPDATE SET
-        razao_social = EXCLUDED.razao_social,
-        cnpj = EXCLUDED.cnpj,
-        gabinete = EXCLUDED.gabinete,
-        telefone = EXCLUDED.telefone,
-        endereco = EXCLUDED.endereco,
-        atualizado_em = CURRENT_TIMESTAMP
-      `,
-            [
-                id,
-                razao_social.trim(),
-                cnpj.trim(),
-                gabinete.trim(),
-                telefone.trim(),
-                endereco.trim(),
-            ]
-        );
+        // ====================================
+        // ATUALIZAR NOME E/OU E-MAIL
+        // ====================================
+        if (pessoaisEnviados.length > 0) {
+            const atribuicoes = [];
+            const parametros = [];
+
+            for (const campo of pessoaisEnviados) {
+                parametros.push(valores[campo]);
+                atribuicoes.push(
+                    `${campo} = $${parametros.length}`
+                );
+            }
+
+            parametros.push(id);
+
+            const atualizacao = await cliente.query(
+                `
+                    UPDATE administradores
+                    SET ${atribuicoes.join(", ")}
+                    WHERE id_administrador = $${parametros.length}
+                    RETURNING id_administrador
+                `,
+                parametros
+            );
+
+            if (!atualizacao.rows.length) {
+                throw new Error("Não foi possível atualizar o administrador.");
+            }
+        }
+
+        // ====================================
+        // ATUALIZAR DADOS INSTITUCIONAIS
+        // ====================================
+        if (institucionaisEnviados.length > 0) {
+            const resultadoInstitucional = await cliente.query(
+                `
+                    SELECT
+                        razao_social,
+                        cnpj,
+                        gabinete,
+                        telefone,
+                        endereco
+                    FROM dados_institucionais_administrador
+                    WHERE id_administrador = $1
+                    FOR UPDATE
+                `,
+                [id]
+            );
+
+            const existente = resultadoInstitucional.rows[0] || {};
+
+            const institucional = {
+                razao_social:
+                    valores.razao_social ?? existente.razao_social ?? "",
+                cnpj:
+                    valores.cnpj ?? existente.cnpj ?? "",
+                gabinete:
+                    valores.gabinete ?? existente.gabinete ?? "",
+                telefone:
+                    valores.telefone ?? existente.telefone ?? "",
+                endereco:
+                    valores.endereco ?? existente.endereco ?? "",
+            };
+
+            // Não permitir gravar um cadastro institucional incompleto.
+            const camposObrigatorios = [
+                ["razao_social", 200],
+                ["cnpj", 18],
+                ["gabinete", 150],
+                ["telefone", 25],
+                ["endereco", 300],
+            ];
+
+            for (const [campo, limite] of camposObrigatorios) {
+                if (
+                    typeof institucional[campo] !== "string" ||
+                    !institucional[campo].trim() ||
+                    institucional[campo].trim().length > limite
+                ) {
+                    throw Object.assign(
+                        new Error(
+                            "Preencha corretamente todos os campos institucionais."
+                        ),
+                        { statusCode: 400 }
+                    );
+                }
+            }
+
+            if (institucional.cnpj.replace(/\D/g, "").length !== 14) {
+                throw Object.assign(
+                    new Error("O CNPJ deve conter 14 dígitos."),
+                    { statusCode: 400 }
+                );
+            }
+
+            await cliente.query(
+                `
+                    INSERT INTO dados_institucionais_administrador (
+                        id_administrador,
+                        razao_social,
+                        cnpj,
+                        gabinete,
+                        telefone,
+                        endereco
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (id_administrador)
+                    DO UPDATE SET
+                        razao_social = EXCLUDED.razao_social,
+                        cnpj = EXCLUDED.cnpj,
+                        gabinete = EXCLUDED.gabinete,
+                        telefone = EXCLUDED.telefone,
+                        endereco = EXCLUDED.endereco,
+                        atualizado_em = CURRENT_TIMESTAMP
+                `,
+                [
+                    id,
+                    institucional.razao_social.trim(),
+                    institucional.cnpj.trim(),
+                    institucional.gabinete.trim(),
+                    institucional.telefone.trim(),
+                    institucional.endereco.trim(),
+                ]
+            );
+        }
 
         await cliente.query("COMMIT");
 
@@ -201,20 +392,39 @@ router.patch("/perfil-administrador", async (req, res) => {
             administrador: perfil,
         });
     } catch (error) {
-        await cliente.query("ROLLBACK").catch(() => { });
+        if (cliente) {
+            await cliente.query("ROLLBACK").catch(() => {});
+        }
 
-        console.error("Erro ao atualizar perfil:", error.message);
+        console.error(
+            "Erro ao atualizar perfil:",
+            error.message
+        );
+
+        if (error.statusCode === 400) {
+            return res.status(400).json({
+                message: error.message,
+            });
+        }
+
+        if (error.code === "23505") {
+            return res.status(409).json({
+                message: "Este e-mail ou CNPJ já está cadastrado.",
+            });
+        }
 
         return res.status(500).json({
-            message: "Erro ao atualizar os dados.",
+            message: "Erro ao atualizar os dados do administrador.",
         });
     } finally {
-        cliente.release();
+        if (cliente) {
+            cliente.release();
+        }
     }
 });
 
 // ============================================
-// VALIDAÇÃO DE IMAGEM
+// VALIDAR IMAGEM
 // ============================================
 function validarImagem(foto) {
     if (typeof foto !== "string" || foto.length > 600000) {
@@ -279,11 +489,11 @@ router.patch("/perfil-administrador/foto", async (req, res) => {
     try {
         const resultado = await BD.query(
             `
-      UPDATE administradores
-      SET foto_perfil = $1
-      WHERE id_administrador = $2
-      RETURNING id_administrador
-      `,
+                UPDATE administradores
+                SET foto_perfil = $1
+                WHERE id_administrador = $2
+                RETURNING id_administrador
+            `,
             [foto, id]
         );
 
@@ -321,11 +531,11 @@ router.delete("/perfil-administrador/foto", async (req, res) => {
     try {
         const resultado = await BD.query(
             `
-      UPDATE administradores
-      SET foto_perfil = NULL
-      WHERE id_administrador = $1
-      RETURNING id_administrador
-      `,
+                UPDATE administradores
+                SET foto_perfil = NULL
+                WHERE id_administrador = $1
+                RETURNING id_administrador
+            `,
             [id]
         );
 
