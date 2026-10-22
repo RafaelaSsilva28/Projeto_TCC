@@ -9,12 +9,25 @@ import {
 
 const router = Router();
 
-router.use(autenticarToken, autenticarAdministrador);
+// router.use(autenticarToken, autenticarAdministrador);
 
 // ============================================
 // LOGS DA ROTA
 // ============================================
-router.use((req, res, next) => {
+// router.use((req, res, next) => {
+//     console.log("[PERFIL ADMINISTRADOR]", {
+//         caminho: req.originalUrl,
+//         metodo: req.method,
+//         tipoAcesso: req.usuario?.tipo_acesso,
+//         idAdministrador: req.usuario?.id_administrador,
+//     });
+
+//     next();
+// });
+
+router.use("/perfil-administrador", autenticarToken, autenticarAdministrador);
+
+router.use("/perfil-administrador", (req, res, next) => {
     console.log("[PERFIL ADMINISTRADOR]", {
         caminho: req.originalUrl,
         metodo: req.method,
