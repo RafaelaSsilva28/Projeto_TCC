@@ -11,6 +11,19 @@ const router = Router();
 
 router.use(autenticarToken, autenticarAdministrador);
 
+router.use((req, res, next) => {
+  console.log("[PERFIL ADMINISTRADOR]", {
+    caminho: req.originalUrl,
+    metodo: req.method,
+    tipoAcesso: req.usuario?.tipo_acesso,
+    tipoAcessoNormalizado:
+      req.usuario?.tipo_acesso_normalizado,
+    idAdministrador: req.usuario?.id_administrador,
+  });
+
+  next();
+});
+
 function obterId(req) {
     const id = Number(req.usuario?.id_administrador);
     return Number.isSafeInteger(id) && id > 0 ? id : null;

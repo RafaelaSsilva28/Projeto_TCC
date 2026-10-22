@@ -1,4 +1,3 @@
-
 import "dotenv/config";
 
 import express from "express";
@@ -7,7 +6,13 @@ import path from "node:path";
 
 import { testarConexao } from "./db.js";
 
+// ======================================
+// IMPORTAÇÃO DAS ROTAS
+// ======================================
+
 import rotasAdministradores from "./src/routes/rotasAdministradores.js";
+import rotasPerfilAdministrador from "./src/routes/rotasPerfilAdministrador.js";
+
 import rotasInstituicoes from "./src/routes/rotasInstituicoes.js";
 import rotasSolicitacoes from "./src/routes/rotasSolicitacoes.js";
 import rotasDocumentos from "./src/routes/rotasDocumentos.js";
@@ -19,18 +24,22 @@ import rotasDashboard from "./src/routes/rotasDashboard.js";
 import rotasHistoricoInst from "./src/routes/rotasHistoricoInst.js";
 import rotasConfiguracoesAdmin from "./src/routes/rotasConfiguracoesAdmin.js";
 import rotasConfiguracoesInst from "./src/routes/rotasConfiguracoesInst.js";
-import rotasPerfilAdministrador from "./src/routes/rotasPerfilAdministrador.js";
 
 import documentacao from "./config/swagger.js";
 
 const app = express();
 
 // ======================================
-// MIDDLEWARES
+// MIDDLEWARES GLOBAIS
 // ======================================
 
 app.use(cors());
-app.use(express.json({ limit: "1mb" }));
+
+app.use(
+  express.json({
+    limit: "1mb",
+  })
+);
 
 // Disponibilizar documentos salvos na pasta uploads
 app.use(
@@ -59,6 +68,10 @@ app.get("/swagger", (req, res) => {
     <html lang="pt-BR">
       <head>
         <meta charset="UTF-8" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0"
+        />
         <title>API AndraRecursos</title>
 
         <link
@@ -87,42 +100,86 @@ app.get("/swagger", (req, res) => {
 // ROTAS DA API
 // ======================================
 
-// Administradores
+// --------------------------------------
+// ADMINISTRADORES
+// --------------------------------------
+
 app.use(rotasAdministradores);
 
-// Instituições
+// --------------------------------------
+// PERFIL DO ADMINISTRADOR
+// --------------------------------------
+// Registrado antes das rotas institucionais
+// para evitar interceptação por middlewares
+// exclusivos de instituições.
+//
+// A própria rota protege o acesso usando:
+// autenticarToken e autenticarAdministrador.
+// --------------------------------------
+
+app.use(rotasPerfilAdministrador);
+
+// --------------------------------------
+// INSTITUIÇÕES
+// --------------------------------------
+
 app.use(rotasInstituicoes);
 
-// Solicitações
+// --------------------------------------
+// SOLICITAÇÕES
+// --------------------------------------
+
 app.use(rotasSolicitacoes);
 
-// Documentos
+// --------------------------------------
+// DOCUMENTOS
+// --------------------------------------
+
 app.use(rotasDocumentos);
 
-// Notificações
+// --------------------------------------
+// NOTIFICAÇÕES
+// --------------------------------------
+
 app.use(rotasNotificacoes);
 
-// Histórico de solicitações
+// --------------------------------------
+// HISTÓRICO DE SOLICITAÇÕES
+// --------------------------------------
+
 app.use(rotasHistoricoSolicitacoes);
 
-// Respostas administrativas
+// --------------------------------------
+// RESPOSTAS ADMINISTRATIVAS
+// --------------------------------------
+
 app.use(rotasRespostasADM);
 
-// Respostas institucionais
+// --------------------------------------
+// RESPOSTAS INSTITUCIONAIS
+// --------------------------------------
+
 app.use(rotasRespostasINST);
 
-// Dashboard
+// --------------------------------------
+// DASHBOARD
+// --------------------------------------
+
 app.use(rotasDashboard);
 
-// Histórico da instituição
+// --------------------------------------
+// HISTÓRICO DA INSTITUIÇÃO
+// --------------------------------------
+
 app.use(rotasHistoricoInst);
 
-// Configurações
-app.use(rotasConfiguracoesAdmin);
-app.use(rotasConfiguracoesInst);
+// --------------------------------------
+// CONFIGURAÇÕES
+// --------------------------------------
 
-// Perfil do administrador
-app.use(rotasPerfilAdministrador);
+app.use(rotasConfiguracoesAdmin);
+
+app.use(rotasConfiguracoesInst);
 
 // ======================================
 // ROTA NÃO ENCONTRADA
@@ -141,6 +198,10 @@ app.use((req, res) => {
 
 app.use((error, req, res, next) => {
   console.error("Erro na API:", error);
+
+  if (res.headersSent) {
+    return next(error);
+  }
 
   res.status(500).json({
     message: "Erro interno no servidor.",
@@ -161,6 +222,8 @@ if (!process.env.VERCEL) {
 
     try {
       await testarConexao();
+
+      console.log("Conexão com o banco de dados verificada.");
     } catch (error) {
       console.error(
         "Erro ao conectar ao Neon:",
