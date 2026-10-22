@@ -23,7 +23,7 @@ import {
 } from "react-icons/fi";
 
 import toast from "react-hot-toast";
-import logo from "../assets/AndraRecursos.png";
+import logo from "../assets/Brasão AndraRecursos com Estrela Dourada.png";
 import { enderecoServidor } from "../utils";
 
 const API = String(enderecoServidor).replace(/\/$/, "");

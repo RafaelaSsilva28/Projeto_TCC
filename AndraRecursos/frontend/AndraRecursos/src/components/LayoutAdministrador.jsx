@@ -13,7 +13,7 @@ import {
   FiX,
 } from "react-icons/fi";
 
-import logo from "../assets/AndraRecursos.png";
+import logo from "../assets/Brasão AndraRecursos com Estrela Dourada.png";
 import IconeAdministrador from "./IconesAdministrador";
 import { enderecoServidor } from "../utils";
 
