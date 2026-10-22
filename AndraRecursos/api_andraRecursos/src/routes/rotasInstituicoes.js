@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 import { BD } from "../../db.js";
 import bcrypt from "bcrypt";
@@ -97,7 +96,11 @@ function validarObrigatorios(body) {
 // LOGIN INSTITUCIONAL
 // POST /login-instituicao
 // =============================================
+router.post("/login-instituicao", async (req, res) => {
+    console.log("[LOGIN INSTITUCIONAL] ROTA ALCANÇADA");
 
+    // Mantenha aqui o restante do código atual.
+});
 router.post("/login-instituicao", async (req, res) => {
     const { email_institucional, senha } = req.body || {};
 

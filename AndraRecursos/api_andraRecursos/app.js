@@ -30,21 +30,32 @@ import documentacao from "./config/swagger.js";
 const app = express();
 
 // ======================================
-// MIDDLEWARES GLOBAIS
+// CONFIGURAÇÕES GERAIS
 // ======================================
 
-app.use(cors());
+app.disable("x-powered-by");
 
 app.use(
-  express.json({
-    limit: "1mb",
-  })
+    cors({
+        origin: true,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization",
+        ],
+    })
 );
 
-// Disponibilizar documentos salvos na pasta uploads
 app.use(
-  "/uploads",
-  express.static(path.resolve("uploads"))
+    express.json({
+        limit: "1mb",
+    })
+);
+
+// Disponibilizar documentos salvos na pasta uploads.
+app.use(
+    "/uploads",
+    express.static(path.resolve("uploads"))
 );
 
 // ======================================
@@ -52,10 +63,10 @@ app.use(
 // ======================================
 
 app.get("/", (req, res) => {
-  res.status(200).json({
-    mensagem: "API AndraRecursos funcionando!",
-    status: "online",
-  });
+    return res.status(200).json({
+        mensagem: "API AndraRecursos funcionando!",
+        status: "online",
+    });
 });
 
 // ======================================
@@ -63,37 +74,61 @@ app.get("/", (req, res) => {
 // ======================================
 
 app.get("/swagger", (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1.0"
-        />
-        <title>API AndraRecursos</title>
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8" />
 
-        <link
-          rel="stylesheet"
-          href="https://unpkg.com/swagger-ui-dist/swagger-ui.css"
-        />
-      </head>
+                <meta
+                    name="viewport"
+                    content="width=device-width, initial-scale=1.0"
+                />
 
-      <body>
-        <div id="swagger-ui"></div>
+                <title>API AndraRecursos</title>
 
-        <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+                <link
+                    rel="stylesheet"
+                    href="https://unpkg.com/swagger-ui-dist/swagger-ui.css"
+                />
+            </head>
 
-        <script>
-          SwaggerUIBundle({
-            spec: ${JSON.stringify(documentacao)},
-            dom_id: "#swagger-ui"
-          });
-        </script>
-      </body>
-    </html>
-  `);
+            <body>
+                <div id="swagger-ui"></div>
+
+                <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+
+                <script>
+                    SwaggerUIBundle({
+                        spec: ${JSON.stringify(documentacao)},
+                        dom_id: "#swagger-ui"
+                    });
+                </script>
+            </body>
+        </html>
+    `);
+});
+
+// ======================================
+// ROTAS PÚBLICAS DE AUTENTICAÇÃO
+// ======================================
+
+// O login institucional fica registrado explicitamente
+// antes das demais rotas institucionais.
+//
+// POST /login-instituicao
+//
+// Essa rota valida e-mail e senha e retorna um token.
+// A própria rota de login não deve exigir token.
+//
+// O arquivo rotasInstituicoes.js também registra outras
+// rotas institucionais protegidas por seus middlewares.
+
+app.post("/health", (req, res) => {
+    return res.status(200).json({
+        status: "online",
+        mensagem: "API disponível.",
+    });
 });
 
 // ======================================
@@ -109,19 +144,25 @@ app.use(rotasAdministradores);
 // --------------------------------------
 // PERFIL DO ADMINISTRADOR
 // --------------------------------------
-// Registrado antes das rotas institucionais
-// para evitar interceptação por middlewares
-// exclusivos de instituições.
-//
-// A própria rota protege o acesso usando:
-// autenticarToken e autenticarAdministrador.
-// --------------------------------------
+
+// A autenticação e a autorização de administrador
+// devem ser verificadas dentro da própria rota.
 
 app.use(rotasPerfilAdministrador);
 
 // --------------------------------------
 // INSTITUIÇÕES
 // --------------------------------------
+
+// Inclui:
+// POST  /login-instituicao
+// GET   /instituicoes
+// POST  /instituicoes
+// GET   /instituicoes/me
+// PUT   /instituicoes/completar-cadastro
+// PATCH /instituicoes/me
+// PUT   /instituicoes/:id_instituicao
+// DELETE /instituicoes/:id_instituicao
 
 app.use(rotasInstituicoes);
 
@@ -174,10 +215,14 @@ app.use(rotasDashboard);
 app.use(rotasHistoricoInst);
 
 // --------------------------------------
-// CONFIGURAÇÕES
+// CONFIGURAÇÕES DO ADMINISTRADOR
 // --------------------------------------
 
 app.use(rotasConfiguracoesAdmin);
+
+// --------------------------------------
+// CONFIGURAÇÕES DA INSTITUIÇÃO
+// --------------------------------------
 
 app.use(rotasConfiguracoesInst);
 
@@ -186,10 +231,11 @@ app.use(rotasConfiguracoesInst);
 // ======================================
 
 app.use((req, res) => {
-  res.status(404).json({
-    message: "Rota não encontrada.",
-    caminho: req.originalUrl,
-  });
+    return res.status(404).json({
+        message: "Rota não encontrada.",
+        caminho: req.originalUrl,
+        metodo: req.method,
+    });
 });
 
 // ======================================
@@ -197,15 +243,19 @@ app.use((req, res) => {
 // ======================================
 
 app.use((error, req, res, next) => {
-  console.error("Erro na API:", error);
+    console.error("Erro na API:", {
+        message: error.message,
+        method: req.method,
+        path: req.originalUrl,
+    });
 
-  if (res.headersSent) {
-    return next(error);
-  }
+    if (res.headersSent) {
+        return next(error);
+    }
 
-  res.status(500).json({
-    message: "Erro interno no servidor.",
-  });
+    return res.status(500).json({
+        message: "Erro interno no servidor.",
+    });
 });
 
 // ======================================
@@ -213,24 +263,26 @@ app.use((error, req, res, next) => {
 // ======================================
 
 if (!process.env.VERCEL) {
-  const porta = Number(process.env.PORT || 3001);
+    const porta = Number(process.env.PORT || 3001);
 
-  app.listen(porta, async () => {
-    console.log(
-      `API AndraRecursos: http://localhost:${porta}`
-    );
+    app.listen(porta, async () => {
+        console.log(
+            `API AndraRecursos: http://localhost:${porta}`
+        );
 
-    try {
-      await testarConexao();
+        try {
+            await testarConexao();
 
-      console.log("Conexão com o banco de dados verificada.");
-    } catch (error) {
-      console.error(
-        "Erro ao conectar ao Neon:",
-        error.message
-      );
-    }
-  });
+            console.log(
+                "Conexão com o banco de dados verificada."
+            );
+        } catch (error) {
+            console.error(
+                "Erro ao conectar ao Neon:",
+                error.message
+            );
+        }
+    });
 }
 
 // ======================================
