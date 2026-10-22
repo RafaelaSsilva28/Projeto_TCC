@@ -9,7 +9,9 @@ import {
 
 const router = Router();
 
-router.use(autenticarToken, autenticarInstituicao);
+// router.use(autenticarToken, autenticarInstituicao);
+
+router.use("/configuracoes-inst", autenticarToken, autenticarInstituicao);
 
 function obterId(req) {
   const id = Number(req.instituicao?.id_instituicao);
