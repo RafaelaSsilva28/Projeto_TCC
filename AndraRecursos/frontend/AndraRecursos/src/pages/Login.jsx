@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -33,11 +32,16 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [verSenha, setVerSenha] = useState(false);
-  const [lembrar, setLembrar] = useState(false);
+  const [lembrar, setLembrar] = useState(
+    localStorage.getItem(CHAVE_LEMBRAR) === "true"
+  );
   const [carregando, setCarregando] = useState(false);
   const [mensagemErro, setMensagemErro] = useState("");
 
+  // ============================================
   // VERIFICAR SESSÃO LEMBRADA
+  // ============================================
+
   useEffect(() => {
     let ativo = true;
 
@@ -47,41 +51,71 @@ export default function Login() {
       );
 
       const token = localStorage.getItem(CHAVE_TOKEN);
+      const usuarioSalvo = localStorage.getItem(
+        CHAVE_USUARIO
+      );
 
-      if (lembrarSalvo !== "true" || !token) {
+      if (
+        lembrarSalvo !== "true" ||
+        !token ||
+        !usuarioSalvo
+      ) {
         return;
       }
 
       try {
+        const usuario = JSON.parse(usuarioSalvo);
+
+        let rota;
+        let destino;
+
+        if (usuario.tipo === "Instituicao") {
+          rota = "/instituicoes/me";
+        } else if (usuario.tipo === "Administrador") {
+          rota = "/perfil-administrador";
+        } else {
+          return;
+        }
+
         const resposta = await fetch(
-          `${enderecoServidor}/instituicoes/me`,
+          `${enderecoServidor}${rota}`,
           {
+            method: "GET",
             headers: {
               Authorization: `Bearer ${token}`,
             },
           }
         );
 
-        if (!resposta.ok) return;
+        if (!resposta.ok) {
+          localStorage.removeItem(CHAVE_TOKEN);
+          localStorage.removeItem(CHAVE_USUARIO);
+          localStorage.removeItem(CHAVE_LEMBRAR);
+          return;
+        }
 
-        const instituicao = await resposta.json();
+        const dados = await resposta.json();
 
         if (!ativo) return;
 
-        if (instituicao.cadastro_completo === true) {
-          navigate("/principal-inst", {
-            replace: true,
-          });
+        if (usuario.tipo === "Instituicao") {
+          destino =
+            dados.cadastro_completo === true
+              ? "/principal-inst"
+              : "/obrigatorio-inst";
         } else {
-          navigate("/obrigatorio-inst", {
-            replace: true,
-          });
+          destino = "/principal-adm";
         }
+
+        navigate(destino, { replace: true });
       } catch (error) {
         console.error(
-          "Não foi possível restaurar a sessão:",
-          error
+          "Erro ao restaurar sessão:",
+          error.message
         );
+
+        localStorage.removeItem(CHAVE_TOKEN);
+        localStorage.removeItem(CHAVE_USUARIO);
       }
     }
 
@@ -92,7 +126,10 @@ export default function Login() {
     };
   }, [navigate]);
 
+  // ============================================
   // REALIZAR LOGIN
+  // ============================================
+
   async function handleLogin(e) {
     e.preventDefault();
 
@@ -118,7 +155,10 @@ export default function Login() {
           senha,
         };
 
+    let tokenRecebido = null;
+
     try {
+      // O LOGIN INICIAL NÃO PRECISA DE TOKEN.
       const resposta = await fetch(
         `${enderecoServidor}${rota}`,
         {
@@ -130,12 +170,13 @@ export default function Login() {
         }
       );
 
-      const dados = await resposta.json();
+      const dados = await resposta.json().catch(() => ({}));
 
       if (!resposta.ok) {
         throw new Error(
           dados.message ||
-            "E-mail ou senha incorretos."
+            dados.mensagem ||
+            `Falha no login (HTTP ${resposta.status}).`
         );
       }
 
@@ -145,8 +186,7 @@ export default function Login() {
         );
       }
 
-      let usuario;
-      let destino;
+      tokenRecebido = dados.token;
 
       // LOGIN INSTITUCIONAL
       if (acessoInstitucional) {
@@ -156,51 +196,78 @@ export default function Login() {
           );
         }
 
-        usuario = {
+        const usuario = {
           ...dados.instituicao,
           tipo: "Instituicao",
         };
 
-        // CONSULTA O CADASTRO DO NEON
+        // Salvar o token antes de consultar rotas protegidas.
+        localStorage.setItem(
+          CHAVE_TOKEN,
+          tokenRecebido
+        );
+
         const respostaCadastro = await fetch(
           `${enderecoServidor}/instituicoes/me`,
           {
+            method: "GET",
             headers: {
-              Authorization: `Bearer ${dados.token}`,
+              Authorization: `Bearer ${tokenRecebido}`,
             },
           }
         );
 
+        const cadastro = await respostaCadastro
+          .json()
+          .catch(() => ({}));
+
         if (!respostaCadastro.ok) {
           throw new Error(
-            "Não foi possível verificar o cadastro institucional."
+            cadastro.message ||
+              cadastro.mensagem ||
+              `Não foi possível consultar o cadastro (HTTP ${respostaCadastro.status}).`
           );
         }
 
-        const cadastro = await respostaCadastro.json();
+        const usuarioAtualizado = {
+          ...usuario,
+          ...cadastro,
+          id: cadastro.id_instituicao ?? usuario.id,
+          tipo: "Instituicao",
+        };
 
-        destino =
+        const destino =
           cadastro.cadastro_completo === true
             ? "/principal-inst"
             : "/obrigatorio-inst";
+
+        // Armazenar os dados da sessão.
+        localStorage.setItem(
+          CHAVE_USUARIO,
+          JSON.stringify(usuarioAtualizado)
+        );
+
+        localStorage.setItem(
+          CHAVE_LEMBRAR,
+          String(lembrar)
+        );
+
+        navigate(destino, { replace: true });
+        return;
       }
 
       // LOGIN ADMINISTRADOR
-      else {
-        if (dados.usuario?.tipo !== "Administrador") {
-          throw new Error(
-            "Este usuário não possui acesso administrativo."
-          );
-        }
-
-        usuario = dados.usuario;
-        destino = "/principal-adm";
+      if (dados.usuario?.tipo !== "Administrador") {
+        throw new Error(
+          "Este usuário não possui acesso administrativo."
+        );
       }
 
-      // ARMAZENAR SESSÃO
+      const usuario = dados.usuario;
+
       localStorage.setItem(
         CHAVE_TOKEN,
-        dados.token
+        tokenRecebido
       );
 
       localStorage.setItem(
@@ -213,19 +280,29 @@ export default function Login() {
         String(lembrar)
       );
 
-      // REDIRECIONAR
-      navigate(destino, {
+      navigate("/principal-adm", {
         replace: true,
       });
-
     } catch (error) {
+      console.error("Erro ao realizar login:", error);
+
       setMensagemErro(
         error.message || "Não foi possível entrar."
       );
+
+      // Não manter uma sessão parcial caso o login falhe.
+      if (tokenRecebido) {
+        localStorage.removeItem(CHAVE_TOKEN);
+        localStorage.removeItem(CHAVE_USUARIO);
+      }
     } finally {
       setCarregando(false);
     }
   }
+
+  // ============================================
+  // ESTILOS E BENEFÍCIOS
+  // ============================================
 
   const inputStyle =
     "w-full rounded-md border-[1.5px] border-[#b0b0b0] bg-white py-3 pl-10 pr-11 text-sm text-[#333] outline-none transition-all duration-300 focus:border-[#003366] focus:shadow-[0_0_10px_rgba(0,51,102,0.1)] disabled:opacity-60";
@@ -251,13 +328,14 @@ export default function Login() {
     },
   ];
 
+  // ============================================
+  // INTERFACE
+  // ============================================
+
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-[#ebebeb] font-['Segoe_UI',Arial,sans-serif] lg:flex lg:h-screen lg:overflow-hidden">
-
       {/* LADO ESQUERDO */}
       <div className="relative flex min-h-screen w-full flex-col items-center justify-center bg-[#ebebeb] px-5 py-10 sm:px-8 lg:h-screen lg:w-1/2 lg:pb-[12vh]">
-
-        {/* IDENTIFICAÇÃO */}
         <span className="absolute left-5 top-6 text-xs font-medium text-[#888] sm:left-8 sm:text-sm">
           {tipoAcesso === "Administrador"
             ? "Login Administrativo"
@@ -273,12 +351,10 @@ export default function Login() {
 
         {/* CARD DE LOGIN */}
         <div className="relative z-10 box-border w-full max-w-[400px] rounded-lg border border-[#d0d0d0] bg-white px-5 py-7 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:px-8 lg:px-10">
-
           <form
             onSubmit={handleLogin}
             className="flex flex-col gap-5"
           >
-
             {/* TIPO DE ACESSO */}
             <div>
               <label className="mb-1.5 block text-left text-[13px] font-semibold text-[#333]">
@@ -321,11 +397,9 @@ export default function Login() {
                   type="email"
                   placeholder="Digite seu e-mail"
                   value={email}
-                  onChange={(e) =>
-                    setEmail(e.target.value)
-                  }
+                  onChange={(e) => setEmail(e.target.value)}
                   disabled={carregando}
-                  autoComplete="email"
+                  autoComplete="username"
                   required
                   className={inputStyle}
                 />
@@ -339,12 +413,17 @@ export default function Login() {
                   Senha
                 </label>
 
-                <a
-                  href="#esqueci"
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMensagemErro(
+                      "Entre em contato com o administrador do sistema para recuperar sua senha."
+                    )
+                  }
                   className="text-[11px] text-[#0056b3] hover:underline"
                 >
                   Esqueci minha senha
-                </a>
+                </button>
               </div>
 
               <div className="relative flex items-center">
@@ -354,9 +433,7 @@ export default function Login() {
                   type={verSenha ? "text" : "password"}
                   placeholder="Digite sua senha"
                   value={senha}
-                  onChange={(e) =>
-                    setSenha(e.target.value)
-                  }
+                  onChange={(e) => setSenha(e.target.value)}
                   disabled={carregando}
                   autoComplete="current-password"
                   required
@@ -365,9 +442,7 @@ export default function Login() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setVerSenha(!verSenha)
-                  }
+                  onClick={() => setVerSenha((anterior) => !anterior)}
                   disabled={carregando}
                   aria-label={
                     verSenha
@@ -391,9 +466,7 @@ export default function Login() {
                 id="lembrar"
                 type="checkbox"
                 checked={lembrar}
-                onChange={(e) =>
-                  setLembrar(e.target.checked)
-                }
+                onChange={(e) => setLembrar(e.target.checked)}
                 className="h-4 w-4 cursor-pointer accent-[#003366]"
               />
 
@@ -444,7 +517,6 @@ export default function Login() {
 
               <span className="h-px flex-1 bg-[#ccc]" />
             </div>
-
           </form>
         </div>
 
@@ -469,7 +541,6 @@ export default function Login() {
         }}
       >
         <div className="relative z-10 flex w-full max-w-[520px] flex-col gap-7">
-
           {/* TÍTULO */}
           <div>
             <h2 className="text-[40px] font-extrabold leading-tight tracking-tight text-white xl:text-[52px]">
@@ -480,8 +551,8 @@ export default function Login() {
             </h2>
 
             <p className="mt-3 max-w-[480px] text-sm leading-relaxed text-[#b0c4de]">
-              Conectando a gestão pública e
-              otimizando os recursos municipais.
+              Conectando a gestão pública e otimizando os
+              recursos municipais.
             </p>
           </div>
 
@@ -519,14 +590,13 @@ export default function Login() {
               <span className="mr-2 text-2xl font-bold text-[#ffcc00]">
                 “
               </span>
-              Tecnologia e inovação a serviço de uma
-              cidade melhor para todos.
+              Tecnologia e inovação a serviço de uma cidade
+              melhor para todos.
               <span className="ml-2 text-2xl font-bold text-[#ffcc00]">
                 ”
               </span>
             </p>
           </div>
-
         </div>
       </div>
     </div>

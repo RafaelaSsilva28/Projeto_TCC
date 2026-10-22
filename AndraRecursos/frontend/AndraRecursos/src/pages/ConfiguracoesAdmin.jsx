@@ -29,24 +29,24 @@ async function requisicao(caminho, opcoes = {}) {
     throw new Error("Sessão expirada. Faça login novamente.");
   }
 
-  const resposta = await fetch(${ API }${ caminho }, {
+  const resposta = await fetch(`${API}${caminho}`, {
     ...opcoes,
     headers: {
-      Authorization: Bearer ${ token },
-    ...(opcoes.body ? { "Content-Type": "application/json" } : {}),
-    ...opcoes.headers,
+      Authorization: `Bearer ${token}`,
+      ...(opcoes.body ? { "Content-Type": "application/json" } : {}),
+      ...opcoes.headers,
     },
   });
 
-const dados = await resposta.json().catch(() => null);
+  const dados = await resposta.json().catch(() => null);
 
-if (!resposta.ok) {
-  throw new Error(
-    dados?.message || dados?.error || Erro ${ resposta.status } na API.,
-  );
-}
+  if (!resposta.ok) {
+    throw new Error(
+      dados?.message || dados?.error || `Erro ${resposta.status} na API.`,
+    );
+  }
 
-return dados;
+  return dados;
 }
 
 // =============================================
@@ -254,10 +254,11 @@ export default function ConfiguracoesAdmin() {
                 key={id}
                 type="button"
                 onClick={() => setAba(id)}
-                className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${aba === id
+                className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${
+                  aba === id
                     ? "bg-[#082d56] text-white"
                     : "text-gray-600 hover:bg-blue-50 hover:text-[#082d56] dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-                  }`}
+                }`}
               >
                 <Icone size={18} />
                 {nome}
