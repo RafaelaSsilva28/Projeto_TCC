@@ -44,7 +44,7 @@ const VALORES_EDITAVEIS_INICIAIS = {
 };
 
 async function requisicao(caminho, opcoes = {}) {
-    const token = localStorage.getItem("@AndraRecursos:token");
+        const token = localStorage.getItem("@AndraRecursos:token");
 
     if (!token) {
         throw new Error("Sessão expirada. Faça login novamente.");
@@ -64,6 +64,50 @@ async function requisicao(caminho, opcoes = {}) {
         throw new Error("Não foi possível conectar à API. Verifique sua conexão e o endereço do servidor.");
     }
 
+console.log("Existe token salvo:", Boolean(token));
+
+try {
+    const usuario = JSON.parse(
+        localStorage.getItem("@AndraRecursos:usuario") || "{}"
+    );
+
+    console.log("Usuário da sessão:", {
+        tipo: usuario.tipo,
+        id: usuario.id,
+        nome: usuario.nome,
+    });
+} catch {
+    console.log("Não foi possível ler os dados da sessão.");
+}
+try {
+    const partes = token?.split(".");
+
+    if (partes?.length === 3) {
+        const payload = partes[1]
+            .replace(/-/g, "+")
+            .replace(/_/g, "/");
+
+        const preenchido = payload.padEnd(
+            payload.length + ((4 - (payload.length % 4)) % 4),
+            "="
+        );
+
+        const dadosToken = JSON.parse(atob(preenchido));
+
+        console.log("Dados do JWT:", {
+            id_administrador: dadosToken.id_administrador,
+            id_instituicao: dadosToken.id_instituicao,
+            tipo_acesso: dadosToken.tipo_acesso,
+            expiraEm: dadosToken.exp
+                ? new Date(dadosToken.exp * 1000).toLocaleString()
+                : null,
+        });
+    } else {
+        console.log("O token salvo não possui o formato JWT esperado.");
+    }
+} catch (erro) {
+    console.error("Não foi possível interpretar o JWT:", erro.message);
+}
     const dados = await resposta.json().catch(() => null);
 
     if (!resposta.ok) {

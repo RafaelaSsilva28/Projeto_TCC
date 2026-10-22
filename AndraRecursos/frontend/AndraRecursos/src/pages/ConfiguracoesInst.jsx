@@ -333,7 +333,7 @@ export default function ConfiguracoesInst() {
   }
 
   const classeCartao =
-    "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800";
+    "h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800";
 
   const classeCabecalhoCartao =
     "flex items-center gap-3 border-b border-slate-100 px-5 py-5 sm:px-6 dark:border-slate-700";
@@ -349,7 +349,7 @@ export default function ConfiguracoesInst() {
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8 dark:bg-slate-900">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto w-full max-w-none">
         {/* CABEÇALHO */}
         <div className="mb-8">
           <div className="mb-3 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
@@ -411,28 +411,27 @@ export default function ConfiguracoesInst() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-            {/* COLUNA PRINCIPAL */}
-            <div className="space-y-6 lg:col-span-2">
-              {/* DADOS DA INSTITUIÇÃO */}
-              <section className={classeCartao}>
-                <div className={classeCabecalhoCartao}>
-                  <div className={classeIconeCartao}>
-                    <FiUser size={21} />
-                  </div>
-
-                  <div>
-                    <h2 className="font-bold text-[#082d56] dark:text-white">
-                      Dados da instituição
-                    </h2>
-
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                      Informações da conta autenticada.
-                    </p>
-                  </div>
+          <div className="grid grid-cols-1 items-stretch gap-6 xl:grid-cols-2">
+            {/* DADOS DA INSTITUIÇÃO */}
+            <section className={classeCartao}>
+              <div className={classeCabecalhoCartao}>
+                <div className={classeIconeCartao}>
+                  <FiUser size={21} />
                 </div>
 
-                <div className="space-y-5 p-5 sm:p-6">
+                <div>
+                  <h2 className="font-bold text-[#082d56] dark:text-white">
+                    Dados da instituição
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Informações da conta autenticada.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex h-full flex-col justify-between space-y-5 p-5 sm:p-6">
+                <div className="space-y-5">
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">
                       Nome da instituição
@@ -460,35 +459,34 @@ export default function ConfiguracoesInst() {
                       </span>
                     </div>
                   </div>
+                </div>
 
-                  <p className="text-xs leading-relaxed text-slate-400 dark:text-slate-500">
-                    Para alterar os dados cadastrais, entre na área de
-                    atendimento responsável pelo cadastro da instituição.
+                <p className="pt-4 text-xs leading-relaxed text-slate-400 dark:text-slate-500">
+                  Para alterar os dados cadastrais, entre na área de atendimento
+                  responsável pelo cadastro da instituição.
+                </p>
+              </div>
+            </section>
+
+            {/* FORMULÁRIO DE SENHA */}
+            <section className={classeCartao}>
+              <div className={classeCabecalhoCartao}>
+                <div className={classeIconeCartao}>
+                  <FiLock size={21} />
+                </div>
+
+                <div>
+                  <h2 className="font-bold text-[#082d56] dark:text-white">
+                    Alterar senha
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Proteja seu acesso.
                   </p>
                 </div>
-              </section>
-            </div>
+              </div>
 
-            {/* COLUNA LATERAL */}
-            <aside className="space-y-6">
-              {/* FORMULÁRIO DE SENHA */}
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-800">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className={classeIconeCartao}>
-                    <FiLock size={21} />
-                  </div>
-
-                  <div>
-                    <h2 className="font-bold text-[#082d56] dark:text-white">
-                      Alterar senha
-                    </h2>
-
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Proteja seu acesso.
-                    </p>
-                  </div>
-                </div>
-
+              <div className="p-5 sm:p-6">
                 <form onSubmit={alterarSenha} className="space-y-4">
                   <input
                     type="text"
@@ -546,42 +544,44 @@ export default function ConfiguracoesInst() {
                     {alterandoSenha ? "Alterando senha..." : "Atualizar senha"}
                   </button>
                 </form>
-              </section>
+              </div>
+            </section>
 
-              <section className="overflow-hidden rounded-2xl bg-[#082d56] p-5 text-white shadow-sm sm:p-6 dark:border dark:border-slate-700 dark:bg-slate-800">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
-                  <FiShield size={24} />
+            {/* SEGURANÇA DA CONTA */}
+            <section className="flex h-full flex-col overflow-hidden rounded-2xl bg-[#082d56] p-5 text-white shadow-sm sm:p-6 dark:border dark:border-slate-700 dark:bg-slate-800">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
+                <FiShield size={24} />
+              </div>
+
+              <h2 className="text-lg font-bold">Segurança da conta</h2>
+
+              <p className="mt-2 text-sm leading-relaxed text-blue-100">
+                Mantenha sua senha atualizada e não compartilhe suas credenciais
+                com outras pessoas.
+              </p>
+
+              <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <FiLock size={17} />
+                  Alteração de senha
                 </div>
 
-                <h2 className="text-lg font-bold">Segurança da conta</h2>
-
-                <p className="mt-2 text-sm leading-relaxed text-blue-100">
-                  Mantenha sua senha atualizada e não compartilhe suas
-                  credenciais com outras pessoas.
-                </p>
-
-                <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <FiLock size={17} />
-                    Alteração de senha
-                  </div>
-
-                  <p className="mt-2 text-xs leading-relaxed text-blue-100">
-                    Utilize uma senha com pelo menos 8 caracteres.
-                  </p>
-                </div>
-              </section>
-
-              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-                <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                  <FiShield
-                    className="mr-1 inline text-[#1755ad] dark:text-blue-300"
-                    size={14}
-                  />
-                  Seus dados são vinculados à instituição autenticada.
+                <p className="mt-2 text-xs leading-relaxed text-blue-100">
+                  Utilize uma senha com pelo menos 8 caracteres.
                 </p>
               </div>
-            </aside>
+            </section>
+
+            {/* INFORMAÇÕES DA CONTA */}
+            <div className="flex h-full items-center rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-800">
+              <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                <FiShield
+                  className="mr-2 inline text-[#1755ad] dark:text-blue-300"
+                  size={16}
+                />
+                Seus dados são vinculados à instituição autenticada.
+              </p>
+            </div>
           </div>
         )}
       </div>
