@@ -32,11 +32,35 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [verSenha, setVerSenha] = useState(false);
+
   const [lembrar, setLembrar] = useState(
     localStorage.getItem(CHAVE_LEMBRAR) === "true"
   );
+
   const [carregando, setCarregando] = useState(false);
   const [mensagemErro, setMensagemErro] = useState("");
+
+  // ============================================
+  // LER RESPOSTA DA API
+  // ============================================
+
+  async function lerResposta(resposta) {
+    const texto = await resposta.text();
+
+    if (!texto) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(texto);
+    } catch {
+      console.error("Resposta não JSON da API:", texto);
+
+      throw new Error(
+        "O servidor retornou uma resposta inválida. Verifique a API."
+      );
+    }
+  }
 
   // ============================================
   // VERIFICAR SESSÃO LEMBRADA
@@ -87,18 +111,31 @@ export default function Login() {
           }
         );
 
-        if (!resposta.ok) {
-          localStorage.removeItem(CHAVE_TOKEN);
-          localStorage.removeItem(CHAVE_USUARIO);
-          localStorage.removeItem(CHAVE_LEMBRAR);
-          return;
-        }
+        const dados = await lerResposta(resposta);
 
-        const dados = await resposta.json();
+        if (!resposta.ok) {
+          throw new Error(
+            dados.message ||
+              dados.mensagem ||
+              `Não foi possível restaurar a sessão (HTTP ${resposta.status}).`
+          );
+        }
 
         if (!ativo) return;
 
         if (usuario.tipo === "Instituicao") {
+          const usuarioAtualizado = {
+            ...usuario,
+            ...dados,
+            id: dados.id_instituicao ?? usuario.id,
+            tipo: "Instituicao",
+          };
+
+          localStorage.setItem(
+            CHAVE_USUARIO,
+            JSON.stringify(usuarioAtualizado)
+          );
+
           destino =
             dados.cadastro_completo === true
               ? "/principal-inst"
@@ -114,8 +151,11 @@ export default function Login() {
           error.message
         );
 
+        if (!ativo) return;
+
         localStorage.removeItem(CHAVE_TOKEN);
         localStorage.removeItem(CHAVE_USUARIO);
+        localStorage.removeItem(CHAVE_LEMBRAR);
       }
     }
 
@@ -158,19 +198,36 @@ export default function Login() {
     let tokenRecebido = null;
 
     try {
-      // O LOGIN INICIAL NÃO PRECISA DE TOKEN.
-      const resposta = await fetch(
-        `${enderecoServidor}${rota}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(corpo),
-        }
-      );
+      // O login inicial é público e não envia token.
+      const urlLogin = `${enderecoServidor}${rota}`;
 
-      const dados = await resposta.json().catch(() => ({}));
+      console.info("[LOGIN] Iniciando requisição:", {
+        url: urlLogin,
+        metodo: "POST",
+        tipoAcesso: acessoInstitucional
+          ? "Instituição"
+          : "Administrador",
+      });
+
+      const resposta = await fetch(urlLogin, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(corpo),
+      });
+
+      const dados = await lerResposta(resposta);
+
+      console.info("[LOGIN] Resposta recebida:", {
+        status: resposta.status,
+        sucesso: resposta.ok,
+        mensagem:
+          dados.message ||
+          dados.mensagem ||
+          "Sem mensagem do servidor",
+        possuiToken: Boolean(dados.token),
+      });
 
       if (!resposta.ok) {
         throw new Error(
@@ -182,26 +239,24 @@ export default function Login() {
 
       if (!dados.token) {
         throw new Error(
-          "A API não retornou o token de acesso."
+          "O servidor respondeu ao login, mas não retornou um token."
         );
       }
 
       tokenRecebido = dados.token;
 
+      // ========================================
       // LOGIN INSTITUCIONAL
+      // ========================================
+
       if (acessoInstitucional) {
         if (!dados.instituicao?.id) {
           throw new Error(
-            "A API não retornou os dados da instituição."
+            "A API não retornou o identificador da instituição."
           );
         }
 
-        const usuario = {
-          ...dados.instituicao,
-          tipo: "Instituicao",
-        };
-
-        // Salvar o token antes de consultar rotas protegidas.
+        // Salva o token temporariamente para a consulta autenticada.
         localStorage.setItem(
           CHAVE_TOKEN,
           tokenRecebido
@@ -217,22 +272,22 @@ export default function Login() {
           }
         );
 
-        const cadastro = await respostaCadastro
-          .json()
-          .catch(() => ({}));
+        const cadastro = await lerResposta(
+          respostaCadastro
+        );
 
         if (!respostaCadastro.ok) {
           throw new Error(
             cadastro.message ||
               cadastro.mensagem ||
-              `Não foi possível consultar o cadastro (HTTP ${respostaCadastro.status}).`
+              `Não foi possível consultar os dados institucionais (HTTP ${respostaCadastro.status}).`
           );
         }
 
         const usuarioAtualizado = {
-          ...usuario,
+          ...dados.instituicao,
           ...cadastro,
-          id: cadastro.id_instituicao ?? usuario.id,
+          id: cadastro.id_instituicao ?? dados.instituicao.id,
           tipo: "Instituicao",
         };
 
@@ -241,7 +296,6 @@ export default function Login() {
             ? "/principal-inst"
             : "/obrigatorio-inst";
 
-        // Armazenar os dados da sessão.
         localStorage.setItem(
           CHAVE_USUARIO,
           JSON.stringify(usuarioAtualizado)
@@ -256,14 +310,15 @@ export default function Login() {
         return;
       }
 
+      // ========================================
       // LOGIN ADMINISTRADOR
+      // ========================================
+
       if (dados.usuario?.tipo !== "Administrador") {
         throw new Error(
           "Este usuário não possui acesso administrativo."
         );
       }
-
-      const usuario = dados.usuario;
 
       localStorage.setItem(
         CHAVE_TOKEN,
@@ -272,7 +327,7 @@ export default function Login() {
 
       localStorage.setItem(
         CHAVE_USUARIO,
-        JSON.stringify(usuario)
+        JSON.stringify(dados.usuario)
       );
 
       localStorage.setItem(
@@ -284,13 +339,15 @@ export default function Login() {
         replace: true,
       });
     } catch (error) {
-      console.error("Erro ao realizar login:", error);
+      console.error("[LOGIN] Erro ao realizar login:", {
+        mensagem: error.message,
+      });
 
       setMensagemErro(
         error.message || "Não foi possível entrar."
       );
 
-      // Não manter uma sessão parcial caso o login falhe.
+      // Remove uma eventual sessão parcial.
       if (tokenRecebido) {
         localStorage.removeItem(CHAVE_TOKEN);
         localStorage.removeItem(CHAVE_USUARIO);
@@ -442,7 +499,9 @@ export default function Login() {
 
                 <button
                   type="button"
-                  onClick={() => setVerSenha((anterior) => !anterior)}
+                  onClick={() =>
+                    setVerSenha((anterior) => !anterior)
+                  }
                   disabled={carregando}
                   aria-label={
                     verSenha
@@ -466,7 +525,9 @@ export default function Login() {
                 id="lembrar"
                 type="checkbox"
                 checked={lembrar}
-                onChange={(e) => setLembrar(e.target.checked)}
+                onChange={(e) =>
+                  setLembrar(e.target.checked)
+                }
                 className="h-4 w-4 cursor-pointer accent-[#003366]"
               />
 
