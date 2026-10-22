@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -47,10 +46,7 @@ function obterToken() {
     if (typeof usuario === "string") return usuario;
 
     return (
-      usuario?.token ||
-      usuario?.accessToken ||
-      usuario?.access_token ||
-      null
+      usuario?.token || usuario?.accessToken || usuario?.access_token || null
     );
   } catch {
     return usuarioSalvo;
@@ -150,23 +146,31 @@ export default function NotificacoesInst() {
           Authorization: `Bearer ${token}`,
         };
 
-        const [respostaInstituicao, respostaNotificacoes] =
-          await Promise.all([
-            fetch(`${API}/instituicoes/me`, {
-              headers: cabecalhos,
-              signal: controlador.signal,
-            }),
-            fetch(`${API}/notificacoes/instituicao`, {
-              headers: cabecalhos,
-              signal: controlador.signal,
-            }),
-          ]);
+        const [respostaInstituicao, respostaNotificacoes] = await Promise.all([
+          fetch(`${API}/instituicoes/me`, {
+            headers: cabecalhos,
+            signal: controlador.signal,
+          }),
+          fetch(`${API}/notificacoes/instituicao`, {
+            headers: cabecalhos,
+            signal: controlador.signal,
+          }),
+        ]);
+
+        // if (
+        //   respostaInstituicao.status === 401 ||
+        //   respostaInstituicao.status === 403 ||
+        //   respostaNotificacoes.status === 401 ||
+        //   respostaNotificacoes.status === 403
+        // ) {
+        //   localStorage.removeItem("@AndraRecursos:token");
+        //   navigate("/", { replace: true });
+        //   return;
+        // }
 
         if (
           respostaInstituicao.status === 401 ||
-          respostaInstituicao.status === 403 ||
-          respostaNotificacoes.status === 401 ||
-          respostaNotificacoes.status === 403
+          respostaNotificacoes.status === 401
         ) {
           localStorage.removeItem("@AndraRecursos:token");
           navigate("/", { replace: true });
@@ -185,7 +189,7 @@ export default function NotificacoesInst() {
           throw new Error(
             dadosInstituicao?.error ||
               dadosInstituicao?.message ||
-              "Não foi possível carregar os dados da instituição."
+              "Não foi possível carregar os dados da instituição.",
           );
         }
 
@@ -193,7 +197,7 @@ export default function NotificacoesInst() {
           throw new Error(
             dadosNotificacoes?.error ||
               dadosNotificacoes?.message ||
-              "Não foi possível carregar as notificações."
+              "Não foi possível carregar as notificações.",
           );
         }
 
@@ -206,10 +210,7 @@ export default function NotificacoesInst() {
           setNotificacoes(dadosNotificacoes);
         }
       } catch (error) {
-        if (
-          error.name !== "AbortError" &&
-          !controlador.signal.aborted
-        ) {
+        if (error.name !== "AbortError" && !controlador.signal.aborted) {
           console.error("Erro ao carregar notificações:", error);
           setErro(error.message || "Erro ao carregar as notificações.");
         }
@@ -252,22 +253,21 @@ export default function NotificacoesInst() {
           item.id_notificacao,
           item.id_solicitacao,
         ].some((valor) =>
-          String(valor ?? "").toLowerCase().includes(termo)
+          String(valor ?? "")
+            .toLowerCase()
+            .includes(termo),
         )
       );
     });
   }, [notificacoes, filtro, pesquisa]);
 
-  const totalPaginas = Math.max(
-    1,
-    Math.ceil(filtradas.length / POR_PAGINA)
-  );
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA));
 
   const paginaAtual = Math.min(pagina, totalPaginas);
 
   const itensPagina = filtradas.slice(
     (paginaAtual - 1) * POR_PAGINA,
-    paginaAtual * POR_PAGINA
+    paginaAtual * POR_PAGINA,
   );
 
   function atualizarNotificacoes() {
@@ -301,7 +301,7 @@ export default function NotificacoesInst() {
       throw new Error(
         dados?.error ||
           dados?.message ||
-          "Não foi possível concluir a operação."
+          "Não foi possível concluir a operação.",
       );
     }
 
@@ -316,9 +316,7 @@ export default function NotificacoesInst() {
     toast(
       (t) => (
         <div className="w-full max-w-sm">
-          <p className="text-sm font-semibold text-gray-800">
-            {mensagem}
-          </p>
+          <p className="text-sm font-semibold text-gray-800">{mensagem}</p>
 
           <div className="mt-3 flex justify-end gap-2">
             <button
@@ -351,7 +349,7 @@ export default function NotificacoesInst() {
           maxWidth: "440px",
           width: "calc(100vw - 32px)",
         },
-      }
+      },
     );
   }
 
@@ -367,15 +365,15 @@ export default function NotificacoesInst() {
     try {
       await requisicaoAutenticada(
         `${API}/notificacoes/instituicao/${id}/lida`,
-        "PATCH"
+        "PATCH",
       );
 
       setNotificacoes((lista) =>
         lista.map((item) =>
           Number(item.id_notificacao) === Number(id)
             ? { ...item, lida: true }
-            : item
-        )
+            : item,
+        ),
       );
 
       toast.success("Notificação marcada como lida.");
@@ -391,11 +389,7 @@ export default function NotificacoesInst() {
   // ==========================================
 
   async function marcarTodasComoLidas() {
-    if (
-      processando ||
-      idProcessando !== null ||
-      totais.naoLidas === 0
-    ) {
+    if (processando || idProcessando !== null || totais.naoLidas === 0) {
       return;
     }
 
@@ -407,11 +401,11 @@ export default function NotificacoesInst() {
         try {
           await requisicaoAutenticada(
             `${API}/notificacoes/instituicao/marcar-todas-lidas`,
-            "PATCH"
+            "PATCH",
           );
 
           setNotificacoes((lista) =>
-            lista.map((item) => ({ ...item, lida: true }))
+            lista.map((item) => ({ ...item, lida: true })),
           );
 
           toast.success("Todas as notificações foram marcadas como lidas.");
@@ -421,7 +415,7 @@ export default function NotificacoesInst() {
           setProcessando(false);
         }
       },
-      "Marcar como lidas"
+      "Marcar como lidas",
     );
   }
 
@@ -440,13 +434,11 @@ export default function NotificacoesInst() {
         try {
           await requisicaoAutenticada(
             `${API}/notificacoes/instituicao/${id}`,
-            "DELETE"
+            "DELETE",
           );
 
           setNotificacoes((lista) =>
-            lista.filter(
-              (item) => Number(item.id_notificacao) !== Number(id)
-            )
+            lista.filter((item) => Number(item.id_notificacao) !== Number(id)),
           );
 
           toast.success("Notificação excluída.");
@@ -456,7 +448,7 @@ export default function NotificacoesInst() {
           setIdProcessando(null);
         }
       },
-      "Excluir"
+      "Excluir",
     );
   }
 
@@ -465,11 +457,7 @@ export default function NotificacoesInst() {
   // ==========================================
 
   async function excluirTodasNotificacoes() {
-    if (
-      processando ||
-      idProcessando !== null ||
-      notificacoes.length === 0
-    ) {
+    if (processando || idProcessando !== null || notificacoes.length === 0) {
       return;
     }
 
@@ -481,7 +469,7 @@ export default function NotificacoesInst() {
         try {
           await requisicaoAutenticada(
             `${API}/notificacoes/instituicao/todas`,
-            "DELETE"
+            "DELETE",
           );
 
           setNotificacoes([]);
@@ -494,7 +482,7 @@ export default function NotificacoesInst() {
           setProcessando(false);
         }
       },
-      "Excluir todas"
+      "Excluir todas",
     );
   }
 
@@ -502,18 +490,18 @@ export default function NotificacoesInst() {
   // VER SOLICITAÇÃO
   // ==========================================
 
- function verSolicitacao(idSolicitacao) {
-  if (
-    idSolicitacao === null ||
-    idSolicitacao === undefined ||
-    String(idSolicitacao).trim() === ""
-  ) {
-    toast.error("Esta notificação não possui uma solicitação vinculada.");
-    return;
-  }
+  function verSolicitacao(idSolicitacao) {
+    if (
+      idSolicitacao === null ||
+      idSolicitacao === undefined ||
+      String(idSolicitacao).trim() === ""
+    ) {
+      toast.error("Esta notificação não possui uma solicitação vinculada.");
+      return;
+    }
 
-  navigate(`/instituicao/solicitacoes/${encodeURIComponent(idSolicitacao)}`);
-}
+    navigate(`/instituicao/solicitacoes/${encodeURIComponent(idSolicitacao)}`);
+  }
   // ==========================================
   // EXPORTAR PDF
   // ==========================================
@@ -557,7 +545,7 @@ export default function NotificacoesInst() {
       doc.text(
         `Instituição: ${instituicao?.nome || "Não identificada"}`,
         14,
-        33
+        33,
       );
 
       doc.text(`Data de emissão: ${dataEmissao}`, 14, 39);
@@ -590,15 +578,17 @@ export default function NotificacoesInst() {
 
       autoTable(doc, {
         startY: inicioTabela,
-        head: [[
-          "ID",
-          "Mensagem",
-          "Tipo",
-          "Solicitação",
-          "Status",
-          "Situação",
-          "Data",
-        ]],
+        head: [
+          [
+            "ID",
+            "Mensagem",
+            "Tipo",
+            "Solicitação",
+            "Status",
+            "Situação",
+            "Data",
+          ],
+        ],
         body: filtradas.map((item) => [
           item.id_notificacao ?? "—",
           item.mensagem || "Sem mensagem",
@@ -652,15 +642,12 @@ export default function NotificacoesInst() {
           doc.text(
             "AndraRecursos - Notificações da Instituição",
             10,
-            altura - 8
+            altura - 8,
           );
 
-          doc.text(
-            `Página ${numeroPagina}`,
-            largura - 10,
-            altura - 8,
-            { align: "right" }
-          );
+          doc.text(`Página ${numeroPagina}`, largura - 10, altura - 8, {
+            align: "right",
+          });
         },
       });
 
@@ -668,9 +655,7 @@ export default function NotificacoesInst() {
         .toLocaleDateString("pt-BR")
         .replace(/\//g, "-");
 
-      doc.save(
-        `Notificacoes_Instituicao_AndraRecursos_${dataArquivo}.pdf`
-      );
+      doc.save(`Notificacoes_Instituicao_AndraRecursos_${dataArquivo}.pdf`);
 
       toast.success("Relatório PDF exportado com sucesso!");
     } catch (error) {
@@ -682,7 +667,6 @@ export default function NotificacoesInst() {
   return (
     <div className="w-full min-w-0">
       <div className="mx-auto min-w-0 max-w-7xl space-y-6 pb-8">
-
         {/* CABEÇALHO */}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
@@ -741,9 +725,7 @@ export default function NotificacoesInst() {
             <p className="mt-3 text-3xl font-bold text-[#082d56]">
               {carregando ? "..." : totais.total}
             </p>
-            <p className="mt-1 text-xs text-gray-400">
-              Notificações recebidas
-            </p>
+            <p className="mt-1 text-xs text-gray-400">Notificações recebidas</p>
           </div>
 
           <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5 shadow-sm">
@@ -1041,9 +1023,7 @@ export default function NotificacoesInst() {
                                 onClick={() =>
                                   excluirNotificacao(notificacao.id_notificacao)
                                 }
-                                disabled={
-                                  processando || idProcessando !== null
-                                }
+                                disabled={processando || idProcessando !== null}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                                 title="Excluir esta notificação"
                               >
@@ -1076,8 +1056,8 @@ export default function NotificacoesInst() {
                       </h3>
 
                       <p className="mt-2 max-w-sm text-sm text-gray-500">
-                        Não há notificações para os filtros selecionados.
-                        Tente mudar a situação ou a pesquisa.
+                        Não há notificações para os filtros selecionados. Tente
+                        mudar a situação ou a pesquisa.
                       </p>
 
                       {(filtro !== "todas" || pesquisa) && (
@@ -1102,22 +1082,16 @@ export default function NotificacoesInst() {
                 {filtradas.length > 0 && (
                   <div className="mt-6 flex flex-col gap-4 border-t border-gray-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-gray-500">
-                      Exibindo{" "}
-                      {(paginaAtual - 1) * POR_PAGINA + 1} a{" "}
-                      {Math.min(
-                        paginaAtual * POR_PAGINA,
-                        filtradas.length
-                      )}{" "}
-                      de {filtradas.length} notificações
+                      Exibindo {(paginaAtual - 1) * POR_PAGINA + 1} a{" "}
+                      {Math.min(paginaAtual * POR_PAGINA, filtradas.length)} de{" "}
+                      {filtradas.length} notificações
                     </p>
 
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         disabled={paginaAtual === 1}
-                        onClick={() =>
-                          setPagina((p) => Math.max(1, p - 1))
-                        }
+                        onClick={() => setPagina((p) => Math.max(1, p - 1))}
                         aria-label="Página anterior"
                         className="rounded-lg border border-gray-200 bg-white p-2.5 text-[#082d56] transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
@@ -1132,9 +1106,7 @@ export default function NotificacoesInst() {
                         type="button"
                         disabled={paginaAtual === totalPaginas}
                         onClick={() =>
-                          setPagina((p) =>
-                            Math.min(totalPaginas, p + 1)
-                          )
+                          setPagina((p) => Math.min(totalPaginas, p + 1))
                         }
                         aria-label="Próxima página"
                         className="rounded-lg border border-gray-200 bg-white p-2.5 text-[#082d56] transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
