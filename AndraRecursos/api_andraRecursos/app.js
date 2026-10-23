@@ -6,10 +6,9 @@ import path from "node:path";
 
 import { testarConexao } from "./db.js";
 import { testarConexaoSupabase } from "./config/supabase.js";
+
 if (process.env.TESTAR_SUPABASE === "true") {
-  testarConexaoSupabase().catch((error) => {
-    console.error("[TESTE SUPABASE] Erro inesperado:", error);
-  });
+  void testarConexaoSupabase();
 }
 // ======================================
 // IMPORTAÇÃO DAS ROTAS

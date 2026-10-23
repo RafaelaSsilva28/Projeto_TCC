@@ -54,21 +54,21 @@ export const bucketDocumentos =
 // TESTAR CONEXÃO COM O STORAGE
 // ============================================
 
+
 export async function testarConexaoSupabase() {
+  const endpoint = `${supabaseUrl.replace(/\/+$/, "")}/storage/v1/bucket`;
+
+  console.log("[TESTE SUPABASE] Iniciando:", {
+    hostname: new URL(supabaseUrl).hostname,
+    bucket: bucketDocumentos,
+  });
+
   try {
-    const url = new URL(supabaseUrl);
-    const endpoint = `${url.origin}/storage/v1/bucket`;
-
-    console.log("[TESTE SUPABASE] Iniciando:", {
-      protocolo: url.protocol,
-      hostname: url.hostname,
-      bucket: bucketDocumentos,
-    });
-
     const resposta = await fetch(endpoint, {
       method: "GET",
       headers: {
         apikey: supabaseSecretKey,
+        Authorization: `Bearer ${supabaseSecretKey}`,
       },
       signal: AbortSignal.timeout(10000),
     });
@@ -76,27 +76,21 @@ export async function testarConexaoSupabase() {
     console.log("[TESTE SUPABASE] Resultado:", {
       status: resposta.status,
       ok: resposta.ok,
+      texto: (await resposta.text()).slice(0, 300),
     });
-
-    return {
-      status: resposta.status,
-      ok: resposta.ok,
-    };
   } catch (error) {
-    console.error("[TESTE SUPABASE] Falha:", {
+    console.error("[TESTE SUPABASE] Falha de rede:", {
       message: error?.message,
       name: error?.name,
-      causeMessage: error?.cause?.message,
-      causeCode: error?.cause?.code,
-      causeName: error?.cause?.name,
-      causeHostname: error?.cause?.hostname,
-      causeSyscall: error?.cause?.syscall,
+      cause: error?.cause
+        ? {
+            message: error.cause.message,
+            code: error.cause.code,
+            name: error.cause.name,
+            hostname: error.cause.hostname,
+            syscall: error.cause.syscall,
+          }
+        : null,
     });
-
-    return {
-      erro: error?.message,
-      causa: error?.cause?.message,
-      codigo: error?.cause?.code,
-    };
   }
 }
