@@ -140,30 +140,59 @@ async function enviarArquivoSupabase(arquivo, idInstituicao) {
   }
 
   const nomeArquivo = `${randomUUID()}${extensao}`;
+  const caminho = `solicitacoes/${idInstituicao}/${nomeArquivo}`;
 
-  const caminho =
-    `solicitacoes/${idInstituicao}/${nomeArquivo}`;
-
-  const { data, error } = await supabase.storage
-    .from(bucketDocumentos)
-    .upload(caminho, arquivo.buffer, {
-      contentType: arquivo.mimetype,
-      upsert: false,
-    });
-
-  if (error) {
-    console.error("Falha no upload para o Supabase:", {
-      message: error.message,
-      statusCode: error.statusCode,
+  try {
+    console.log("[SUPABASE UPLOAD] Iniciando:", {
       bucket: bucketDocumentos,
-      caminho,
+      tamanhoBytes: arquivo.size,
+      tipo: arquivo.mimetype,
+      urlConfigurada: Boolean(process.env.SUPABASE_URL),
+      chaveConfigurada: Boolean(process.env.SUPABASE_SECRET_KEY),
     });
 
-    throw new Error("Falha ao enviar documento para o armazenamento.");
-  }
+    const { data, error } = await supabase.storage
+      .from(bucketDocumentos)
+      .upload(caminho, arquivo.buffer, {
+        contentType: arquivo.mimetype,
+        upsert: false,
+      });
 
-  return data?.path || caminho;
+    if (error) {
+      console.error("[SUPABASE UPLOAD] Erro retornado:", {
+        message: error.message,
+        name: error.name,
+        statusCode: error.statusCode,
+        error: error.error,
+      });
+
+      throw new Error(
+        `Falha no Supabase Storage: ${error.message}`
+      );
+    }
+
+    console.log("[SUPABASE UPLOAD] Sucesso:", {
+      bucket: bucketDocumentos,
+      caminho: data?.path || caminho,
+    });
+
+    return data?.path || caminho;
+  } catch (error) {
+    console.error("[SUPABASE UPLOAD] Falha detalhada:", {
+      message: error.message,
+      name: error.name,
+      causeMessage: error.cause?.message,
+      causeCode: error.cause?.code,
+      causeName: error.cause?.name,
+      causeStack: error.cause?.stack,
+    });
+
+    throw new Error(
+      "Falha ao enviar documento para o armazenamento."
+    );
+  }
 }
+
 
 async function removerArquivosSupabase(caminhos = []) {
   if (!caminhos.length) return;
