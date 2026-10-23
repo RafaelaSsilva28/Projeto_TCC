@@ -22,7 +22,8 @@ import {
   FiHome,
 } from "react-icons/fi";
 
-const ROTA_HISTORICO = "/historico-solicitacoes";
+const ROTA_HISTORICO = "/historico-instituicao";
+// const ROTA_HISTORICO = "/historico-solicitacoes";
 const LIMITE_PAGINA = 10;
 
 // Ajuste apenas se a rota real da página de
