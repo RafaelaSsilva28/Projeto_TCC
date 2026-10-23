@@ -24,14 +24,21 @@ router.get(
             s.id_solicitacoes
           ) AS id_solicitacao,
           h.descricao,
-          COALESCE(h.status, s.status, 'Pendente') AS status,
+          COALESCE(
+            h.status,
+            s.status,
+            'Pendente'
+          ) AS status,
           COALESCE(
             h.prioridade,
             s.prioridade,
             'Não informada'
           ) AS prioridade,
           TO_CHAR(
-            COALESCE(h.data_alteracao, s.data_pedido),
+            COALESCE(
+              h.data_alteracao,
+              s.data_pedido
+            ),
             'DD/MM/YYYY'
           ) AS data_alteracao,
           s.titulo AS titulo_solicitacao,
