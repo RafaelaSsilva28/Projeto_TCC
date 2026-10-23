@@ -16,7 +16,7 @@ if (process.env.TESTAR_SUPABASE === "true") {
 
 import rotasAdministradores from "./src/routes/rotasAdministradores.js";
 import rotasPerfilAdministrador from "./src/routes/rotasPerfilAdministrador.js";
-
+import rotasHistoricoSolicitacoes from "./src/routes/rotasHistoricoSolicitacoesAdm.js";
 import rotasInstituicoes from "./src/routes/rotasInstituicoes.js";
 import rotasSolicitacoes from "./src/routes/rotasSolicitacoes.js";
 import rotasDocumentos from "./src/routes/rotasDocumentos.js";
@@ -215,7 +215,10 @@ app.use(rotasHistoricoSolicitacoes);
 // --------------------------------------
 // RESPOSTAS ADMINISTRATIVAS
 // --------------------------------------
-
+app.use(
+  "/historico-solicitacoesAdm",
+  rotasHistoricoSolicitacoes
+);
 app.use(rotasRespostasADM);
 
 // --------------------------------------
