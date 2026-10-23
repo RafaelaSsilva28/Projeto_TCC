@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -33,7 +33,6 @@ const STATUS_PADRAO = [
   "pendente",
   "em andamento",
   "concluida",
-  "concluída",
   "aprovada",
   "recusada",
   "cancelada",
@@ -43,11 +42,19 @@ const STATUS_LABELS = {
   pendente: "Pendente",
   "em andamento": "Em andamento",
   concluida: "Concluída",
-  concluída: "Concluída",
   aprovada: "Aprovada",
   recusada: "Recusada",
   cancelada: "Cancelada",
 };
+
+const TIPOS_SOLICITACAO = [
+  "Alimentício",
+  "Almoxarifado",
+  "Outro",
+  "Recursos Humanos",
+  "TI",
+  "Tecnologia",
+];
 
 // =====================================================
 // FUNÇÕES AUXILIARES
@@ -61,12 +68,16 @@ function obterUrl(endpoint) {
   return `${String(enderecoServidor).replace(/\/+$/, "")}${endpoint}`;
 }
 
+// Normaliza acentos, espaços e letras maiúsculas/minúsculas.
+// Ex.: "Concluída", "concluida" e " CONCLUÍDA " são equivalentes.
 function normalizarTexto(valor) {
   return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
+    .replace(/\s+/g, " ")
     .toLocaleLowerCase("pt-BR");
 }
-
 function obterDataRegistro(item) {
   return (
     item?.data_pedido ||
@@ -89,6 +100,7 @@ function converterData(valor) {
 
   const texto = String(valor).trim();
 
+  // Aceita DD/MM/AAAA e DD/MM/AAAA HH:mm:ss.
   const brasileira = texto.match(
     /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/,
   );
@@ -135,23 +147,6 @@ function obterStatus(item) {
   );
 }
 
-function obterTipo(item) {
-  const tipo = item?.tipo_solicitacao ?? item?.tipo;
-
-  if (typeof tipo === "object" && tipo !== null) {
-    return tipo.nome ?? item?.setor ?? item?.categoria?.nome ?? "Não informado";
-  }
-
-  return (
-    tipo ??
-    item?.setor ??
-    item?.categoria?.nome ??
-    item?.categoria ??
-    item?.nome_categoria ??
-    "Não informado"
-  );
-}
-
 // =====================================================
 // IDENTIFICAÇÃO DA SOLICITAÇÃO
 // =====================================================
@@ -175,6 +170,34 @@ function obterSolicitacaoRelacionada(item) {
   return null;
 }
 
+// Corrigido para encontrar o tipo mesmo quando a API retorna
+// o setor como "tipo_solicitacao" ou dentro da solicitação relacionada.
+function obterTipo(item) {
+  const solicitacao = obterSolicitacaoRelacionada(item);
+
+  const candidatos = [
+    item?.tipo_solicitacao,
+    item?.setor,
+    item?.tipo,
+    item?.categoria?.nome,
+    item?.categoria,
+    item?.nome_categoria,
+    solicitacao?.tipo_solicitacao,
+    solicitacao?.setor,
+    solicitacao?.tipo,
+    solicitacao?.categoria?.nome,
+  ];
+
+  const tipo = candidatos.find((valor) => {
+    if (typeof valor !== "string" || !valor.trim()) {
+      return false;
+    }
+
+    return normalizarTexto(valor) !== "nao informado";
+  });
+
+  return tipo?.trim() || "Não informado";
+}
 function pareceEventoHistorico(valor) {
   return /status\s+(foi\s+)?alterad[oa]|alterou\s+o\s+status|mudou\s+o\s+status|solicita[cç][aã]o\s+(foi\s+)?(aprovada|recusada|cancelada)/i.test(
     normalizarTexto(valor),
@@ -313,7 +336,7 @@ function carregarRelatoriosSalvos() {
 function obterClasseStatus(status) {
   const valor = normalizarTexto(status);
 
-  if (valor === "concluida" || valor === "concluída" || valor === "aprovada") {
+  if (valor === "concluida" || valor === "aprovada") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
 
@@ -328,6 +351,10 @@ function obterClasseStatus(status) {
   return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
+function obterStatusLabel(status) {
+  return STATUS_LABELS[normalizarTexto(status)] || status || "Não informado";
+}
+
 // =====================================================
 // COMPONENTE
 // =====================================================
@@ -339,6 +366,7 @@ export default function RelatoriosInst() {
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
 
+  // null = todos selecionados; [] = nenhum selecionado.
   const [statusSelecionados, setStatusSelecionados] = useState(null);
   const [tiposSelecionados, setTiposSelecionados] = useState(null);
 
@@ -436,22 +464,41 @@ export default function RelatoriosInst() {
       .map((item) => String(obterStatus(item)).trim())
       .filter(Boolean);
 
-    return [...new Set([...STATUS_PADRAO, ...encontrados])]
-      .sort((a, b) => a.localeCompare(b, "pt-BR"))
-      .filter(
-        (status, indice, lista) =>
-          lista.findIndex(
-            (item) => normalizarTexto(item) === normalizarTexto(status),
-          ) === indice,
-      );
+    const todos = [...STATUS_PADRAO, ...encontrados];
+    const unicos = new Map();
+
+    todos.forEach((status) => {
+      const chave = normalizarTexto(status);
+
+      if (chave && !unicos.has(chave)) {
+        unicos.set(chave, status);
+      }
+    });
+
+    return [...unicos.values()].sort((a, b) =>
+      a.localeCompare(b, "pt-BR"),
+    );
   }, [dados]);
 
   const opcoesTipos = useMemo(() => {
     const encontrados = dados
       .map((item) => String(obterTipo(item)).trim())
-      .filter((tipo) => tipo && normalizarTexto(tipo) !== "não informado");
+      .filter(
+        (tipo) =>
+          tipo && normalizarTexto(tipo) !== "nao informado",
+      );
 
-    return [...new Set(encontrados)].sort((a, b) =>
+    const unicos = new Map();
+
+    [...TIPOS_SOLICITACAO, ...encontrados].forEach((tipo) => {
+      const chave = normalizarTexto(tipo);
+
+      if (chave && !unicos.has(chave)) {
+        unicos.set(chave, tipo);
+      }
+    });
+
+    return [...unicos.values()].sort((a, b) =>
       a.localeCompare(b, "pt-BR"),
     );
   }, [dados]);
@@ -461,9 +508,13 @@ export default function RelatoriosInst() {
   // =====================================================
 
   const registrosFiltrados = useMemo(() => {
-    const inicio = dataInicial ? new Date(`${dataInicial}T00:00:00`) : null;
+    const inicio = dataInicial
+      ? new Date(`${dataInicial}T00:00:00`)
+      : null;
 
-    const fim = dataFinal ? new Date(`${dataFinal}T23:59:59.999`) : null;
+    const fim = dataFinal
+      ? new Date(`${dataFinal}T23:59:59.999`)
+      : null;
 
     return dados.filter((item) => {
       const dataRegistro = converterData(obterDataRegistro(item));
@@ -476,54 +527,71 @@ export default function RelatoriosInst() {
         return false;
       }
 
-      if (
-        statusSelecionados !== null &&
-        !statusSelecionados.some(
-          (status) =>
-            normalizarTexto(status) === normalizarTexto(obterStatus(item)),
-        )
-      ) {
-        return false;
+      if (statusSelecionados !== null) {
+        const statusAtual = normalizarTexto(obterStatus(item));
+
+        if (
+          !statusSelecionados.some(
+            (status) => normalizarTexto(status) === statusAtual,
+          )
+        ) {
+          return false;
+        }
       }
 
-      if (
-        tiposSelecionados !== null &&
-        !tiposSelecionados.some(
-          (tipo) => normalizarTexto(tipo) === normalizarTexto(obterTipo(item)),
-        )
-      ) {
-        return false;
+      if (tiposSelecionados !== null) {
+        const tipoAtual = normalizarTexto(obterTipo(item));
+
+        if (
+          !tiposSelecionados.some(
+            (tipo) => normalizarTexto(tipo) === tipoAtual,
+          )
+        ) {
+          return false;
+        }
       }
 
       return true;
     });
-  }, [dados, dataInicial, dataFinal, statusSelecionados, tiposSelecionados]);
+  }, [
+    dados,
+    dataInicial,
+    dataFinal,
+    statusSelecionados,
+    tiposSelecionados,
+  ]);
 
+  // Alterna a seleção respeitando os valores normalizados.
   function alternarFiltro(valor, selecionados, atualizar, opcoes) {
-    if (selecionados === null) {
-      atualizar(opcoes.filter((item) => item !== valor));
-      return;
-    }
+  const valorNormalizado = normalizarTexto(valor);
 
-    const jaSelecionado = selecionados.includes(valor);
-
+  if (selecionados === null) {
     atualizar(
-      jaSelecionado
-        ? selecionados.filter((item) => item !== valor)
-        : [...selecionados, valor],
+      opcoes.filter(
+        (item) => normalizarTexto(item) !== valorNormalizado,
+      ),
     );
+    return;
   }
 
+  const jaSelecionado = selecionados.some(
+    (item) => normalizarTexto(item) === valorNormalizado,
+  );
+
+  atualizar(
+    jaSelecionado
+      ? selecionados.filter(
+          (item) => normalizarTexto(item) !== valorNormalizado,
+        )
+      : [...selecionados, valor],
+  );
+}
+
   function limparFiltros() {
-    // Limpar as datas
     setDataInicial("");
     setDataFinal("");
-
-    // Desmarcar todos os checkboxes
-    setStatusSelecionados([]);
-    setTiposSelecionados([]);
-
-    // Limpar mensagens
+    setStatusSelecionados(null);
+    setTiposSelecionados(null);
     setMensagem("");
     setErro("");
   }
@@ -538,7 +606,7 @@ export default function RelatoriosInst() {
       "Título da solicitação": obterTitulo(item),
       "Descrição da solicitação": obterDescricao(item),
       "Tipo / Setor": obterTipo(item),
-      Status: obterStatus(item) || "Não informado",
+      Status: obterStatusLabel(obterStatus(item)),
       Prioridade: obterPrioridade(item),
       "Data da solicitação": formatarData(obterDataRegistro(item)),
       Instituição: obterNomeInstituicao(item, nomeInstituicao),
@@ -560,7 +628,6 @@ export default function RelatoriosInst() {
     documento.setFont("helvetica", "bold");
     documento.setFontSize(18);
     documento.setTextColor(15, 39, 74);
-
     documento.text("Relatório de Solicitações", 14, 16);
 
     documento.setFont("helvetica", "normal");
@@ -581,7 +648,6 @@ export default function RelatoriosInst() {
 
     documento.text(`Registros encontrados: ${registros.length}`, 14, 36);
 
-    // O resumo fica dentro do arquivo PDF.
     documento.setFont("helvetica", "bold");
     documento.setFontSize(10);
     documento.setTextColor(15, 39, 74);
@@ -597,7 +663,6 @@ export default function RelatoriosInst() {
     );
 
     const resumoLimitado = resumoTexto.slice(0, 5);
-
     documento.text(resumoLimitado, 14, 48);
 
     const alturaResumo = Math.max(5, resumoLimitado.length * 4);
@@ -608,9 +673,7 @@ export default function RelatoriosInst() {
       obterTitulo(item),
       obterDescricao(item),
       obterTipo(item),
-      STATUS_LABELS[normalizarTexto(obterStatus(item))] ||
-        obterStatus(item) ||
-        "Não informado",
+      obterStatusLabel(obterStatus(item)),
       obterPrioridade(item),
       formatarData(obterDataRegistro(item)),
     ]);
@@ -704,7 +767,6 @@ export default function RelatoriosInst() {
 
     XLSX.utils.book_append_sheet(livro, planilha, "Relatório");
 
-    // Aba adicional para facilitar a leitura do resumo.
     const resumoPlanilha = XLSX.utils.aoa_to_sheet([
       ["RESUMO DO RELATÓRIO"],
       [resumo.trim() || "Nenhum resumo informado."],
@@ -771,6 +833,53 @@ export default function RelatoriosInst() {
   }
 
   // =====================================================
+  // FILTRAR REGISTROS PARA EXPORTAÇÃO
+  // =====================================================
+
+  function filtrarRegistros(registros, filtros) {
+    const inicio = filtros.dataInicial
+      ? new Date(`${filtros.dataInicial}T00:00:00`)
+      : null;
+
+    const fim = filtros.dataFinal
+      ? new Date(`${filtros.dataFinal}T23:59:59.999`)
+      : null;
+
+    return registros.filter((item) => {
+      const data = converterData(obterDataRegistro(item));
+
+      if (inicio && (!data || data < inicio)) return false;
+      if (fim && (!data || data > fim)) return false;
+
+      if (filtros.status !== null && filtros.status !== undefined) {
+        const statusAtual = normalizarTexto(obterStatus(item));
+
+        if (
+          !filtros.status.some(
+            (status) => normalizarTexto(status) === statusAtual,
+          )
+        ) {
+          return false;
+        }
+      }
+
+      if (filtros.tipos !== null && filtros.tipos !== undefined) {
+        const tipoAtual = normalizarTexto(obterTipo(item));
+
+        if (
+          !filtros.tipos.some(
+            (tipo) => normalizarTexto(tipo) === tipoAtual,
+          )
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }
+
+  // =====================================================
   // GERAR RELATÓRIO
   // =====================================================
 
@@ -816,38 +925,14 @@ export default function RelatoriosInst() {
 
       setDados(registrosAtuais);
 
-      const inicio = dataInicial ? new Date(`${dataInicial}T00:00:00`) : null;
+      const filtros = {
+        dataInicial,
+        dataFinal,
+        status: statusSelecionados,
+        tipos: tiposSelecionados,
+      };
 
-      const fim = dataFinal ? new Date(`${dataFinal}T23:59:59.999`) : null;
-
-      const filtrados = registrosAtuais.filter((item) => {
-        const data = converterData(obterDataRegistro(item));
-
-        if (inicio && (!data || data < inicio)) return false;
-        if (fim && (!data || data > fim)) return false;
-
-        if (
-          statusSelecionados !== null &&
-          !statusSelecionados.some(
-            (status) =>
-              normalizarTexto(status) === normalizarTexto(obterStatus(item)),
-          )
-        ) {
-          return false;
-        }
-
-        if (
-          tiposSelecionados !== null &&
-          !tiposSelecionados.some(
-            (tipo) =>
-              normalizarTexto(tipo) === normalizarTexto(obterTipo(item)),
-          )
-        ) {
-          return false;
-        }
-
-        return true;
-      });
+      const filtrados = filtrarRegistros(registrosAtuais, filtros);
 
       if (filtrados.length === 0) {
         setMensagem("Nenhum registro corresponde aos filtros selecionados.");
@@ -856,7 +941,6 @@ export default function RelatoriosInst() {
 
       const resumo = resumoRelatorio.trim();
 
-      // O resumo digitado é incorporado ao arquivo exportado.
       exportarRelatorio(filtrados, formato, resumo);
 
       const relatorio = {
@@ -864,12 +948,7 @@ export default function RelatoriosInst() {
         nome: `Relatório ${new Date().toLocaleString("pt-BR")}`,
         formato,
         criadoEm: new Date().toISOString(),
-        filtros: {
-          dataInicial,
-          dataFinal,
-          status: statusSelecionados,
-          tipos: tiposSelecionados,
-        },
+        filtros,
         quantidade: filtrados.length,
         resumo,
       };
@@ -933,53 +1012,13 @@ export default function RelatoriosInst() {
       }
 
       const filtros = relatorio.filtros || {};
-
-      const inicio = filtros.dataInicial
-        ? new Date(`${filtros.dataInicial}T00:00:00`)
-        : null;
-
-      const fim = filtros.dataFinal
-        ? new Date(`${filtros.dataFinal}T23:59:59.999`)
-        : null;
-
-      const filtrados = registros.filter((item) => {
-        const data = converterData(obterDataRegistro(item));
-
-        if (inicio && (!data || data < inicio)) return false;
-        if (fim && (!data || data > fim)) return false;
-
-        if (
-          filtros.status !== null &&
-          filtros.status !== undefined &&
-          !filtros.status.some(
-            (status) =>
-              normalizarTexto(status) === normalizarTexto(obterStatus(item)),
-          )
-        ) {
-          return false;
-        }
-
-        if (
-          filtros.tipos !== null &&
-          filtros.tipos !== undefined &&
-          !filtros.tipos.some(
-            (tipo) =>
-              normalizarTexto(tipo) === normalizarTexto(obterTipo(item)),
-          )
-        ) {
-          return false;
-        }
-
-        return true;
-      });
+      const filtrados = filtrarRegistros(registros, filtros);
 
       if (filtrados.length === 0) {
         setMensagem("Nenhum registro corresponde aos filtros desse relatório.");
         return;
       }
 
-      // Utiliza o resumo salvo naquele relatório,
-      // e não o texto que estiver atualmente no campo.
       const resumoSalvo = relatorio.resumo || "";
 
       exportarRelatorio(filtrados, relatorio.formato, resumoSalvo);
@@ -1006,7 +1045,6 @@ export default function RelatoriosInst() {
     );
 
     localStorage.setItem(CHAVE_RELATORIOS, JSON.stringify(atualizados));
-
     setRelatoriosSalvos(atualizados);
 
     if (relatorioExpandido === id) {
@@ -1020,7 +1058,8 @@ export default function RelatoriosInst() {
   // ESTILOS
   // =====================================================
 
-  const cardClass = "rounded-2xl border border-slate-200 bg-white shadow-sm";
+  const cardClass =
+    "rounded-2xl border border-slate-200 bg-white shadow-sm";
 
   const inputClass =
     "w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-blue-700 focus:ring-2 focus:ring-blue-100";
@@ -1052,6 +1091,7 @@ export default function RelatoriosInst() {
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
               Exportação de Relatórios
             </h1>
+
             <p className="text-xs text-slate-600">
               Selecione os filtros e o formato desejado para gerar o relatório.
             </p>
@@ -1082,6 +1122,7 @@ export default function RelatoriosInst() {
               ) : (
                 <FiDownload size={15} />
               )}
+
               {gerando ? "Gerando..." : "Gerar e Baixar Relatório"}
             </button>
           </div>
@@ -1132,6 +1173,7 @@ export default function RelatoriosInst() {
 
       {/* FILTROS */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {/* PERÍODO */}
         <div className="rounded-2xl border-l-[5px] border-[#06458f] bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
           <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wide">
             Período
@@ -1170,49 +1212,20 @@ export default function RelatoriosInst() {
           </div>
         </div>
 
+        {/* FILTRO: TIPO DE SOLICITAÇÃO */}
         <div className="rounded-2xl border-l-[5px] border-[#06458f] bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
           <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wide">
-            Instituição
-          </h2>
-
-          <label className="block">
-            <span className="sr-only">Instituição atual</span>
-
-            <select
-              value={nomeInstituicao}
-              disabled
-              className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-600`}
-            >
-              <option value={nomeInstituicao}>
-                {nomeInstituicao || "Instituição da sessão"}
-              </option>
-            </select>
-          </label>
-
-          <p className="mt-2 text-[10px] text-slate-500">
-            Relatório referente à instituição conectada.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border-l-[5px] border-[#06458f] bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
-          <h2 className="mb-3 text-xs font-extrabold uppercase tracking-wide">
             Tipo de solicitação
           </h2>
 
           <details className="group relative">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50">
               <span className="truncate">
-                {tiposSelecionados === null && statusSelecionados === null
-                  ? "Todos os tipos e status"
-                  : `${
-                      tiposSelecionados === null
-                        ? "Todos os tipos"
-                        : `${tiposSelecionados.length} tipo(s)`
-                    } · ${
-                      statusSelecionados === null
-                        ? "Todos os status"
-                        : `${statusSelecionados.length} status`
-                    }`}
+                {tiposSelecionados === null
+                  ? "Todos os tipos"
+                  : tiposSelecionados.length === 0
+                    ? "Nenhum tipo selecionado"
+                    : `${tiposSelecionados.length} tipo(s) selecionado(s)`}
               </span>
 
               <FiChevronDown
@@ -1224,7 +1237,7 @@ export default function RelatoriosInst() {
             <div className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
               <div className="flex items-center justify-between gap-2 px-2 pb-1">
                 <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
-                  Tipos de solicitação
+                  Tipos disponíveis
                 </span>
 
                 <button
@@ -1236,46 +1249,78 @@ export default function RelatoriosInst() {
                 </button>
               </div>
 
-              {opcoesTipos.length ? (
-                opcoesTipos.map((item) => {
-                  const selecionado =
-                    tiposSelecionados === null ||
-                    tiposSelecionados.includes(item);
+              {opcoesTipos.map((item) => (
+                <label
+                  key={`tipo-${normalizarTexto(item)}`}
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={
+                      tiposSelecionados === null ||
+                      tiposSelecionados.some(
+                        (tipo) =>
+                          normalizarTexto(tipo) === normalizarTexto(item),
+                      )
+                    }
+                    onChange={() =>
+                      alternarFiltro(
+                        item,
+                        tiposSelecionados,
+                        setTiposSelecionados,
+                        opcoesTipos,
+                      )
+                    }
+                    className="accent-blue-800"
+                  />
 
-                  return (
-                    <label
-                      key={`tipo-${item}`}
-                      className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selecionado}
-                        onChange={() =>
-                          alternarFiltro(
-                            item,
-                            tiposSelecionados,
-                            setTiposSelecionados,
-                            opcoesTipos,
-                          )
-                        }
-                        className="accent-blue-800"
-                      />
+                  <span className="break-words">{item}</span>
+                </label>
+              ))}
 
-                      <span className="break-words">{item}</span>
-                    </label>
-                  );
-                })
-              ) : (
-                <p className="px-2 py-2 text-xs text-slate-500">
-                  Nenhum tipo disponível.
-                </p>
-              )}
+              <div className="mt-2 border-t border-slate-100 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setTiposSelecionados([])}
+                  className="w-full rounded-md px-2 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-50"
+                >
+                  Limpar seleção
+                </button>
+              </div>
+            </div>
+          </details>
 
-              <div className="my-2 border-t border-slate-200" />
+          <p className="mt-2 text-[10px] text-slate-500">
+            Filtre as solicitações pelo setor ou tipo.
+          </p>
+        </div>
 
+        {/* FILTRO: STATUS */}
+        <div className="rounded-2xl border-l-[5px] border-[#06458f] bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
+          <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wide">
+            Status da solicitação
+          </h2>
+
+          <details className="group relative">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50">
+              <span className="truncate">
+                {statusSelecionados === null
+                  ? "Todos os status"
+                  : statusSelecionados.length === 0
+                    ? "Nenhum status selecionado"
+                    : `${statusSelecionados.length} status selecionado(s)`}
+              </span>
+
+              <FiChevronDown
+                className="shrink-0 transition group-open:rotate-180"
+                size={15}
+              />
+            </summary>
+
+            <div className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
               <div className="flex items-center justify-between gap-2 px-2 pb-1">
                 <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
-                  Status da solicitação
+                  Status disponíveis
                 </span>
 
                 <button
@@ -1287,52 +1332,49 @@ export default function RelatoriosInst() {
                 </button>
               </div>
 
-              {opcoesStatus.map((item) => {
-                const selecionado =
-                  statusSelecionados === null ||
-                  statusSelecionados.includes(item);
+              {opcoesStatus.map((item) => (
+                <label
+                  key={`status-${normalizarTexto(item)}`}
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={
+                      statusSelecionados === null ||
+                      statusSelecionados.some(
+                        (status) =>
+                          normalizarTexto(status) === normalizarTexto(item),
+                      )
+                    }
+                    onChange={() =>
+                      alternarFiltro(
+                        item,
+                        statusSelecionados,
+                        setStatusSelecionados,
+                        opcoesStatus,
+                      )
+                    }
+                    className="accent-blue-800"
+                  />
 
-                return (
-                  <label
-                    key={`status-${item}`}
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selecionado}
-                      onChange={() =>
-                        alternarFiltro(
-                          item,
-                          statusSelecionados,
-                          setStatusSelecionados,
-                          opcoesStatus,
-                        )
-                      }
-                      className="accent-blue-800"
-                    />
-
-                    <span>{STATUS_LABELS[normalizarTexto(item)] || item}</span>
-                  </label>
-                );
-              })}
+                  <span>{obterStatusLabel(item)}</span>
+                </label>
+              ))}
 
               <div className="mt-2 border-t border-slate-100 pt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setTiposSelecionados([]);
-                    setStatusSelecionados([]);
-                  }}
+                  onClick={() => setStatusSelecionados([])}
                   className="w-full rounded-md px-2 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-50"
                 >
-                  Limpar todas as seleções
+                  Limpar seleção
                 </button>
               </div>
             </div>
           </details>
 
           <p className="mt-2 text-[10px] text-slate-500">
-            Selecione os tipos e os status no mesmo campo.
+            Filtre pelo andamento de cada solicitação.
           </p>
         </div>
       </section>
@@ -1410,6 +1452,7 @@ export default function RelatoriosInst() {
 
       {/* PRÉVIA E RESUMO */}
       <section className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]">
+        {/* PRÉVIA */}
         <div className={`${cardClass} min-w-0 overflow-hidden`}>
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-5">
             <div>
@@ -1512,9 +1555,7 @@ export default function RelatoriosInst() {
                             obterStatus(item),
                           )}`}
                         >
-                          {STATUS_LABELS[normalizarTexto(obterStatus(item))] ||
-                            obterStatus(item) ||
-                            "Não informado"}
+                          {obterStatusLabel(obterStatus(item))}
                         </span>
                       </td>
 
@@ -1651,7 +1692,7 @@ export default function RelatoriosInst() {
                   const expandido = relatorioExpandido === relatorio.id;
 
                   return (
-                    <tbody key={relatorio.id} className="contents">
+                    <Fragment key={relatorio.id}>
                       <tr className="transition hover:bg-blue-50/30">
                         <td className="px-3 py-3 text-xs font-semibold text-blue-800 sm:px-4">
                           #{String(relatorio.id).slice(-6)}
@@ -1691,7 +1732,6 @@ export default function RelatoriosInst() {
                           {relatorio.quantidade}
                         </td>
 
-                        {/* AÇÕES ALINHADAS */}
                         <td className="px-3 py-3 sm:px-4">
                           <div className="flex items-center gap-2">
                             <button
@@ -1784,7 +1824,7 @@ export default function RelatoriosInst() {
                           </td>
                         </tr>
                       )}
-                    </tbody>
+                    </Fragment>
                   );
                 })}
               </tbody>
