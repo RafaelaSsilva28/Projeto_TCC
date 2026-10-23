@@ -10,8 +10,9 @@ import {
 const router = Router();
 
 // ============================================
-// GET - HISTÓRICO GERAL DO ADMINISTRADOR
-// GET /historico-solicitacoesAdm
+// GET - HISTÓRICO ADMINISTRATIVO
+// Cada solicitação aparece apenas uma vez,
+// com a alteração mais recente registrada.
 // ============================================
 
 router.get(
@@ -23,7 +24,6 @@ router.get(
             const comando = `
                 SELECT
                     h.id_historico,
-
                     s.id_solicitacoes AS id_solicitacao,
 
                     COALESCE(
@@ -69,8 +69,24 @@ router.get(
 
                 FROM solicitacoes s
 
-                LEFT JOIN historico_solicitacoes h
-                    ON h.id_solicitacao = s.id_solicitacoes
+                LEFT JOIN LATERAL (
+                    SELECT
+                        hs.id_historico,
+                        hs.descricao,
+                        hs.status,
+                        hs.prioridade,
+                        hs.data_alteracao
+
+                    FROM historico_solicitacoes hs
+
+                    WHERE hs.id_solicitacao = s.id_solicitacoes
+
+                    ORDER BY
+                        hs.data_alteracao DESC NULLS LAST,
+                        hs.id_historico DESC
+
+                    LIMIT 1
+                ) h ON TRUE
 
                 LEFT JOIN instituicoes i
                     ON i.id_instituicao = s.id_instituicao
@@ -80,8 +96,6 @@ router.get(
                         h.data_alteracao,
                         s.data_pedido
                     ) DESC NULLS LAST,
-
-                    h.id_historico DESC NULLS LAST,
 
                     s.id_solicitacoes DESC
             `;
@@ -97,7 +111,6 @@ router.get(
                     codigo: error.code,
                     detalhe: error.detail,
                     dica: error.hint,
-                    posicao: error.position,
                     tabela: error.table,
                     coluna: error.column,
                     caminho: req.originalUrl,
