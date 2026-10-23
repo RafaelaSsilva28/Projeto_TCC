@@ -23,10 +23,11 @@ router.get(
             const comando = `
                 SELECT
                     h.id_historico,
+
                     s.id_solicitacoes AS id_solicitacao,
 
                     COALESCE(
-                        i.nome_instituicao,
+                        i.nome,
                         'Instituição não informada'
                     ) AS nome_instituicao,
 
@@ -37,6 +38,7 @@ router.get(
 
                     COALESCE(
                         h.descricao,
+                        s.descricao,
                         ''
                     ) AS descricao,
 
@@ -78,7 +80,9 @@ router.get(
                         h.data_alteracao,
                         s.data_pedido
                     ) DESC NULLS LAST,
+
                     h.id_historico DESC NULLS LAST,
+
                     s.id_solicitacoes DESC
             `;
 
@@ -101,7 +105,8 @@ router.get(
             );
 
             return res.status(500).json({
-                mensagem: "Erro ao carregar o histórico de solicitações.",
+                mensagem:
+                    "Erro ao carregar o histórico de solicitações.",
             });
         }
     }
