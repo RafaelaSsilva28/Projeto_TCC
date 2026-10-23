@@ -5,7 +5,7 @@ import cors from "cors";
 import path from "node:path";
 
 import { testarConexao } from "./db.js";
-
+import { testarConexaoSupabase } from "./config/supabase.js";
 // ======================================
 // IMPORTAÇÃO DAS ROTAS
 // ======================================
@@ -26,6 +26,7 @@ import rotasConfiguracoesAdmin from "./src/routes/rotasConfiguracoesAdmin.js";
 import rotasConfiguracoesInst from "./src/routes/rotasConfiguracoesInst.js";
 
 import documentacao from "./config/swagger.js";
+
 
 const app = express();
 
@@ -246,7 +247,11 @@ app.use(rotasConfiguracoesInst);
 // ======================================
 // ROTA NÃO ENCONTRADA
 // ======================================
-
+if (process.env.TESTAR_SUPABASE === "true") {
+  testarConexaoSupabase().catch((error) => {
+    console.error("[TESTE SUPABASE] Erro inesperado:", error);
+  });
+}
 app.use((req, res) => {
     return res.status(404).json({
         message: "Rota não encontrada.",
