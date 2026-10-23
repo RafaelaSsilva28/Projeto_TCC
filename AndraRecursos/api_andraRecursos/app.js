@@ -6,6 +6,11 @@ import path from "node:path";
 
 import { testarConexao } from "./db.js";
 import { testarConexaoSupabase } from "./config/supabase.js";
+if (process.env.TESTAR_SUPABASE === "true") {
+  testarConexaoSupabase().catch((error) => {
+    console.error("[TESTE SUPABASE] Erro inesperado:", error);
+  });
+}
 // ======================================
 // IMPORTAÇÃO DAS ROTAS
 // ======================================
@@ -247,11 +252,7 @@ app.use(rotasConfiguracoesInst);
 // ======================================
 // ROTA NÃO ENCONTRADA
 // ======================================
-if (process.env.TESTAR_SUPABASE === "true") {
-  testarConexaoSupabase().catch((error) => {
-    console.error("[TESTE SUPABASE] Erro inesperado:", error);
-  });
-}
+
 app.use((req, res) => {
     return res.status(404).json({
         message: "Rota não encontrada.",
