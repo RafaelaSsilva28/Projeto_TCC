@@ -345,9 +345,9 @@ export default function LayoutAdministrador({ children }) {
                   ref={painelRef}
                   role="dialog"
                   aria-label="Notificações recentes"
-                  className="absolute right-0 top-[calc(100%+12px)] z-[100] w-[min( calc(100vw-2rem), 390px)] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left text-slate-800 shadow-[0_18px_55px_rgba(8,45,86,0.22)] sm:w-[390px]"
+                  className="fixed inset-x-3 top-[5.25rem] z-[100] flex max-h-[calc(100dvh-6rem)] w-auto flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left text-slate-800 shadow-[0_18px_55px_rgba(8,45,86,0.22)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-[calc(100%+12px)] sm:max-h-[min(80vh,600px)] sm:w-[390px] sm:max-w-[calc(100vw-2rem)]"
                 >
-                  <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-white px-4 py-4">
+                  <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 bg-white px-3 py-3 sm:gap-3 sm:px-4 sm:py-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <h2 className="text-sm font-bold text-[#082d56]">Notificações</h2>
@@ -382,7 +382,7 @@ export default function LayoutAdministrador({ children }) {
                     </div>
                   </div>
 
-                  <div className="max-h-[min(65vh,440px)] overflow-y-auto">
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                     {carregandoNotificacoes && notificacoes.length === 0 ? (
                       <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm text-slate-500">
                         <FiRefreshCw className="animate-spin" />
@@ -479,7 +479,7 @@ export default function LayoutAdministrador({ children }) {
                     )}
                   </div>
 
-                  <div className="border-t border-slate-100 bg-slate-50 p-3">
+                  <div className="shrink-0 border-t border-slate-100 bg-slate-50 p-2.5 sm:p-3">
                     <button
                       type="button"
                       onClick={() => {

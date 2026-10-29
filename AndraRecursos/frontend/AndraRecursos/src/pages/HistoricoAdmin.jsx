@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
@@ -22,12 +23,8 @@ import {
   FiHome,
 } from "react-icons/fi";
 
-
 const ROTA_HISTORICO = "/historico-solicitacoesAdm";
 const LIMITE_PAGINA = 10;
-
-// Ajuste apenas se a rota real da página de
-// solicitações tiver outro endereço.
 const ROTA_SOLICITACOES = "/solicitacoes";
 
 // ============================================
@@ -48,7 +45,9 @@ function formatarStatus(status) {
     };
   }
 
-  if (["recusada", "recusado", "rejeitada", "indeferida"].includes(valor)) {
+  if (
+    ["recusada", "recusado", "rejeitada", "indeferida"].includes(valor)
+  ) {
     return {
       texto: "RECUSADA",
       estilo: "bg-red-100 text-red-700",
@@ -119,13 +118,14 @@ function formatarData(registro) {
 
 function formatarRegistro(registro) {
   return {
-    id_historico: registro.id_historico,
-
+    id_historico: registro.id_historico ?? null,
     id_solicitacao: registro.id_solicitacao ?? null,
 
-    instituicao: registro.nome_instituicao || "Instituição não informada",
+    instituicao:
+      registro.nome_instituicao || "Instituição não informada",
 
-    titulo: registro.titulo_solicitacao || "Solicitação sem título",
+    titulo:
+      registro.titulo_solicitacao || "Solicitação sem título",
 
     descricao: registro.descricao || "",
 
@@ -140,17 +140,63 @@ function formatarRegistro(registro) {
 }
 
 // ============================================
-// PROTEÇÃO DO ARQUIVO CSV
+// COMPARAR DATAS
 // ============================================
 
-function escaparCSV(valor) {
-  let texto = String(valor ?? "");
+function obterTempoData(registro) {
+  const valor = registro.dataOriginal;
 
-  if (/^\s*[=+\-@]/.test(texto)) {
-    texto = "'" + texto;
-  }
+  if (!valor) return 0;
 
-  return `"${texto.replace(/"/g, '""')}"`;
+  const tempo = new Date(valor).getTime();
+
+  return Number.isNaN(tempo) ? 0 : tempo;
+}
+
+// ============================================
+// REMOVER SOLICITAÇÕES DUPLICADAS
+// ============================================
+//
+// Cada solicitação deve aparecer apenas uma vez.
+//
+// Quando houver vários registros para a mesma
+// solicitação, fica somente o mais recente.
+//
+// O id_solicitacao é usado como identificador
+// principal, pois id_historico muda a cada alteração.
+// ============================================
+
+function removerSolicitacoesDuplicadas(registros) {
+  const porSolicitacao = new Map();
+
+  registros.forEach((registro, indice) => {
+    // Sem ID de solicitação, não é seguro agrupar
+    // registros diferentes. Usa o ID do histórico
+    // apenas como alternativa.
+    const chave =
+      registro.id_solicitacao != null
+        ? `solicitacao-${registro.id_solicitacao}`
+        : registro.id_historico != null
+          ? `historico-${registro.id_historico}`
+          : `registro-${indice}`;
+
+    const existente = porSolicitacao.get(chave);
+
+    if (!existente) {
+      porSolicitacao.set(chave, registro);
+      return;
+    }
+
+    // Se a API não vier ordenada, mantém a atualização
+    // com a data mais recente.
+    if (obterTempoData(registro) > obterTempoData(existente)) {
+      porSolicitacao.set(chave, registro);
+    }
+  });
+
+  return Array.from(porSolicitacao.values()).sort((a, b) => {
+    return obterTempoData(b) - obterTempoData(a);
+  });
 }
 
 // ============================================
@@ -186,41 +232,59 @@ export default function HistoricoAdmin() {
 
       if (!token) {
         setErro("Sessão expirada. Faça login novamente.");
+        setHistorico([]);
         setCarregando(false);
         return;
       }
 
       try {
-        const resposta = await fetch(`${enderecoServidor}${ROTA_HISTORICO}`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const resposta = await fetch(
+          `${enderecoServidor}${ROTA_HISTORICO}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            signal: controlador.signal,
           },
-          signal: controlador.signal,
-        });
+        );
 
         const resultado = await resposta.json().catch(() => null);
 
         if (!resposta.ok) {
           throw new Error(
-            resultado?.message ||
+            resultado?.mensagem ||
+              resultado?.message ||
               resultado?.error ||
               `Erro ${resposta.status} ao buscar histórico.`,
           );
         }
 
         if (!Array.isArray(resultado)) {
-          throw new Error("A API não retornou uma lista válida.");
+          throw new Error(
+            "A API não retornou uma lista válida de solicitações.",
+          );
         }
 
-        const registros = resultado.map(formatarRegistro);
+        // Primeiro normaliza os registros recebidos.
+        const registrosFormatados = resultado.map(formatarRegistro);
+
+        // Depois mantém apenas um registro por solicitação.
+        const registrosSemDuplicacao =
+          removerSolicitacoesDuplicadas(registrosFormatados);
 
         if (!controlador.signal.aborted) {
-          setHistorico(registros);
+          setHistorico(registrosSemDuplicacao);
+          setPagina(1);
         }
       } catch (error) {
-        if (error.name !== "AbortError" && !controlador.signal.aborted) {
+        if (
+          error.name !== "AbortError" &&
+          !controlador.signal.aborted
+        ) {
+          console.error("Erro ao carregar histórico administrativo:", error);
           setErro(error.message);
+          setHistorico([]);
         }
       } finally {
         if (!controlador.signal.aborted) {
@@ -292,12 +356,12 @@ export default function HistoricoAdmin() {
   }
 
   // ==========================================
-  // EXPORTAR RELATÓRIO
+  // EXPORTAR RELATÓRIO PDF
   // ==========================================
 
   function exportarRelatorio() {
     if (historicoFiltrado.length === 0) {
-      alert("Não há registros no histórico para exportar.");
+      alert("Não há solicitações no histórico para exportar.");
       return;
     }
 
@@ -334,9 +398,13 @@ export default function HistoricoAdmin() {
       doc.setFontSize(9);
       doc.setTextColor(90, 100, 115);
       doc.text(`Data de emissão: ${dataEmissao}`, 14, 33);
-      doc.text(`Total de registros: ${historicoFiltrado.length}`, 14, 39);
+      doc.text(
+        `Total de solicitações: ${historicoFiltrado.length}`,
+        14,
+        39,
+      );
 
-      // Resumo dos registros
+      // Resumo
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(...azul);
@@ -400,25 +468,24 @@ export default function HistoricoAdmin() {
 
       doc.text(linhasFiltros, 14, inicioFiltros + 6);
 
-      const inicioTabela = inicioFiltros + 10 + linhasFiltros.length * 4;
+      const inicioTabela =
+        inicioFiltros + 10 + linhasFiltros.length * 4;
 
-      // Tabela do histórico filtrado
+      // Tabela: uma linha por solicitação
       autoTable(doc, {
         startY: inicioTabela,
         head: [
           [
-            "ID Histórico",
             "ID Solicitação",
             "Instituição",
             "Título",
-            "Status",
+            "Status atual",
             "Prioridade",
             "Descrição",
-            "Data",
+            "Data da atualização",
           ],
         ],
         body: historicoFiltrado.map((item) => [
-          item.id_historico ?? "—",
           item.id_solicitacao ?? "—",
           item.instituicao || "Não informada",
           item.titulo || "Sem título",
@@ -444,14 +511,13 @@ export default function HistoricoAdmin() {
           valign: "middle",
         },
         columnStyles: {
-          0: { cellWidth: 19 },
-          1: { cellWidth: 22 },
-          2: { cellWidth: 35 },
-          3: { cellWidth: 35 },
+          0: { cellWidth: 25 },
+          1: { cellWidth: 38 },
+          2: { cellWidth: 38 },
+          3: { cellWidth: 28 },
           4: { cellWidth: 25 },
-          5: { cellWidth: 23 },
-          6: { cellWidth: 85 },
-          7: { cellWidth: 22 },
+          5: { cellWidth: 95 },
+          6: { cellWidth: 25 },
         },
         margin: {
           top: 15,
@@ -461,7 +527,7 @@ export default function HistoricoAdmin() {
         },
         showHead: "everyPage",
         didDrawPage: () => {
-          const paginaAtual = doc.internal.getNumberOfPages();
+          const numeroPagina = doc.internal.getNumberOfPages();
           const altura = doc.internal.pageSize.getHeight();
           const largura = doc.internal.pageSize.getWidth();
 
@@ -469,15 +535,18 @@ export default function HistoricoAdmin() {
           doc.setFontSize(8);
           doc.setTextColor(120, 130, 145);
 
-          doc.text("AndraRecursos - Histórico de Solicitações", 10, altura - 8);
+          doc.text(
+            "AndraRecursos - Histórico de Solicitações",
+            10,
+            altura - 8,
+          );
 
-          doc.text(`Página ${paginaAtual}`, largura - 10, altura - 8, {
+          doc.text(`Página ${numeroPagina}`, largura - 10, altura - 8, {
             align: "right",
           });
         },
       });
 
-      // Gerar e baixar o PDF
       const dataArquivo = new Date()
         .toLocaleDateString("pt-BR")
         .replace(/\//g, "-");
@@ -490,7 +559,7 @@ export default function HistoricoAdmin() {
   }
 
   // ==========================================
-  // SABER MAIS
+  // ABRIR DETALHES DA SOLICITAÇÃO
   // ==========================================
 
   function saberMais() {
@@ -509,13 +578,15 @@ export default function HistoricoAdmin() {
 
   return (
     <div className="min-w-0">
-      {/* CABEÇALHO DO HISTÓRICO */}
+      {/* CABEÇALHO */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-bold text-[#082d56]">Histórico</h1>
+          <h1 className="text-[28px] font-bold text-[#082d56]">
+            Histórico
+          </h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            Históricos de solicitações de recursos
+            Histórico das solicitações recebidas das instituições
           </p>
         </div>
 
@@ -555,13 +626,9 @@ export default function HistoricoAdmin() {
             className="rounded-lg border border-gray-200 bg-[#f7f7f7] px-4 py-3 text-sm text-[#082d56] outline-none"
           >
             <option value="todos">Todos os status</option>
-
             <option value="APROVADA">Aprovadas</option>
-
             <option value="RECUSADA">Recusadas</option>
-
             <option value="PENDENTE">Pendentes</option>
-
             <option value="EM ANDAMENTO">Em andamento</option>
           </select>
 
@@ -587,7 +654,7 @@ export default function HistoricoAdmin() {
         {carregando && (
           <div className="flex min-h-52 items-center justify-center gap-3 text-[#082d56]">
             <FiRefreshCw className="animate-spin" />
-            Carregando históricos...
+            Carregando histórico...
           </div>
         )}
 
@@ -600,10 +667,13 @@ export default function HistoricoAdmin() {
 
                 return (
                   <article
-                    key={item.id_historico}
+                    key={
+                      item.id_solicitacao ??
+                      item.id_historico
+                    }
                     className="grid grid-cols-1 items-center gap-3 rounded-lg border border-[#dddddd] bg-[#f1f1f1] px-5 py-4 shadow-[0_2px_2px_rgba(0,0,0,0.15)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md md:grid-cols-[minmax(0,2fr)_125px_115px_130px]"
                   >
-                    {/* INSTITUIÇÃO */}
+                    {/* INSTITUIÇÃO E TÍTULO */}
                     <div className="min-w-0">
                       <h3 className="text-sm font-bold text-[#082d56]">
                         {item.instituicao}
@@ -611,6 +681,10 @@ export default function HistoricoAdmin() {
 
                       <p className="mt-1 text-xs text-gray-600">
                         {item.titulo}
+                      </p>
+
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        Solicitação #{item.id_solicitacao ?? "—"}
                       </p>
                     </div>
 
@@ -647,7 +721,7 @@ export default function HistoricoAdmin() {
                   <FiFileText size={38} className="text-gray-300" />
 
                   <p className="text-sm text-gray-500">
-                    Nenhum histórico encontrado.
+                    Nenhuma solicitação encontrada.
                   </p>
                 </div>
               )}
@@ -662,14 +736,16 @@ export default function HistoricoAdmin() {
                     paginaAtual * LIMITE_PAGINA,
                     historicoFiltrado.length,
                   )}{" "}
-                  de {historicoFiltrado.length} registros
+                  de {historicoFiltrado.length} solicitações
                 </p>
 
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     disabled={paginaAtual === 1}
-                    onClick={() => setPagina((atual) => Math.max(1, atual - 1))}
+                    onClick={() =>
+                      setPagina((atual) => Math.max(1, atual - 1))
+                    }
                     className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:opacity-40"
                   >
                     <FiChevronLeft size={18} />
@@ -683,7 +759,9 @@ export default function HistoricoAdmin() {
                     type="button"
                     disabled={paginaAtual === totalPaginas}
                     onClick={() =>
-                      setPagina((atual) => Math.min(totalPaginas, atual + 1))
+                      setPagina((atual) =>
+                        Math.min(totalPaginas, atual + 1),
+                      )
                     }
                     className="rounded-lg border border-gray-200 p-2 text-[#082d56] transition hover:bg-gray-100 disabled:opacity-40"
                   >
@@ -696,10 +774,7 @@ export default function HistoricoAdmin() {
         )}
       </section>
 
-      {/* ======================================
-          MODAL DE DETALHES
-      ====================================== */}
-
+      {/* MODAL DE DETALHES */}
       {detalhes && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#07182b]/65 p-4 backdrop-blur-[3px]"
@@ -727,7 +802,7 @@ export default function HistoricoAdmin() {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-500">
-                  Solicitação #{detalhes.id_solicitacao}
+                  Solicitação #{detalhes.id_solicitacao ?? "—"}
                 </p>
               </div>
 
@@ -751,7 +826,9 @@ export default function HistoricoAdmin() {
                   </span>
 
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Instituição</p>
+                    <p className="mb-1 text-xs text-gray-500">
+                      Instituição
+                    </p>
 
                     <p className="text-sm font-semibold text-[#082d56]">
                       {detalhes.instituicao}
@@ -766,7 +843,9 @@ export default function HistoricoAdmin() {
                   </span>
 
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Status atual</p>
+                    <p className="mb-1 text-xs text-gray-500">
+                      Status atual
+                    </p>
 
                     <span
                       className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
@@ -785,7 +864,9 @@ export default function HistoricoAdmin() {
                   </span>
 
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Prioridade</p>
+                    <p className="mb-1 text-xs text-gray-500">
+                      Prioridade
+                    </p>
 
                     <p className="text-sm font-semibold capitalize text-[#082d56]">
                       {detalhes.prioridade}
@@ -814,7 +895,10 @@ export default function HistoricoAdmin() {
               {/* DESCRIÇÃO */}
               <div className="rounded-xl border border-[#e6edf5] bg-[#f7f9fc] p-4">
                 <div className="mb-2 flex items-center gap-2">
-                  <FiFileText size={16} className="text-[#47719e]" />
+                  <FiFileText
+                    size={16}
+                    className="text-[#47719e]"
+                  />
 
                   <p className="text-xs font-semibold text-[#47719e]">
                     Descrição da movimentação
@@ -822,7 +906,8 @@ export default function HistoricoAdmin() {
                 </div>
 
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-                  {detalhes.descricao || "Nenhuma descrição registrada."}
+                  {detalhes.descricao ||
+                    "Nenhuma descrição registrada."}
                 </p>
               </div>
             </div>
