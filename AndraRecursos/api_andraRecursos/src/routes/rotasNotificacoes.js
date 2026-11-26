@@ -128,6 +128,7 @@ router.get(
                 INNER JOIN solicitacoes s
                     ON s.id_solicitacoes = n.id_solicitacao
                 WHERE s.id_instituicao = $1
+                  AND n.id_administrador IS NULL
                   AND n.excluida_instituicao = FALSE
                 ORDER BY
                     n.data_notificacao DESC,
@@ -507,7 +508,7 @@ router.delete(
             });
         } catch (error) {
             console.error(
-                "Erro ao excluir notificação do administrador:",
+                "Erro ao excluir notificação:",
                 error.message
             );
 
