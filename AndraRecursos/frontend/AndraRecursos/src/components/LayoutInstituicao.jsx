@@ -20,6 +20,7 @@ import {
     FiCheck,
     FiChevronRight,
     FiRefreshCw,
+    FiTrash2,
 } from "react-icons/fi";
 
 import toast from "react-hot-toast";
@@ -30,6 +31,9 @@ const API = String(enderecoServidor).replace(/\/$/, "");
 const TOKEN_KEY = "@AndraRecursos:token";
 const USUARIO_KEY = "@AndraRecursos:usuario";
 const LIMITE_PREVIEW = 5;
+
+const CHAVE_NOTIFICACOES_OCULTAS =
+    "@AndraRecursos:notificacoesOcultas:instituicao";
 
 // ============================================
 // MENU INSTITUCIONAL
@@ -141,6 +145,24 @@ function obterToken() {
 }
 
 // ============================================
+// NOTIFICAÇÕES OCULTADAS
+// ============================================
+
+function obterNotificacoesOcultas() {
+    try {
+        const dados = JSON.parse(
+            localStorage.getItem(CHAVE_NOTIFICACOES_OCULTAS) || "[]"
+        );
+
+        return Array.isArray(dados)
+            ? dados.map(Number).filter(Number.isSafeInteger)
+            : [];
+    } catch {
+        return [];
+    }
+}
+
+// ============================================
 // LAYOUT INSTITUCIONAL
 // ============================================
 
@@ -163,17 +185,32 @@ export default function LayoutInstituicao({
 
     const [marcandoId, setMarcandoId] = useState(null);
 
+    // IDs ocultados somente no sininho.
+    const [notificacoesOcultas, setNotificacoesOcultas] = useState(
+        obterNotificacoesOcultas
+    );
+
     const sinoRef = useRef(null);
     const painelRef = useRef(null);
 
     const titulo =
         titulos[location.pathname] || "Área Institucional";
 
-    const naoLidas = notificacoes.filter(
-        (item) => !Boolean(item.lida)
-    ).length;
+    // Exibe somente notificações não lidas e não ocultadas.
+    const notificacoesVisiveis = notificacoes.filter(
+        (item) =>
+            !Boolean(item.lida) &&
+            !notificacoesOcultas.includes(
+                Number(item.id_notificacao)
+            )
+    );
 
-    const recentes = notificacoes.slice(0, LIMITE_PREVIEW);
+    const naoLidas = notificacoesVisiveis.length;
+
+    const recentes = notificacoesVisiveis.slice(
+        0,
+        LIMITE_PREVIEW
+    );
 
     // ============================================
     // REQUISIÇÕES À API
@@ -401,6 +438,53 @@ export default function LayoutInstituicao({
         } finally {
             setMarcandoId(null);
         }
+    }
+
+    // ============================================
+    // OCULTAR UMA NOTIFICAÇÃO SOMENTE DO SININHO
+    // Não exclui do banco nem da página completa.
+    // ============================================
+
+    function ocultarNotificacao(id) {
+        const idNumerico = Number(id);
+
+        const novoEstado = [
+            ...new Set([
+                ...notificacoesOcultas,
+                idNumerico,
+            ]),
+        ];
+
+        setNotificacoesOcultas(novoEstado);
+
+        localStorage.setItem(
+            CHAVE_NOTIFICACOES_OCULTAS,
+            JSON.stringify(novoEstado)
+        );
+    }
+
+    // ============================================
+    // OCULTAR TODAS AS NOTIFICAÇÕES DO SININHO
+    // ============================================
+
+    function ocultarTodasNotificacoes() {
+        const ids = notificacoesVisiveis.map((item) =>
+            Number(item.id_notificacao)
+        );
+
+        const novoEstado = [
+            ...new Set([
+                ...notificacoesOcultas,
+                ...ids,
+            ]),
+        ];
+
+        setNotificacoesOcultas(novoEstado);
+
+        localStorage.setItem(
+            CHAVE_NOTIFICACOES_OCULTAS,
+            JSON.stringify(novoEstado)
+        );
     }
 
     // ============================================
@@ -666,7 +750,26 @@ export default function LayoutInstituicao({
                                             </p>
                                         </div>
 
+                                        {/* AÇÕES DO CABEÇALHO */}
                                         <div className="flex items-center gap-1">
+
+                                            {recentes.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={
+                                                        ocultarTodasNotificacoes
+                                                    }
+                                                    title="Limpar notificações do sininho"
+                                                    aria-label="Limpar notificações do sininho"
+                                                    className="flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                                                >
+                                                    <FiTrash2 size={14} />
+                                                    <span className="hidden sm:inline">
+                                                        Limpar
+                                                    </span>
+                                                </button>
+                                            )}
+
                                             <button
                                                 type="button"
                                                 onClick={() =>
@@ -748,11 +851,7 @@ export default function LayoutInstituicao({
                                                 {recentes.map((item) => (
                                                     <article
                                                         key={item.id_notificacao}
-                                                        className={`group relative px-4 py-3 transition hover:bg-blue-50/70 ${
-                                                            item.lida
-                                                                ? "bg-white"
-                                                                : "bg-blue-50/60"
-                                                        }`}
+                                                        className="group relative bg-blue-50/60 px-4 py-3 transition hover:bg-blue-50/80"
                                                     >
                                                         <button
                                                             type="button"
@@ -761,39 +860,25 @@ export default function LayoutInstituicao({
                                                                     item
                                                                 )
                                                             }
-                                                            className="block w-full text-left"
+                                                            className="block w-full pr-1 text-left"
                                                         >
                                                             <span className="flex items-start gap-3">
-                                                                <span
-                                                                    className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                                                                        item.lida
-                                                                            ? "bg-slate-100 text-slate-500"
-                                                                            : "bg-blue-100 text-[#1759ad]"
-                                                                    }`}
-                                                                >
+                                                                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-[#1759ad]">
                                                                     <FiBell size={16} />
                                                                 </span>
 
                                                                 <span className="min-w-0 flex-1">
                                                                     <span className="flex items-start justify-between gap-2">
-                                                                        <span
-                                                                            className={`text-xs leading-5 ${
-                                                                                item.lida
-                                                                                    ? "font-medium text-slate-700"
-                                                                                    : "font-bold text-[#082d56]"
-                                                                            }`}
-                                                                        >
+                                                                        <span className="text-xs font-bold leading-5 text-[#082d56]">
                                                                             {item.titulo_solicitacao ||
                                                                                 item.tipo_informacao ||
                                                                                 "Notificação"}
                                                                         </span>
 
-                                                                        {!item.lida && (
-                                                                            <span
-                                                                                className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600"
-                                                                                title="Não lida"
-                                                                            />
-                                                                        )}
+                                                                        <span
+                                                                            className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600"
+                                                                            title="Não lida"
+                                                                        />
                                                                     </span>
 
                                                                     <span className="mt-1 block text-xs leading-5 text-slate-500">
@@ -812,33 +897,46 @@ export default function LayoutInstituicao({
                                                             </span>
                                                         </button>
 
-                                                        {!item.lida && (
-                                                            <button
-                                                                type="button"
-                                                                title="Marcar como lida"
-                                                                aria-label="Marcar notificação como lida"
-                                                                onClick={() =>
-                                                                    marcarComoLida(
-                                                                        item
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    marcandoId !==
-                                                                    null
-                                                                }
-                                                                className="absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-lg border border-blue-100 bg-white text-[#1759ad] transition hover:bg-blue-100 disabled:opacity-50 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
-                                                            >
-                                                                {marcandoId ===
-                                                                item.id_notificacao ? (
-                                                                    <FiRefreshCw
-                                                                        className="animate-spin"
-                                                                        size={13}
-                                                                    />
-                                                                ) : (
-                                                                    <FiCheck size={14} />
-                                                                )}
-                                                            </button>
-                                                        )}
+                                                        {/* MARCAR COMO LIDA */}
+                                                        <button
+                                                            type="button"
+                                                            title="Marcar como lida"
+                                                            aria-label="Marcar notificação como lida"
+                                                            onClick={() =>
+                                                                marcarComoLida(
+                                                                    item
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                marcandoId !== null
+                                                            }
+                                                            className="absolute bottom-3 right-20 flex h-7 w-7 items-center justify-center rounded-lg border border-blue-100 bg-white text-[#1759ad] transition hover:bg-blue-100 disabled:opacity-50 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+                                                        >
+                                                            {marcandoId ===
+                                                            item.id_notificacao ? (
+                                                                <FiRefreshCw
+                                                                    className="animate-spin"
+                                                                    size={13}
+                                                                />
+                                                            ) : (
+                                                                <FiCheck size={14} />
+                                                            )}
+                                                        </button>
+
+                                                        {/* OCULTAR SOMENTE DO SININHO */}
+                                                        <button
+                                                            type="button"
+                                                            title="Ocultar do sininho"
+                                                            aria-label="Ocultar notificação do sininho"
+                                                            onClick={() =>
+                                                                ocultarNotificacao(
+                                                                    item.id_notificacao
+                                                                )
+                                                            }
+                                                            className="absolute bottom-3 right-12 flex h-7 w-7 items-center justify-center rounded-lg border border-red-100 bg-white text-red-500 transition hover:bg-red-50"
+                                                        >
+                                                            <FiTrash2 size={13} />
+                                                        </button>
                                                     </article>
                                                 ))}
                                             </div>
@@ -883,30 +981,28 @@ export default function LayoutInstituicao({
 
                         <div className="hidden h-8 w-px bg-slate-200 sm:block" />
 
-                        
-{/* INSTITUIÇÃO — ACESSO AO PERFIL */}
-<button
-    type="button"
-    title="Acessar perfil da instituição"
-    aria-label="Acessar perfil da instituição"
-    onClick={() => navigate("/perfil-inst")}
-    className="flex items-center gap-3 rounded-xl p-2 text-left transition hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
->
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eaf2fc] text-[#1755ad] transition hover:bg-blue-100">
-        <FiUser size={20} />
-    </span>
+                        {/* INSTITUIÇÃO — ACESSO AO PERFIL */}
+                        <button
+                            type="button"
+                            title="Acessar perfil da instituição"
+                            aria-label="Acessar perfil da instituição"
+                            onClick={() => navigate("/perfil-inst")}
+                            className="flex items-center gap-3 rounded-xl p-2 text-left transition hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        >
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eaf2fc] text-[#1755ad] transition hover:bg-blue-100">
+                                <FiUser size={20} />
+                            </span>
 
-    <span className="hidden min-w-0 sm:block">
-        <span className="block text-xs text-slate-500">
-            Instituição
-        </span>
+                            <span className="hidden min-w-0 sm:block">
+                                <span className="block text-xs text-slate-500">
+                                    Instituição
+                                </span>
 
-        <span className="block max-w-44 truncate text-sm font-bold text-[#082d56]">
-            {nomeInstituicao || "Área Institucional"}
-        </span>
-    </span>
-</button>
-
+                                <span className="block max-w-44 truncate text-sm font-bold text-[#082d56]">
+                                    {nomeInstituicao || "Área Institucional"}
+                                </span>
+                            </span>
+                        </button>
 
                         {/* SAIR */}
                         <button
