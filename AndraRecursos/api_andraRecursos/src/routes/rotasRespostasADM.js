@@ -191,9 +191,11 @@ router.get(
   }
 );
 
+
 // ============================================
 // POST - ENVIAR RESPOSTA DO ADMINISTRADOR
 // Exclusivo do administrador.
+// Cria também uma notificação para a instituição.
 // ============================================
 
 router.post(
@@ -224,53 +226,100 @@ router.post(
     }
 
     try {
-      const solicitacao = await BD.query(
-        `
-          SELECT id_solicitacoes
-          FROM solicitacoes
-          WHERE id_solicitacoes = $1
-        `,
-        [idSolicitacao]
-      );
-
-      if (solicitacao.rows.length === 0) {
-        return res.status(404).json({
-          error: "Solicitação não encontrada.",
-        });
-      }
-
       const resultado = await BD.query(
         `
+        WITH solicitacao AS (
+          SELECT
+            id_solicitacoes,
+            titulo
+          FROM solicitacoes
+          WHERE id_solicitacoes = $2
+        ),
+
+        nova_resposta AS (
           INSERT INTO respostas_adm (
             mensagem,
             data_resposta,
             id_solicitacao,
             id_administrador
           )
-          VALUES ($1, CURRENT_TIMESTAMP, $2, $3)
+          SELECT
+            $1,
+            CURRENT_TIMESTAMP,
+            s.id_solicitacoes,
+            $3
+          FROM solicitacao s
           RETURNING
             id_resposta,
             mensagem,
             data_resposta,
             id_solicitacao,
             id_administrador
+        ),
+
+        nova_notificacao AS (
+          INSERT INTO notificacoes (
+            mensagem,
+            tipo_informacao,
+            id_administrador,
+            id_solicitacao,
+            lida,
+            lida_instituicao,
+            excluida_admin,
+            excluida_instituicao,
+            data_notificacao
+          )
+          SELECT
+            'O administrador enviou uma mensagem sobre a solicitação: '
+              || s.titulo,
+            'resposta_administrador',
+            NULL,
+            s.id_solicitacoes,
+            FALSE,
+            FALSE,
+            FALSE,
+            FALSE,
+            CURRENT_TIMESTAMP
+          FROM solicitacao s
+          RETURNING id_notificacao
+        )
+
+        SELECT
+          nr.id_resposta,
+          nr.mensagem,
+          nr.data_resposta,
+          nr.id_solicitacao,
+          nr.id_administrador
+        FROM nova_resposta nr
+        CROSS JOIN nova_notificacao nn
         `,
         [mensagem, idSolicitacao, idAdministrador]
       );
 
+      if (resultado.rows.length === 0) {
+        return res.status(404).json({
+          error: "Solicitação não encontrada.",
+        });
+      }
+
       return res.status(201).json({
-        message: "Mensagem enviada com sucesso!",
+        message: "Mensagem enviada e instituição notificada com sucesso!",
         resposta: resultado.rows[0],
       });
+
     } catch (error) {
-      console.error("Erro ao enviar mensagem:", error.message);
+      console.error(
+        "Erro ao enviar mensagem e criar notificação:",
+        error.message
+      );
 
       return res.status(500).json({
-        error: "Erro ao registrar mensagem no banco.",
+        error: "Erro ao registrar mensagem e notificação.",
       });
     }
   }
 );
+
 
 // ============================================
 // PUT - EDITAR RESPOSTA

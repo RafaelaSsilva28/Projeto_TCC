@@ -33,6 +33,7 @@ function validarId(valor) {
     return Number.isSafeInteger(id) && id > 0;
 }
 
+
 // =============================================
 // GET - LISTAR NOTIFICAÇÕES DO ADMINISTRADOR
 // GET /notificacoes
