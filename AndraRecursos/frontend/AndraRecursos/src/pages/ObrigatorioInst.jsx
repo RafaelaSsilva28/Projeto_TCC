@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -83,9 +82,7 @@ export default function ObrigatorioInst() {
     let ativo = true;
 
     async function buscarDados() {
-      const token = localStorage.getItem(
-        "@AndraRecursos:token"
-      );
+      const token = localStorage.getItem("@AndraRecursos:token");
 
       if (!token) {
         navigate("/", { replace: true });
@@ -93,19 +90,14 @@ export default function ObrigatorioInst() {
       }
 
       try {
-        const resposta = await fetch(
-          `${enderecoServidor}/instituicoes/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const resposta = await fetch(`${enderecoServidor}/instituicoes/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (!resposta.ok) {
-          throw new Error(
-            "Não foi possível consultar a instituição."
-          );
+          throw new Error("Não foi possível consultar a instituição.");
         }
 
         const resultado = await resposta.json();
@@ -121,19 +113,15 @@ export default function ObrigatorioInst() {
 
         setDados({
           gestor: resultado.gestor || "",
-          secretaria_vinculada:
-            resultado.secretaria_vinculada || "",
+          secretaria_vinculada: resultado.secretaria_vinculada || "",
           logradouro: resultado.logradouro || "",
           cep: resultado.cep || "",
           numero: resultado.numero || "",
           bairro: resultado.bairro || "",
           telefone: resultado.telefone || "",
-          horario_funcionamento:
-            resultado.horario_funcionamento || "",
-          status_instituicao:
-            resultado.status_instituicao || "",
+          horario_funcionamento: resultado.horario_funcionamento || "",
+          status_instituicao: resultado.status_instituicao || "",
         });
-
       } catch (error) {
         if (ativo) setErro(error.message);
       } finally {
@@ -165,101 +153,94 @@ export default function ObrigatorioInst() {
     navigate("/", { replace: true });
   }
 
-  
-async function finalizarCadastro(event) {
-  event.preventDefault();
+  async function finalizarCadastro(event) {
+    event.preventDefault();
 
-  if (salvando) return;
+    if (salvando) return;
 
-  setErro("");
+    setErro("");
 
-  const token = localStorage.getItem("@AndraRecursos:token");
+    const token = localStorage.getItem("@AndraRecursos:token");
 
-  if (!token) {
-    setErro("Sessão expirada. Faça login novamente.");
-    return;
-  }
+    if (!token) {
+      setErro("Sessão expirada. Faça login novamente.");
+      return;
+    }
 
-  const faltando = Object.values(dados).some(
-    (valor) => !String(valor).trim()
-  );
-
-  if (faltando) {
-    setErro("Todos os campos são obrigatórios.");
-    return;
-  }
-
-  const cepNumerico = dados.cep.replace(/\D/g, "");
-  const telefoneNumerico = dados.telefone.replace(/\D/g, "");
-
-  if (cepNumerico.length !== 8) {
-    setErro("O CEP deve possuir 8 números.");
-    return;
-  }
-
-  if (
-    telefoneNumerico.length < 10 ||
-    telefoneNumerico.length > 11
-  ) {
-    setErro("Informe um telefone válido.");
-    return;
-  }
-
-  setSalvando(true);
-
-  const controlador = new AbortController();
-  const temporizador = setTimeout(() => controlador.abort(), 15000);
-
-  try {
-    console.log("Enviando cadastro obrigatório...");
-
-    const resposta = await fetch(
-      `${enderecoServidor}/instituicoes/completar-cadastro`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(dados),
-        signal: controlador.signal,
-      }
+    const faltando = Object.values(dados).some(
+      (valor) => !String(valor).trim(),
     );
 
-    const resultado = await resposta.json();
-
-    console.log("Status da API:", resposta.status);
-    console.log("Resposta da API:", resultado);
-
-    if (!resposta.ok) {
-      throw new Error(
-        resultado.message || "Erro ao finalizar cadastro."
-      );
+    if (faltando) {
+      setErro("Todos os campos são obrigatórios.");
+      return;
     }
 
-    if (resultado.cadastro_completo !== true) {
-      throw new Error(
-        "A API não confirmou a conclusão do cadastro."
-      );
+    const cepNumerico = dados.cep.replace(/\D/g, "");
+    const telefoneNumerico = dados.telefone.replace(/\D/g, "");
+
+    if (cepNumerico.length !== 8) {
+      setErro("O CEP deve possuir 8 números.");
+      return;
     }
 
-    setSucesso(true);
-
-  } catch (error) {
-    console.error("Erro ao finalizar cadastro:", error);
-
-    if (error.name === "AbortError") {
-      setErro(
-        "A API demorou mais de 15 segundos para responder. Verifique a conexão antes de tentar novamente."
-      );
-    } else {
-      setErro(error.message || "Não foi possível finalizar o cadastro.");
+    if (telefoneNumerico.length < 10 || telefoneNumerico.length > 11) {
+      setErro("Informe um telefone válido.");
+      return;
     }
-  } finally {
-    clearTimeout(temporizador);
-    setSalvando(false);
+
+    setSalvando(true);
+
+    const controlador = new AbortController();
+    const temporizador = setTimeout(() => controlador.abort(), 15000);
+
+    try {
+      console.log("Enviando cadastro obrigatório...");
+
+      const resposta = await fetch(
+        `${enderecoServidor}/instituicoes/completar-cadastro`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(dados),
+          signal: controlador.signal,
+        },
+      );
+
+      const resultado = await resposta.json();
+
+      console.log("Status da API:", resposta.status);
+      console.log("Resposta da API:", resultado);
+
+      if (!resposta.ok) {
+        throw new Error(resultado.message || "Erro ao finalizar cadastro.");
+      }
+
+      if (resultado.cadastro_completo !== true) {
+        throw new Error("A API não confirmou a conclusão do cadastro.");
+      }
+
+      // Redireciona para a página inicial após a confirmação do cadastro
+      navigate("/principal-inst", { replace: true });
+
+    } catch (error) {
+      console.error("Erro ao finalizar cadastro:", error);
+
+      if (error.name === "AbortError") {
+        setErro(
+          "A API demorou mais de 15 segundos para responder. Verifique a conexão antes de tentar novamente.",
+        );
+      } else {
+        setErro(error.message || "Não foi possível finalizar o cadastro.");
+      }
+    } finally {
+      clearTimeout(temporizador);
+      setSalvando(false);
+    }
   }
-}
   // async function finalizarCadastro(event) {
   //   event.preventDefault();
 
@@ -389,7 +370,6 @@ async function finalizarCadastro(event) {
 
   return (
     <main className="min-h-screen bg-[#e9edf3] px-4 py-6 font-sans text-gray-800 sm:px-6 lg:px-10">
-
       {/* VOLTAR */}
       <button
         type="button"
@@ -407,31 +387,26 @@ async function finalizarCadastro(event) {
         </h1>
 
         <p className="mt-2 text-sm text-gray-600">
-          Para continuar acessando o sistema AndraRecursos,
-          preencha todas as informações obrigatórias da sua
-          unidade. Este procedimento é realizado apenas no
-          primeiro acesso.
+          Para continuar acessando o sistema AndraRecursos, preencha todas as
+          informações obrigatórias da sua unidade. Este procedimento é realizado
+          apenas no primeiro acesso.
         </p>
       </div>
 
       {/* CARTÃO PRINCIPAL */}
       <div className="mx-auto max-w-6xl rounded-2xl border border-gray-200 bg-white p-5 shadow-lg sm:p-7">
-
         <form
           onSubmit={finalizarCadastro}
           className="grid grid-cols-1 gap-8 lg:grid-cols-2"
         >
-
           {/* COLUNA ESQUERDA */}
           <div className="space-y-6">
-
             <section>
               <h2 className="mb-4 border-b border-gray-200 pb-2 text-lg font-bold text-[#06458f]">
                 Responsável e Vínculo
               </h2>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-
                 <Campo
                   label="Nome Completo"
                   name="gestor"
@@ -475,7 +450,6 @@ async function finalizarCadastro(event) {
               </h2>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-
                 <div className="sm:col-span-2">
                   <Campo
                     label="Logradouro"
@@ -496,9 +470,7 @@ async function finalizarCadastro(event) {
                 />
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold">
-                    Cidade
-                  </label>
+                  <label className="block text-sm font-semibold">Cidade</label>
 
                   <input
                     value="Andradina"
@@ -523,19 +495,17 @@ async function finalizarCadastro(event) {
                   onChange={alterarCampo}
                   placeholder="Bairro"
                 />
-
               </div>
             </section>
 
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-[#06458f]">
-              * Todos os campos são obrigatórios para liberar
-              o primeiro acesso ao sistema.
+              * Todos os campos são obrigatórios para liberar o primeiro acesso
+              ao sistema.
             </div>
           </div>
 
           {/* COLUNA DIREITA */}
           <div className="flex flex-col gap-6">
-
             {/* BANNER */}
             <div className="flex items-center gap-4 rounded-xl bg-[#082d56] px-5 py-5 text-white">
               <img
@@ -545,13 +515,9 @@ async function finalizarCadastro(event) {
               />
 
               <div>
-                <h2 className="text-xl font-bold">
-                  AndraRecursos
-                </h2>
+                <h2 className="text-xl font-bold">AndraRecursos</h2>
 
-                <p className="text-sm text-blue-200">
-                  Gestão Institucional
-                </p>
+                <p className="text-sm text-blue-200">Gestão Institucional</p>
               </div>
             </div>
 
@@ -561,7 +527,6 @@ async function finalizarCadastro(event) {
               </h2>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-
                 <Campo
                   label="Telefone Institucional"
                   name="telefone"
@@ -614,12 +579,10 @@ async function finalizarCadastro(event) {
                     className={`${classeInput} bg-gray-100`}
                   />
                 </div>
-
               </div>
             </section>
 
             <div className="mt-auto">
-
               {erro && (
                 <div
                   role="alert"
@@ -648,7 +611,6 @@ async function finalizarCadastro(event) {
                 )}
               </button>
             </div>
-
           </div>
         </form>
       </div>
