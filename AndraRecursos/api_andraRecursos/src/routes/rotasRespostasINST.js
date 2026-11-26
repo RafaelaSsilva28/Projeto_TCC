@@ -204,8 +204,10 @@ router.get(
     }
 );
 
+
 // ============================================
 // POST - ENVIAR RESPOSTA DA INSTITUIÇÃO
+// Notifica todos os administradores.
 // ============================================
 
 router.post(
@@ -229,58 +231,101 @@ router.post(
         }
 
         try {
-            const solicitacao = await BD.query(
-                `
-                    SELECT id_solicitacoes
-                    FROM solicitacoes
-                    WHERE id_solicitacoes = $1
-                      AND id_instituicao = $2
-                    LIMIT 1
-                `,
-                [idSolicitacao, idInstituicao]
-            );
-
-            if (solicitacao.rows.length === 0) {
-                return res.status(404).json({
-                    error: "Solicitação não encontrada para esta instituição.",
-                });
-            }
-
             const resultado = await BD.query(
                 `
+                WITH solicitacao AS (
+                    SELECT
+                        id_solicitacoes,
+                        titulo
+                    FROM solicitacoes
+                    WHERE id_solicitacoes = $2
+                      AND id_instituicao = $3
+                ),
+
+                nova_resposta AS (
                     INSERT INTO respostas_instituicao (
                         mensagem,
                         data_resposta,
                         id_solicitacao,
                         id_instituicao
                     )
-                    VALUES ($1, CURRENT_TIMESTAMP, $2, $3)
+                    SELECT
+                        $1,
+                        CURRENT_TIMESTAMP,
+                        s.id_solicitacoes,
+                        $3
+                    FROM solicitacao s
                     RETURNING
                         id_resposta,
                         mensagem,
                         data_resposta,
                         id_solicitacao,
                         id_instituicao
+                ),
+
+                novas_notificacoes AS (
+                    INSERT INTO notificacoes (
+                        mensagem,
+                        tipo_informacao,
+                        id_administrador,
+                        id_solicitacao,
+                        lida,
+                        lida_instituicao,
+                        excluida_admin,
+                        excluida_instituicao,
+                        data_notificacao
+                    )
+                    SELECT
+                        'A instituição enviou uma mensagem sobre a solicitação: '
+                            || s.titulo,
+                        'resposta_instituicao',
+                        a.id_administrador,
+                        s.id_solicitacoes,
+                        FALSE,
+                        FALSE,
+                        FALSE,
+                        FALSE,
+                        CURRENT_TIMESTAMP
+                    FROM solicitacao s
+                    CROSS JOIN administradores a
+                    RETURNING id_notificacao
+                )
+
+                SELECT
+                    id_resposta,
+                    mensagem,
+                    data_resposta,
+                    id_solicitacao,
+                    id_instituicao
+                FROM nova_resposta
                 `,
                 [mensagem, idSolicitacao, idInstituicao]
             );
 
+            if (resultado.rows.length === 0) {
+                return res.status(404).json({
+                    error: "Solicitação não encontrada para esta instituição.",
+                });
+            }
+
             return res.status(201).json({
-                message: "Resposta enviada com sucesso!",
+                message: "Resposta enviada e administradores notificados com sucesso!",
                 resposta: resultado.rows[0],
             });
+
         } catch (error) {
             console.error(
-                "Erro ao enviar resposta institucional:",
+                "Erro ao enviar resposta e criar notificação:",
                 error.message
             );
 
             return res.status(500).json({
-                error: "Erro ao registrar resposta da instituição.",
+                error: "Erro ao registrar resposta e notificação.",
             });
         }
     }
 );
+
 
 // ============================================
 // PUT - EDITAR RESPOSTA DA INSTITUIÇÃO
