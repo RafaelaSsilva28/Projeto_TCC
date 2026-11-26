@@ -212,7 +212,8 @@ export default function CadastrarInstADM() {
         throw new Error(mensagem);
       }
       setNomeCadastrado(dados.nome.trim());
-      navigate("/principal-adm");
+      setDados((anterior) => ({ ...anterior, senha: "" }));
+      setSucesso(true);
     } catch (falha) {
       setErro(
         falha instanceof TypeError
