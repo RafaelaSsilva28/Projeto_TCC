@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import { Toaster } from "react-hot-toast";
@@ -182,7 +181,10 @@ function App() {
         {/* PRIMEIRO ACESSO */}
         <Route
           element={
-            <ProtecaoInstituicao exigirCadastro={false} />
+            <ProtecaoInstituicao
+              key="primeiro-acesso"
+              exigirCadastro={false}
+            />
           }
         >
           <Route
@@ -194,7 +196,10 @@ function App() {
         {/* TELAS PROTEGIDAS DA INSTITUIÇÃO */}
         <Route
           element={
-            <ProtecaoInstituicao exigirCadastro={true} />
+            <ProtecaoInstituicao
+              key="area-instituicao"
+              exigirCadastro={true}
+            />
           }
         >
           {/* DASHBOARD */}
