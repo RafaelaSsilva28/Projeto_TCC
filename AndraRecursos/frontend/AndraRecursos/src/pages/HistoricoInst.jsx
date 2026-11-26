@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
@@ -23,12 +22,13 @@ import {
 } from "react-icons/fi";
 
 const ROTA_HISTORICO = "/historico-instituicao";
-const ROTA_SOLICITACOES = "/instituicao/solicitacoes";
+const ROTA_SOLICITACOES = "/solicitacoes";
 const LIMITE_PAGINA = 10;
 
 // ============================================
 // OBTER TOKEN DA INSTITUIÇÃO
 // ============================================
+
 
 function obterToken() {
   const tokenSalvo = localStorage.getItem("@AndraRecursos:token");
@@ -515,14 +515,7 @@ export default function HistoricoInst() {
 
     setDetalhes(null);
 
-    navigate(
-      `${ROTA_SOLICITACOES}/${encodeURIComponent(id)}`,
-      {
-        state: {
-          origem: "/historico-inst",
-        },
-      }
-    );
+    navigate(`${ROTA_SOLICITACOES}/${encodeURIComponent(id)}`);
   }
 
   // ==========================================
