@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useLocation, } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 
 import {
     FiSearch,
@@ -202,6 +202,7 @@ function classePrioridade(prioridade) {
 
 export default function SolicitacoesInstituicao() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id: idSolicitacaoUrl } = useParams();
 
     const [solicitacoes, setSolicitacoes] = useState([]);
@@ -241,17 +242,22 @@ export default function SolicitacoesInstituicao() {
 
         const dados = await resposta.json().catch(() => null);
 
-        if (
-            resposta.status === 401 ||
-            resposta.status === 403
-        ) {
+        if (resposta.status === 401) {
             localStorage.removeItem(TOKEN_KEY);
             localStorage.removeItem(USUARIO_KEY);
 
             navigate("/", { replace: true });
 
             throw new Error(
-                "Sua sessão expirou ou você não possui autorização."
+                "Sua sessão expirou. Entre novamente."
+            );
+        }
+
+        if (resposta.status === 403) {
+            throw new Error(
+                dados?.error ||
+                dados?.message ||
+                "Você não possui permissão para acessar este recurso."
             );
         }
 
@@ -512,12 +518,15 @@ export default function SolicitacoesInstituicao() {
     function fecharDetalhes() {
         setSolicitacaoSelecionada(null);
 
-        // Se chegou pelo link de uma notificação,
-        // retorna à lista sem o ID na URL.
         if (idSolicitacaoUrl) {
-            navigate("/instituicao/solicitacoes", {
-                replace: true,
-            });
+            const origem = location.state?.origem;
+
+            navigate(
+                origem === "/historico-inst"
+                    ? "/historico-inst"
+                    : "/instituicao/solicitacoes",
+                { replace: true }
+            );
         }
 
         carregarSolicitacoes(true);
