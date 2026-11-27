@@ -21,8 +21,8 @@ import {
   FiFlag,
 } from "react-icons/fi";
 
-const ROTA_HISTORICO = "//historico-instituicao";
-const ROTA_SOLICITACOES = "/solicitacoes/instituicoes";
+const ROTA_HISTORICO = "/historico-instituicao";
+const ROTA_SOLICITACOES = "/solicitacoes";
 const LIMITE_PAGINA = 10;
 
 // ============================================
@@ -515,15 +515,8 @@ export default function HistoricoInst() {
 
     setDetalhes(null);
 
-    navigate(
-        `${ROTA_SOLICITACOES}/${encodeURIComponent(id)}`,
-        {
-            state: {
-                origem: "/historico-inst",
-            },
-        }
-    );
-}
+    navigate(`${ROTA_SOLICITACOES}/${encodeURIComponent(id)}`);
+  }
 
   // ==========================================
   // INTERFACE
