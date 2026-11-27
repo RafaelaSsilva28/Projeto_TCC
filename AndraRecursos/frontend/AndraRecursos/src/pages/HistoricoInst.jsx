@@ -22,7 +22,8 @@ import {
 } from "react-icons/fi";
 
 const ROTA_HISTORICO = "/historico-instituicao";
-const ROTA_SOLICITACOES = "/solicitacoes";
+// const ROTA_SOLICITACOES = "/solicitacoes";
+const ROTA_SOLICITACOES = "/instituicao/solicitacoes";
 const LIMITE_PAGINA = 10;
 
 // ============================================
