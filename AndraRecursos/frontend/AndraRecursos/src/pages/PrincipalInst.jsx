@@ -322,11 +322,10 @@ export default function PrincipalInst() {
 
                 <button
                   type="button"
-                  onClick={() => navigate("/instituicao/solicitacoes")}
+                  onClick={() => navigate("/solicitacoes-inst")}
                   className="mt-5 rounded-lg bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#164675]"
                 >
-                  Nova Solicitação
-                  <FiArrowRight />
+                  Nova solicitação
                 </button>
               </div>
             ) : (
@@ -368,8 +367,8 @@ export default function PrincipalInst() {
             {solicitacoes.length > 0 && (
               <button
                 type="button"
-                onClick={() => navigate("/historico-inst")}
-                className="mt-2 flex items-center gap-2 text-sm font-semibold text-[#1755ad] hover:underline"
+                onClick={() => navigate("/instituicao/solicitacoes")}
+                className="flex items-center gap-2 text-sm font-semibold text-[#1755ad] hover:underline"
               >
                 Ver todas as solicitações
                 <FiArrowRight />
