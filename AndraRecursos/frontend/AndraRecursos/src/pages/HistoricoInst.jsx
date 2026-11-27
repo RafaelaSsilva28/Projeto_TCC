@@ -515,8 +515,15 @@ export default function HistoricoInst() {
 
     setDetalhes(null);
 
-    navigate(`${ROTA_SOLICITACOES}/${encodeURIComponent(id)}`);
-  }
+    navigate(
+        `${ROTA_SOLICITACOES}/${encodeURIComponent(id)}`,
+        {
+            state: {
+                origem: "/historico-inst",
+            },
+        }
+    );
+}
 
   // ==========================================
   // INTERFACE
