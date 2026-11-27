@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -63,7 +62,9 @@ function DadoInstituicao({ Icone, titulo, valor }) {
 }
 
 function normalizarStatus(status) {
-  return String(status || "").trim().toLowerCase();
+  return String(status || "")
+    .trim()
+    .toLowerCase();
 }
 
 function obterClasseStatus(status) {
@@ -113,11 +114,10 @@ export default function PrincipalInst() {
           signal: controlador.signal,
         };
 
-        const [respostaInstituicao, respostaSolicitacoes] =
-          await Promise.all([
-            fetch(`${API}/instituicoes/me`, configuracao),
-            fetch(`${API}/solicitacoes/instituicoes`, configuracao),
-          ]);
+        const [respostaInstituicao, respostaSolicitacoes] = await Promise.all([
+          fetch(`${API}/instituicoes/me`, configuracao),
+          fetch(`${API}/solicitacoes/instituicoes`, configuracao),
+        ]);
 
         if (
           respostaInstituicao.status === 401 ||
@@ -142,7 +142,7 @@ export default function PrincipalInst() {
           throw new Error(
             dadosInstituicao?.message ||
               dadosInstituicao?.error ||
-              `Erro ${respostaInstituicao.status} ao buscar instituição.`
+              `Erro ${respostaInstituicao.status} ao buscar instituição.`,
           );
         }
 
@@ -150,7 +150,7 @@ export default function PrincipalInst() {
           throw new Error(
             dadosSolicitacoes?.message ||
               dadosSolicitacoes?.error ||
-              `Erro ${respostaSolicitacoes.status} ao buscar solicitações.`
+              `Erro ${respostaSolicitacoes.status} ao buscar solicitações.`,
           );
         }
 
@@ -162,17 +162,14 @@ export default function PrincipalInst() {
               ? dadosSolicitacoes
               : Array.isArray(dadosSolicitacoes?.solicitacoes)
                 ? dadosSolicitacoes.solicitacoes
-                : []
+                : [],
           );
         }
       } catch (error) {
-        if (
-          error.name !== "AbortError" &&
-          !controlador.signal.aborted
-        ) {
+        if (error.name !== "AbortError" && !controlador.signal.aborted) {
           console.error("Erro ao carregar painel institucional:", error);
           setErro(
-            error.message || "Não foi possível carregar os dados do painel."
+            error.message || "Não foi possível carregar os dados do painel.",
           );
         }
       } finally {
@@ -197,25 +194,17 @@ export default function PrincipalInst() {
   }
 
   const endereco = instituicao?.logradouro
-    ? [
-        instituicao.logradouro,
-        instituicao.numero,
-        instituicao.bairro,
-      ]
+    ? [instituicao.logradouro, instituicao.numero, instituicao.bairro]
         .filter(Boolean)
         .join(", ")
     : "Não informado";
 
   const pendentes = solicitacoes.filter(
-    (solicitacao) =>
-      normalizarStatus(solicitacao.status) === "pendente"
+    (solicitacao) => normalizarStatus(solicitacao.status) === "pendente",
   ).length;
 
-  const aprovadas = solicitacoes.filter(
-    (solicitacao) =>
-      ["aprovada", "aprovado"].includes(
-        normalizarStatus(solicitacao.status)
-      )
+  const aprovadas = solicitacoes.filter((solicitacao) =>
+    ["aprovada", "aprovado"].includes(normalizarStatus(solicitacao.status)),
   ).length;
 
   return (
@@ -333,10 +322,11 @@ export default function PrincipalInst() {
 
                 <button
                   type="button"
-                  onClick={() => navigate("/solicitacoes-inst")}
+                  onClick={() => navigate("/instituicao/solicitacoes")}
                   className="mt-5 rounded-lg bg-[#082d56] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#164675]"
                 >
-                  Nova solicitação
+                  Nova Solicitação
+                  <FiArrowRight />
                 </button>
               </div>
             ) : (
@@ -357,7 +347,7 @@ export default function PrincipalInst() {
 
                     <span
                       className={`rounded-full px-3 py-1.5 text-xs font-medium ${obterClasseStatus(
-                        solicitacao.status
+                        solicitacao.status,
                       )}`}
                     >
                       {solicitacao.status || "Pendente"}
