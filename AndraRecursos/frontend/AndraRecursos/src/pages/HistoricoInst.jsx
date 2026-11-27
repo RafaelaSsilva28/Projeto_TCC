@@ -21,7 +21,7 @@ import {
   FiFlag,
 } from "react-icons/fi";
 
-const ROTA_HISTORICO = "/historico-inst";
+const ROTA_HISTORICO = "/historico-instituicao";
 const ROTA_SOLICITACOES = "/solicitacoes-inst";
 const LIMITE_PAGINA = 10;
 
